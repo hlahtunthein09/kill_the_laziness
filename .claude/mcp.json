@@ -1,0 +1,20 @@
+{
+  "mcp_servers": [
+    {
+      "name": "context7",
+      "purpose": "Library documentation lookup (Next.js, Zustand, Framer Motion, shadcn/ui, WXT, webextension-polyfill)",
+      "status": "connected"
+    },
+    {
+      "name": "ctxai",
+      "purpose": "Package safety validation and project dependency context (check for hallucinated packages/methods)",
+      "status": "connected"
+    },
+    {
+      "name": "github",
+      "purpose": "GitHub operations: push code, create branches, pull requests, issues",
+      "status": "connected"
+    }
+  ],
+  "note": "These are the MCP servers available for FocusFlow AI development. No additional servers are required for this project."
+}
