@@ -137,12 +137,44 @@ Build a single focused `useTimer` hook that:
   - `hooks/__tests__/useTimer.test.tsx` created (18 tests, all passing)
   - TypeScript clean, 67/67 tests passing across all suites
 
+## Piece 6: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Timer UI is a pure consumer of the existing `useTimer` hook.
+- Display only needs `formatDuration` from `lib/time.ts` and shadcn/ui `Button`.
+- Controls: Start, Pause, Reset buttons wired to `useTimer` actions.
+- Sidebar already has `/timer` route but no page exists.
+- No new primitives or Context7 research needed; memory-first approach applies.
+
+### Virtual Sizing — Piece 6
+| Metric | Estimate |
+|---|---|
+| New files | 3 (`components/timer/TimerPanel.tsx`, `components/timer/__tests__/TimerPanel.test.tsx`, `app/timer/page.tsx`) |
+| Modified files | 0 |
+| Hooks | 0 (reuses `useTimer`) |
+| Pages | 1 (`/timer`) |
+| Est. lines | ~180 |
+| Verdict | ✅ Small |
+
+### Proposed Split
+- **Piece 6a — Timer Display + Controls (presentational)** ✅ Small
+  - Create `components/timer/TimerDisplay.tsx`, `components/timer/TimerControls.tsx`, `components/timer/__tests__/TimerControls.test.tsx`.
+  - Focus: pure UI for elapsed/remaining times and Start/Pause/Reset buttons.
+- **Piece 6b — Timer Panel + `/timer` Page (wiring)** ✅ Small
+  - Create `components/timer/TimerPanel.tsx`, `app/timer/page.tsx`, `components/timer/__tests__/TimerPanel.test.tsx`.
+  - Focus: read active project, pick first incomplete sub-piece, wire `useTimer`, host on `/timer`.
+
+- [x] **Piece 6a: Timer Display + Controls** — DONE
+  - `components/timer/TimerDisplay.tsx` created (presentational, ~50 lines)
+  - `components/timer/TimerControls.tsx` created (Start/Pause/Reset, ~40 lines)
+  - `components/timer/__tests__/TimerControls.test.tsx` created (6 tests, all passing)
+  - TypeScript clean, 73/73 tests passing across all suites
+
+- [x] **Piece 6b: Timer Panel + `/timer` Page (wiring)** — DONE
+  - `components/timer/TimerPanel.tsx` created (reads active project, finds first incomplete sub-piece, wires `useTimer`, empty states in Burmese)
+  - `app/timer/page.tsx` created (server component with Burmese title + TimerPanel)
+  - `components/timer/__tests__/TimerPanel.test.tsx` created (5 tests, all passing)
+  - TypeScript clean, 78/78 tests passing across all suites
+
 ## Next Action
-Piece 5 complete. Proceed to Piece 6 after user review.
-
-## Blockers
-None.
-
-## Decisions Pending
-- Timer state ownership: dedicated hook localStorage vs. new Zustand timer slice? (proposed: hook localStorage)
-- Notification messages: Burmese-only or bilingual from start?
+Piece 6b done. Ready for next piece after user review.
