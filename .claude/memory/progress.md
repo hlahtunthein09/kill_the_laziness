@@ -213,8 +213,41 @@ Build a single focused `useTimer` hook that:
   - `lib/__tests__/motivation.test.ts` created (11 tests, all passing)
   - TypeScript clean, 89/89 tests passing across all suites
 
-## Next Action
-User review of Piece 7. Proceed to Piece 8 after approval.
+## Piece 8: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- `sonner` is already installed and `components/ui/sonner.tsx` is configured.
+- `<Toaster />` is already rendered in `app/layout.tsx`.
+- Showing toasts: `import { toast } from "sonner"` then `toast.success/toast.info/etc`.
+- TimerPanel is the natural place to trigger motivational toasts based on timer state changes.
+- No new libraries needed.
+
+### Virtual Sizing — Piece 8
+| Metric | Estimate |
+|---|---|
+| New files | 2 (`components/timer/TimerToast.tsx`, `components/timer/__tests__/TimerToast.test.tsx`) |
+| Modified files | 1 (`components/timer/TimerPanel.tsx`) |
+| Hooks | 0 |
+| Pages | 0 |
+| Est. lines | ~120 |
+| Verdict | ✅ Small |
+
+### Proposed Approach
+- Create `components/timer/TimerToast.tsx`.
+  - Props: `context: MotivationContext`.
+  - Uses `getMotivation(context)` from `lib/motivation.ts`.
+  - Calls `toast.info()` with Burmese message (English subtitle).
+- Modify `components/timer/TimerPanel.tsx`.
+  - Trigger toast when timer starts.
+  - Trigger toast periodically (e.g., every 5 min) or on state tier changes.
+  - Trigger session-complete toast when sub-piece finishes.
+- Test that TimerToast renders nothing (it only calls toast) and that the correct toast function is called for a given context.
+
+## Piece 8: Toast Notification UI — DONE
+  - `components/timer/TimerToast.tsx` created — `getMotivation`-based toast component with `start`/`milestone`/`complete` triggers, deduplication via ref, Burmese-first messages
+  - `components/timer/__tests__/TimerToast.test.tsx` created — 6 tests, all passing
+  - `components/timer/TimerPanel.tsx` modified — renders `TimerToast`, triggers `start` on pause→running, `milestone` every 5 min and on tier change, `complete` on sub-piece finish
+  - TypeScript clean, 95/95 tests passing across all suites
 
 ## Blockers
 None.

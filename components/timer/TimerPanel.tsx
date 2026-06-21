@@ -4,7 +4,11 @@ import { useFocusStore } from "@/lib/store/useFocusStore";
 import { useTimer } from "@/hooks/useTimer";
 import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
+import { TimerToast } from "./TimerToast";
 import { FolderOpen, ListTodo } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import type { MotivationContext } from "@/lib/motivation";
+import { getMotivation } from "@/lib/motivation";
 
 export function TimerPanel() {
   const activeProjectId = useFocusStore((s) => s.activeProjectId);
@@ -57,8 +61,80 @@ export function TimerPanel() {
   const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset } =
     useTimer(activeProject.id, firstIncompleteSubPiece.id);
 
+  // Track previous isRunning to detect transitions (paused -> running)
+  const prevIsRunningRef = useRef(isRunning);
+  const [toastTrigger, setToastTrigger] = useState<
+    "start" | "milestone" | "complete" | undefined
+  >(undefined);
+
+  // Track last milestone (every 5 minutes = 300s)
+  const lastMilestoneRef = useRef(0);
+  // Track last tier for tier-change milestone
+  const lastTierRef = useRef<string>("");
+
+  const motivationContext: MotivationContext = useMemo(
+    () => ({
+      elapsedSeconds: projectElapsed,
+      remainingSeconds: subPieceRemaining,
+      isRunning,
+      completedToday: 0,
+    }),
+    [projectElapsed, subPieceRemaining, isRunning]
+  );
+
+  // Detect start trigger: transition from paused to running
+  useEffect(() => {
+    if (!prevIsRunningRef.current && isRunning) {
+      setToastTrigger("start");
+    }
+    prevIsRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  // Detect milestone trigger: every 5 minutes of elapsed time
+  useEffect(() => {
+    if (!isRunning) return;
+    const milestone = Math.floor(projectElapsed / 300);
+    if (milestone > lastMilestoneRef.current && milestone > 0) {
+      lastMilestoneRef.current = milestone;
+      setToastTrigger("milestone");
+    }
+  }, [isRunning, projectElapsed]);
+
+  // Detect tier-change milestone
+  useEffect(() => {
+    if (!isRunning) return;
+    const motivation = getMotivation(motivationContext);
+    if (lastTierRef.current && lastTierRef.current !== motivation.tier) {
+      setToastTrigger("milestone");
+    }
+    lastTierRef.current = motivation.tier;
+  }, [isRunning, motivationContext]);
+
+  // Detect complete trigger: sub-piece finished (remaining went from >0 to 0)
+  const prevSubPieceRemainingRef = useRef(subPieceRemaining);
+  useEffect(() => {
+    if (
+      prevSubPieceRemainingRef.current > 0 &&
+      subPieceRemaining === 0
+    ) {
+      setToastTrigger("complete");
+    }
+    prevSubPieceRemainingRef.current = subPieceRemaining;
+  }, [subPieceRemaining]);
+
+  // Reset trigger after it has been consumed by TimerToast
+  const handleToastShown = () => {
+    setToastTrigger(undefined);
+  };
+
   return (
     <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
+      <TimerToast
+        context={motivationContext}
+        trigger={toastTrigger}
+        onShown={handleToastShown}
+      />
+
       <div className="text-center">
         <h2 className="text-lg font-semibold text-stone-900">
           {activeProject.name}
