@@ -14,7 +14,14 @@
       "name": "github",
       "purpose": "GitHub operations: push code, create branches, pull requests, issues",
       "status": "connected"
+    },
+    {
+      "name": "playwright",
+      "purpose": "Browser automation for UI testing and verification via Playwright MCP",
+      "status": "installed",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"]
     }
   ],
-  "note": "These are the MCP servers available for FocusFlow AI development. No additional servers are required for this project."
+  "note": "Playwright MCP server is installed locally. Connect it in your Claude Code MCP settings if it does not auto-connect from this registry."
 }

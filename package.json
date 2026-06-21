@@ -12,7 +12,8 @@
     "dev:ext": "wxt",
     "build:ext": "wxt build",
     "zip:ext": "wxt zip",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "mcp:playwright": "npx -y @playwright/mcp"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -34,6 +35,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/mcp": "^0.0.76",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

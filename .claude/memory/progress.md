@@ -466,7 +466,7 @@ Piece 13a complete. Awaiting user review before Piece 13b.
 - Test rendering logic with `fakeBrowser` and jsdom.
 
 ## Next Action
-Piece 13a complete. 13b skill plan approved and skill file created. Awaiting user confirmation to spawn Extension Engineer agent.
+MVP complete. Decide next Phase 8 feature, add deferred Piece 2 UI shell tests, build a Settings UI, or close the milestone.
 
 ## Blockers
 None.
