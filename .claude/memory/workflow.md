@@ -57,23 +57,29 @@ Report in one table before building a skill:
 If too big, split BEFORE building the skill and update the roadmap.
 
 ### 5. Build/Update Skill
-After scope is finalized, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat.
+After scope is finalized, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat. **Every skill must include a concrete test strategy: test file path(s), what to test, and how to verify.**
 
 ### 6. Report Ready State
 One concise message with:
 - Piece name
 - Skill file path
 - Agent type
-- Test plan
+- Test plan (file path + what is tested)
 - Ask for confirmation
 
 ### 7. Spawn Agent + Implement + Test
-Only after explicit user confirmation. The agent must implement AND write tests.
+Only after explicit user confirmation. The agent must:
+1. Implement the piece.
+2. Create the test file(s) listed in the skill.
+3. Run the tests and ensure they pass before reporting completion.
+
+If tests are missing or failing, the agent must fix them before reporting.
 
 ### 8. Verify
 - Run `npx tsc --noEmit`.
 - Run `npm run dev` briefly if UI changed.
 - Run tests (`npx vitest run <test-file>` or `npm test`).
+- A piece is **not done** until TypeScript and tests both pass.
 
 ### 9. Update Memory
 - Append one-line status to `.claude/memory/progress.md`.
@@ -133,15 +139,30 @@ Explain what was built and tested. Wait for explicit approval before the next pi
 - **React Testing Library** + **jsdom** for component tests.
 - **@testing-library/jest-dom** for matchers.
 
+### Hard Rules
+- **Every piece must have tests.** No exceptions.
+- **Tests must be written as part of implementation**, not as a follow-up fix.
+- **A piece is not complete until tests pass.**
+- **Skill files must list concrete test file paths and what to test.**
+
 ### What to Test
 - **Stores**: actions, state changes, persistence behavior.
 - **Components**: rendering, user interactions, empty states.
 - **Hooks**: return values, side effects.
+- **Config**: manifest/permissions, build output (for extension pieces).
 
 ### Test File Locations
 - Store tests: `lib/store/__tests__/*.test.ts`
 - Component tests: `components/**/__tests__/*.test.tsx`
 - Hook tests: `hooks/__tests__/*.test.ts`
+- Extension tests: `extension/__tests__/*.test.ts`
+
+### Agent Verification Checklist
+Before an agent reports a piece complete, it must confirm:
+1. Test file(s) were created according to the skill.
+2. `npx tsc --noEmit` passes.
+3. `npx vitest run <relevant-test-file>` passes.
+4. No warnings or errors were ignored.
 
 ## New Chat Onboarding
 

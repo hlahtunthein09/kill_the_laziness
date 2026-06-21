@@ -17,15 +17,16 @@ For **every piece** — main or sub-piece — follow this exact order:
 3. **Virtual sizing.** Report in one table: new files, modified files, estimated lines, verdict. Split if >3 new files, >1 page, >1 hook, or >200 lines.
 4. **Skill.** After user confirms the scope, write/update the skill file in `.claude/skills/`. Do not paste the full skill content in chat.
 5. **Report ready state.** One concise message: skill created, agent choice, test plan. Wait for explicit user confirmation before spawning an agent.
-6. **Spawn agent + implement + write tests.** Every piece must have tests.
-7. **Verify.** Run `npx tsc --noEmit` and the relevant test command (`npx vitest run <test-file>` or `npm test`).
+6. **Spawn agent + implement + write tests.** Every piece must have tests. The agent must create test file(s) as part of implementation and cannot report completion until tests are written and passing.
+7. **Verify.** Run `npx tsc --noEmit` and the relevant test command (`npx vitest run <test-file>` or `npm test`). A piece is **not done** until both pass.
 8. **Update memory.** Append a one-line status to `.claude/memory/progress.md` (and `conventions.md` only if conventions change).
 9. **Wait for user review** before starting the next piece.
 
 ### Never
 - Never assume a step is done.
 - Never implement without explicit user confirmation.
-- Never skip tests.
+- Never skip tests or treat them as optional.
+- Never report a piece complete if tests are missing or failing.
 - Never write a skill file before the user approves the skill plan.
 - Never do broad Context7 queries when memory already covers the pattern.
 - Never re-read the same source files across turns; check memory first.
