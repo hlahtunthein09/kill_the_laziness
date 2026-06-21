@@ -102,3 +102,47 @@ None.
 - Piece 4a complete: `SubPieceForm.tsx` + `SubPieceForm.test.tsx` created; 7 tests passing; TypeScript clean.
 - Piece 4b complete: `AddSubPieceButton.tsx` + `AddSubPieceButton.test.tsx` created; `ProjectCard.tsx` footer updated; 2 tests passing; TypeScript clean.
 - Piece 4c complete: `SubPieceCard.tsx`, `SubPieceList.tsx`, `SubPieceList.test.tsx` created; `ProjectCard.tsx` body renders sub-pieces below progress bar; 3 tests passing; TypeScript clean.
+
+## Piece 5: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Timer must be a client hook (`"use client"`) using `useEffect` + `requestAnimationFrame`.
+- `requestAnimationFrame` + `Date.now()` delta gives accurate timing even when tab is throttled; `setInterval` is not reliable.
+- Zustand `persist` middleware can store transient timer state, but a dedicated `ff_active_session` localStorage key is simpler for an active session.
+- On mount/rehydrate, compare `savedAt` timestamp to `Date.now()` to calculate drift and fast-forward elapsed time.
+- Store actions `incrementProjectTime`, `incrementSubPieceTime`, and `completeSubPiece` already exist in `projectSlice`.
+- No timer slice exists yet in `useFocusStore`; the hook can own the active session state and call existing actions.
+
+### Virtual Sizing — Piece 5
+| Metric | Estimate |
+|---|---|
+| New files | 2 (`hooks/useTimer.ts`, `hooks/__tests__/useTimer.test.ts`) |
+| Modified files | 0 |
+| Hooks | 1 |
+| Pages | 0 |
+| Est. lines | ~200-250 |
+| Verdict | ⚠️ Small → Medium (borderline; timer logic is dense) |
+
+### Proposed Approach
+Build a single focused `useTimer` hook that:
+- Accepts `projectId` and optional `subPieceId`.
+- Counts project time up and sub-piece time down.
+- Persists active session every 5 seconds to `ff_active_session`.
+- Restores + drift-corrects on mount.
+- Auto-pauses and marks sub-piece complete at zero.
+- Returns `isRunning`, `start`, `pause`, `reset`, `projectElapsed`, `subPieceRemaining`.
+
+- [x] **Piece 5: Timer Engine Hook** — DONE
+  - `hooks/useTimer.ts` created (RAF-based, drift-corrected, localStorage persistence)
+  - `hooks/__tests__/useTimer.test.tsx` created (18 tests, all passing)
+  - TypeScript clean, 67/67 tests passing across all suites
+
+## Next Action
+Piece 5 complete. Proceed to Piece 6 after user review.
+
+## Blockers
+None.
+
+## Decisions Pending
+- Timer state ownership: dedicated hook localStorage vs. new Zustand timer slice? (proposed: hook localStorage)
+- Notification messages: Burmese-only or bilingual from start?
