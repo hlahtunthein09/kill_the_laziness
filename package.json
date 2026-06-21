@@ -35,6 +35,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@marp-team/marp-cli": "^4.4.0",
     "@playwright/mcp": "^0.0.76",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",

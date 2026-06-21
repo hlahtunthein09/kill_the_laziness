@@ -406,6 +406,7 @@ Piece 13a complete. Awaiting user review before Piece 13b.
 
 ## Latest Update
 - Piece 13b complete: `extension/entrypoints/popup.html` (styled popup with Burmese-first labels, pastel nature theme), `extension/lib/popup.ts` (reads `ff_extension_timer`, renders project/sub-piece names, elapsed/remaining times, status dot, open-app button with `browser.tabs.create`), `extension/lib/__tests__/popup.test.ts` (12 tests all passing), TypeScript clean, WXT build succeeds with popup bundle and manifest `action.default_popup`.
+- **Bugfix Piece 1 — TimerPanel conditional-hooks crash: fixed by moving all hooks before any conditional return in `TimerPanel.tsx`; `useTimer` now accepts nullable IDs; 168/168 tests passing, `/timer` refresh no longer crashes.**
 - Piece 13a complete: `ExtensionTimerState` enriched with optional `projectName` and `subPieceName`; `hooks/useTimer.ts` `persistSession` now includes names from store; `extension/lib/focusSync.ts` passes names through without validation blocking; focusSync test (12 tests) and useTimer test (20 tests) all passing; TypeScript clean; WXT build succeeds.
 
 ## Piece 13: Research + Virtual Sizing (in progress)
@@ -465,8 +466,25 @@ Piece 13a complete. Awaiting user review before Piece 13b.
 - `popup.ts` reads `ff_extension_timer`, renders names, elapsed/remaining, status, and an "Open FocusFlow" link.
 - Test rendering logic with `fakeBrowser` and jsdom.
 
+- **Bugfix Piece 2 — Zustand store rehydration on client navigation: fixed by adding `HydrationSlice` with `hasHydrated` flag, switching `persist` to `skipHydration: true`, and using `StoreHydrationProvider` to explicitly call `persist.rehydrate()` in a `useEffect`; live browser verified that projects now appear on `/projects` and `/timer` after sidebar navigation without hard reload; 172/172 tests passing, TypeScript clean.**
+
+## Bugfix Summary (2026-06-22)
+
+Verification run found web app not ready for release. Fixed so far:
+
+- **Piece 1 — TimerPanel conditional-hooks crash:** all hooks moved before conditional returns; live browser verified `/timer` refresh no longer crashes.
+- **Piece 2 — Zustand store rehydration:** added `HydrationSlice`, `skipHydration: true`, and explicit `persist.rehydrate()` in provider; live browser verified projects appear after client-side navigation.
+
+Remaining pieces:
+- **Piece 3:** Dashboard stats hardcoded (wire to store).
+- **Piece 4:** `useTimer` reset/lint cleanup.
+- **Piece 5:** Extension `require()` lint errors.
+- **Piece 6:** `/settings` page missing.
+
+Workflow updated: live browser verification with Playwright MCP is now mandatory for UI/timer/extension changes.
+
 ## Next Action
-MVP complete. Decide next Phase 8 feature, add deferred Piece 2 UI shell tests, build a Settings UI, or close the milestone.
+Decide next bugfix piece (Piece 3 dashboard stats, Piece 4 useTimer reset/lint, or Piece 5 extension lint).
 
 ## Blockers
 None.

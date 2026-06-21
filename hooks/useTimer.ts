@@ -105,12 +105,16 @@ function computeInit(
 }
 
 export function useTimer(
-  projectId: string,
+  projectId: string | undefined,
   subPieceId?: string
 ): UseTimerReturn {
-  const project = useFocusStore((s) => s.getProjectById(projectId));
+  // Always call store selectors unconditionally to keep hook count stable.
+  // When projectId is undefined, these lookups will return undefined safely.
+  const project = useFocusStore((s) =>
+    projectId ? s.getProjectById(projectId) : undefined
+  );
   const subPiece = useFocusStore((s) =>
-    subPieceId ? s.getSubPieceById(projectId, subPieceId) : undefined
+    projectId && subPieceId ? s.getSubPieceById(projectId, subPieceId) : undefined
   );
 
   const initialProjectTime = project?.totalTimeSeconds ?? 0;
@@ -118,9 +122,19 @@ export function useTimer(
     ? Math.max(0, subPiece.allocatedMinutes * 60 - subPiece.elapsedSeconds)
     : 0;
 
-  // Compute initial state once via lazy useState initializer
-  const [init] = useState(() =>
-    computeInit(projectId, subPieceId, initialProjectTime, initialSubPieceRemaining)
+  // Compute initial state once via lazy useState initializer.
+  // When projectId is undefined, computeInit is never called (lazy init),
+  // but we still need a stable init value for the hook count.
+  const [init] = useState<TimerInit>(() =>
+    projectId
+      ? computeInit(projectId, subPieceId, initialProjectTime, initialSubPieceRemaining)
+      : {
+          isRunning: false,
+          projectElapsed: 0,
+          subPieceRemaining: 0,
+          shouldAutoComplete: false,
+          autoCompleteSeconds: 0,
+        }
   );
 
   const [isRunning, setIsRunning] = useState(init.isRunning);
@@ -152,7 +166,7 @@ export function useTimer(
 
   // Auto-complete sub-piece on restore if drift brought it to zero
   useEffect(() => {
-    if (init.shouldAutoComplete && subPieceId) {
+    if (projectId && init.shouldAutoComplete && subPieceId) {
       const state = useFocusStore.getState();
       state.incrementProjectTime(projectId, init.autoCompleteSeconds);
       state.incrementSubPieceTime(projectId, subPieceId, init.autoCompleteSeconds);
@@ -166,6 +180,7 @@ export function useTimer(
 
   const persistSession = useCallback(
     (running: boolean, projElapsed: number, spRemaining: number) => {
+      if (!projectId) return;
       const sessionData: SessionData = {
         projectId,
         subPieceId,
@@ -183,6 +198,8 @@ export function useTimer(
 
   const tick = useCallback(
     (now: number) => {
+      if (!projectId) return;
+
       if (lastTickRef.current === null) {
         lastTickRef.current = now;
       }
@@ -262,9 +279,10 @@ export function useTimer(
   }, [isRunning, tick]);
 
   const start = useCallback(() => {
+    if (!projectId) return;
     if (subPieceId && subPieceRemainingRef.current <= 0) return;
     setIsRunning(true);
-  }, [subPieceId]);
+  }, [projectId, subPieceId]);
 
   const pause = useCallback(() => {
     setIsRunning(false);
@@ -291,6 +309,19 @@ export function useTimer(
     setSubPieceRemaining(Math.max(0, initialSubPieceRemaining));
     localStorage.removeItem(SESSION_KEY);
   }, [initialProjectTime, initialSubPieceRemaining]);
+
+  // When projectId is undefined, return neutral values and no-op handlers.
+  // All hooks above are still called unconditionally, keeping hook count stable.
+  if (projectId === undefined) {
+    return {
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 0,
+      start: () => {},
+      pause: () => {},
+      reset: () => {},
+    };
+  }
 
   return {
     isRunning,

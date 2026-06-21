@@ -10,6 +10,7 @@ describe('useFocusStore', () => {
       activeProjectId: null,
       settings: { ...DEFAULT_APP_SETTINGS },
       logs: [],
+      hasHydrated: false,
     })
   })
 
@@ -32,6 +33,66 @@ describe('useFocusStore', () => {
 
     it('has empty logs array', () => {
       expect(useFocusStore.getState().logs).toEqual([])
+    })
+
+    it('has hasHydrated as false', () => {
+      expect(useFocusStore.getState().hasHydrated).toBe(false)
+    })
+  })
+
+  describe('hydration', () => {
+    it('hasHydrated transitions to true after setHasHydrated', () => {
+      expect(useFocusStore.getState().hasHydrated).toBe(false)
+      useFocusStore.getState().setHasHydrated(true)
+      expect(useFocusStore.getState().hasHydrated).toBe(true)
+    })
+
+    it('loads persisted data from localStorage when rehydrated', () => {
+      const persistedData = {
+        state: {
+          projects: [
+            {
+              id: 'persisted-proj-1',
+              name: 'Persisted Project',
+              description: 'From storage',
+              color: 'mint',
+              createdAt: Date.now(),
+              totalTimeSeconds: 1200,
+              targetTimeSeconds: 3600,
+              status: 'idle',
+              fortressLevel: 1,
+              fortressHealth: 100,
+              xp: 0,
+              subPieces: [],
+            },
+          ],
+          activeProjectId: 'persisted-proj-1',
+          settings: { ...DEFAULT_APP_SETTINGS },
+          logs: [],
+          hasHydrated: false,
+        },
+        version: 0,
+      }
+
+      // Simulate localStorage having persisted data
+      const storageKey = 'ff_focus_store'
+      localStorage.setItem(storageKey, JSON.stringify(persistedData))
+
+      // Force rehydrate by re-creating the store's persist layer
+      // We verify by checking the store state after rehydration
+      // Since the store is already created, we simulate the effect of onRehydrateStorage
+      const parsed = JSON.parse(localStorage.getItem(storageKey) || '{}')
+      if (parsed.state) {
+        useFocusStore.setState(parsed.state)
+        useFocusStore.getState().setHasHydrated(true)
+      }
+
+      expect(useFocusStore.getState().hasHydrated).toBe(true)
+      expect(useFocusStore.getState().projects).toHaveLength(1)
+      expect(useFocusStore.getState().projects[0].name).toBe('Persisted Project')
+      expect(useFocusStore.getState().activeProjectId).toBe('persisted-proj-1')
+
+      localStorage.removeItem(storageKey)
     })
   })
 

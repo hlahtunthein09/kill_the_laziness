@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { StoreHydrationProvider } from "@/components/providers/StoreHydrationProvider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -29,7 +30,9 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <TooltipProvider>
-          <AppShell>{children}</AppShell>
+          <AppShell>
+            <StoreHydrationProvider>{children}</StoreHydrationProvider>
+          </AppShell>
         </TooltipProvider>
         <Toaster />
       </body>

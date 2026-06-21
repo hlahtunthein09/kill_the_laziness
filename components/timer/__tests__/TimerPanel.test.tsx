@@ -11,7 +11,14 @@ vi.mock("@/lib/store/useFocusStore", () => ({
 
 // Mock useTimer hook
 vi.mock("@/hooks/useTimer", () => ({
-  useTimer: vi.fn(),
+  useTimer: vi.fn(() => ({
+    isRunning: false,
+    projectElapsed: 0,
+    subPieceRemaining: 0,
+    start: vi.fn(),
+    pause: vi.fn(),
+    reset: vi.fn(),
+  })),
 }));
 
 import { useTimer } from "@/hooks/useTimer";
@@ -177,5 +184,45 @@ describe("TimerPanel", () => {
 
     // Should show the first incomplete sub-piece name
     expect(screen.getByText("Active SubPiece")).toBeInTheDocument();
+  });
+
+  it("does not crash when transitioning from no active project to active project", () => {
+    const { rerender } = render(<TimerPanel />);
+
+    // Initial state: no active project
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [], activeProjectId: null })
+    );
+
+    rerender(<TimerPanel />);
+
+    expect(
+      screen.getByText(/လက်ရှိ ပရောဂျက် မရွေးရသေးပါ/i)
+    ).toBeInTheDocument();
+
+    // Transition: now we have an active project with an incomplete sub-piece
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1" })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+    });
+
+    // This rerender must not throw a React hooks-order error
+    rerender(<TimerPanel />);
+
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
   });
 });

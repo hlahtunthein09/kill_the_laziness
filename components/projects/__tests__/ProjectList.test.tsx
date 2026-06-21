@@ -36,7 +36,7 @@ describe('ProjectList', () => {
     ]
 
     // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) => selector({ projects }))
+    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true }))
 
     render(<ProjectList />)
 
@@ -45,14 +45,24 @@ describe('ProjectList', () => {
     expect(screen.getByText('Project Three')).toBeInTheDocument()
   })
 
-  it('shows empty state when no projects', () => {
+  it('shows empty state when no projects and hasHydrated is true', () => {
     // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) => selector({ projects: [] }))
+    useFocusStore.mockImplementation((selector) => selector({ projects: [], hasHydrated: true }))
 
     render(<ProjectList />)
 
     expect(screen.getByText(/ပရောဂျက်များ မရှိသေးပါ/i)).toBeInTheDocument()
     expect(screen.getByText(/No projects yet/i)).toBeInTheDocument()
+  })
+
+  it('does NOT show empty state while hasHydrated is false', () => {
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) => selector({ projects: [], hasHydrated: false }))
+
+    render(<ProjectList />)
+
+    expect(screen.queryByText(/ပရောဂျက်များ မရှိသေးပါ/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No projects yet/i)).not.toBeInTheDocument()
   })
 
   it('renders correct number of project cards', () => {
@@ -62,7 +72,7 @@ describe('ProjectList', () => {
     ]
 
     // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) => selector({ projects }))
+    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true }))
 
     render(<ProjectList />)
 

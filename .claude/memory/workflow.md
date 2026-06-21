@@ -79,7 +79,12 @@ If tests are missing or failing, the agent must fix them before reporting.
 - Run `npx tsc --noEmit`.
 - Run `npm run dev` briefly if UI changed.
 - Run tests (`npx vitest run <test-file>` or `npm test`).
-- A piece is **not done** until TypeScript and tests both pass.
+- **For any UI/timer/extension change, run live browser verification with the Playwright MCP server:**
+  - `mcp__playwright__browser_navigate` to the affected route.
+  - `mcp__playwright__browser_snapshot` or `mcp__playwright__browser_take_screenshot` to confirm the real rendered output.
+  - Reproduce the reported bug scenario in the browser and confirm it is fixed.
+- A piece is **not done** until TypeScript, tests, and live browser verification all pass.
+- If the agent reports completion without live browser proof, do not accept it; re-run the verification yourself.
 
 ### 9. Update Memory
 - Append one-line status to `.claude/memory/progress.md`.

@@ -6,6 +6,11 @@ import { FolderOpen } from "lucide-react";
 
 export function ProjectList() {
   const projects = useFocusStore((s) => s.projects);
+  const hasHydrated = useFocusStore((s) => s.hasHydrated);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   if (projects.length === 0) {
     return (

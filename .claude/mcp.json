@@ -18,9 +18,10 @@
     {
       "name": "playwright",
       "purpose": "Browser automation for UI testing and verification via Playwright MCP",
-      "status": "installed",
+      "status": "configured",
+      "location": ".mcp.json (project root)",
       "command": "npx",
-      "args": ["-y", "@playwright/mcp"]
+      "args": ["-y", "@playwright/mcp@latest"]
     }
   ],
   "note": "Playwright MCP server is installed locally. Connect it in your Claude Code MCP settings if it does not auto-connect from this registry."

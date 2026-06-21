@@ -20,46 +20,10 @@ export function TimerPanel() {
     (sp) => sp.status !== "completed"
   );
 
-  // Empty state: no active project
-  if (!activeProject) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-500">
-          <FolderOpen className="h-8 w-8" />
-        </div>
-        <div className="text-center">
-          <p className="text-base font-medium text-stone-700">
-            လက်ရှိ ပရောဂျက် မရွေးရသေးပါ
-          </p>
-          <p className="text-sm text-stone-400 mt-1">
-            No active project — ပရောဂျက်တစ်ခုရွေးချယ်ပြီး စတင်လိုက်ပါ
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state: no incomplete sub-pieces
-  if (!firstIncompleteSubPiece) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-500">
-          <ListTodo className="h-8 w-8" />
-        </div>
-        <div className="text-center">
-          <p className="text-base font-medium text-stone-700">
-            အခန်းကဏ္ဍများ မရှိသေးပါ
-          </p>
-          <p className="text-sm text-stone-400 mt-1">
-            No sub-pieces to focus on — အခန်းကဏ္ဍအသစ်ထည့်ပြီး စတင်လိုက်ပါ
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // ALL hooks must be called unconditionally BEFORE any conditional return
+  // to keep React hook count stable across renders.
   const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset } =
-    useTimer(activeProject.id, firstIncompleteSubPiece.id);
+    useTimer(activeProject?.id, firstIncompleteSubPiece?.id);
 
   // Track previous isRunning to detect transitions (paused -> running)
   const prevIsRunningRef = useRef(isRunning);
@@ -126,6 +90,44 @@ export function TimerPanel() {
   const handleToastShown = () => {
     setToastTrigger(undefined);
   };
+
+  // Empty state: no active project
+  if (!activeProject) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-500">
+          <FolderOpen className="h-8 w-8" />
+        </div>
+        <div className="text-center">
+          <p className="text-base font-medium text-stone-700">
+            လက်ရှိ ပရောဂျက် မရွေးရသေးပါ
+          </p>
+          <p className="text-sm text-stone-400 mt-1">
+            No active project — ပရောဂျက်တစ်ခုရွေးချယ်ပြီး စတင်လိုက်ပါ
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state: no incomplete sub-pieces
+  if (!firstIncompleteSubPiece) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-500">
+          <ListTodo className="h-8 w-8" />
+        </div>
+        <div className="text-center">
+          <p className="text-base font-medium text-stone-700">
+            အခန်းကဏ္ဍများ မရှိသေးပါ
+          </p>
+          <p className="text-sm text-stone-400 mt-1">
+            No sub-pieces to focus on — အခန်းကဏ္ဍအသစ်ထည့်ပြီး စတင်လိုက်ပါ
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 max-w-md mx-auto">

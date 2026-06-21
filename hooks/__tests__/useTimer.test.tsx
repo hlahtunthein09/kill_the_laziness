@@ -464,4 +464,23 @@ describe('useTimer', () => {
       expect(rafCallbacks.size).toBe(0)
     })
   })
+
+  describe('undefined projectId (neutral / safe mode)', () => {
+    it('returns neutral values and no-op handlers when projectId is undefined', () => {
+      const { result } = renderHook(() => useTimer(undefined, undefined))
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.projectElapsed).toBe(0)
+      expect(result.current.subPieceRemaining).toBe(0)
+
+      // No-op handlers should not throw
+      act(() => result.current.start())
+      act(() => result.current.pause())
+      act(() => result.current.reset())
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.projectElapsed).toBe(0)
+      expect(result.current.subPieceRemaining).toBe(0)
+    })
+  })
 })
