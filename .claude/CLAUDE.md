@@ -2,6 +2,40 @@
 
 This file is loaded automatically by Claude Code. It contains project conventions and context for the FocusFlow AI productivity app.
 
+> **Source of truth:** This `.claude/CLAUDE.md` file plus `.claude/memory/` are the canonical project instructions. Root `CLAUDE.md` and `AGENTS.md` are intentionally removed; do not recreate them.
+
+## ⚠️ Framework Note
+
+This is NOT the Next.js you know. This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+
+## 🤖 Agent Workflow Rules (Non-Negotiable)
+
+For **every piece** — main or sub-piece — follow this exact order:
+
+1. **Read memory first.** Start with `.claude/CLAUDE.md`, `.claude/memory/conventions.md`, `.claude/memory/progress.md`, and `.claude/memory/workflow.md`.
+2. **Research.** Reuse findings from memory. Only query Context7/WebFetch when a **new primitive or pattern** is needed. No broad Context7 dumps for repeated patterns.
+3. **Virtual sizing.** Report in one table: new files, modified files, estimated lines, verdict. Split if >3 new files, >1 page, >1 hook, or >200 lines.
+4. **Skill.** After user confirms the scope, write/update the skill file in `.claude/skills/`. Do not paste the full skill content in chat.
+5. **Report ready state.** One concise message: skill created, agent choice, test plan. Wait for explicit user confirmation before spawning an agent.
+6. **Spawn agent + implement + write tests.** Every piece must have tests.
+7. **Verify.** Run `npx tsc --noEmit` and the relevant test command (`npx vitest run <test-file>` or `npm test`).
+8. **Update memory.** Append a one-line status to `.claude/memory/progress.md` (and `conventions.md` only if conventions change).
+9. **Wait for user review** before starting the next piece.
+
+### Never
+- Never assume a step is done.
+- Never implement without explicit user confirmation.
+- Never skip tests.
+- Never write a skill file before the user approves the skill plan.
+- Never do broad Context7 queries when memory already covers the pattern.
+- Never re-read the same source files across turns; check memory first.
+
+### Token-Saving Rules
+- Keep chat responses short. Use bullets and short sentences.
+- Burmese-first is for UI labels; chat explanations should be concise and minimize unnecessary English repetition.
+- Ask only one confirmation question per turn.
+- Summarize research in memory files, then reference them in chat instead of repeating details.
+
 ## Project Overview
 
 FocusFlow AI is a gamified productivity ecosystem built to eliminate developer procrastination and screen distraction. It combines a Next.js dashboard with a future browser extension for anti-distraction enforcement and off-screen notifications.

@@ -1,7 +1,7 @@
 .claude project structure, references, and Next.js shell created.
 
 ## Current Phase
-Backfilling tests for Pieces 1-3 before proceeding to Piece 4. Workflow updated to require tests for every piece.
+Piece 4 split into 4a/4b/4c. Workflow and memory structure updated for token-efficient, memory-first development.
 
 ## Completed
 - [x] Next.js app initialized at workspace root
@@ -27,6 +27,14 @@ Backfilling tests for Pieces 1-3 before proceeding to Piece 4. Workflow updated 
   - Updated `.claude/skills/main-workflow-skill.md`
   - Updated `.claude/memory/workflow.md`
   - Testing standards added
+- [x] **Source-of-truth cleanup**
+  - Removed root `CLAUDE.md` and `AGENTS.md`
+  - `.claude/CLAUDE.md` now contains non-negotiable workflow rules + framework note
+- [x] **Memory-first workflow established**
+  - Created `.claude/memory/MEMORY.md` index
+  - Created `.claude/memory/ui-conventions.md`
+  - Created `.claude/memory/store-schema.md`
+  - Updated `.claude/memory/workflow.md` to compact, memory-first steps
 
 ## Backfill Testing Plan
 
@@ -52,11 +60,40 @@ Backfilling tests for Pieces 1-3 before proceeding to Piece 4. Workflow updated 
 ### Note
 Piece 2 (UI shell/layout) tests deferred for now due to lower value; will add once core features stabilize.
 
+## Piece 4: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Store layer already supports sub-piece CRUD (`addSubPiece`, `updateSubPiece`, `deleteSubPiece`, `reorderSubPieces`, etc.) in `lib/store/slices/projectSlice.ts`.
+- Existing `ProjectForm` uses manual `useState` + inline validation (no react-hook-form/Zod). Reusing this pattern keeps Piece 4 small and consistent.
+- shadcn/ui Dialog/Form/Input/Select docs confirm the same primitives already used in `ProjectForm` are sufficient.
+- Zustand selectors/actions pattern is already used in `ProjectList` (`useFocusStore((s) => s.projects)`).
+- No new page or hook is strictly required if sub-pieces are displayed inside `ProjectCard`.
+
+### Virtual Sizing — Original Piece 4
+- New files: `SubPieceForm.tsx`, `SubPieceList.tsx`, `SubPieceCard.tsx`, `AddSubPieceButton.tsx`, plus 2-3 test files.
+- Modified files: `ProjectCard.tsx`, `app/projects/page.tsx`.
+- Estimated total: ~8 files, ~450 lines.
+- **Verdict: ❌ Too Big** (>6 files, >400 lines).
+
+### Proposed Split (keep each piece ≤200 lines / Small)
+- **Piece 4a — SubPiece Form Only** ✅ Small
+  - Create `SubPieceForm.tsx`, `SubPieceForm.test.tsx`.
+  - Focus: dialog form to add a sub-piece (name + allocated minutes + projectId prop).
+- **Piece 4b — Add SubPiece Button + ProjectCard Footer Integration** ✅ Small
+  - Create `AddSubPieceButton.tsx`, `AddSubPieceButton.test.tsx`.
+  - Modify `ProjectCard.tsx` footer to open the sub-piece form for that project.
+  - Focus: trigger to add sub-pieces from a project card.
+- **Piece 4c — SubPiece Card + List + ProjectCard Body Integration** ✅ Small
+  - Create `SubPieceCard.tsx`, `SubPieceList.tsx`, `SubPieceList.test.tsx`.
+  - Modify `ProjectCard.tsx` body to show the list of sub-pieces.
+  - Focus: display sub-pieces under each project.
+
 ## Next Action
-Proceed to Piece 4: Sub-piece form + list.
+Get user approval for the split, then write the skill for Piece 4a and spawn an agent.
 
 ## Blockers
 None.
 
 ## Decisions Pending
 - Notification messages: Burmese-only or bilingual from start?
+- Sub-piece form integration point: `ProjectCard` footer vs. separate project detail page?

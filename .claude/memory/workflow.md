@@ -13,67 +13,74 @@ FocusFlow AI = **Todo List + Timer + Motivated Speech Notifications**
 ## Principles
 
 1. **One tiny piece at a time.** Finish, verify, test, and get user approval before the next.
-2. **User is a beginner.** Explain each step. No silent implementation marathons.
+2. **User is a beginner.** Explain each step concisely. No silent implementation marathons.
 3. **Burmese-first UI.** All user-facing text is in Burmese; English is secondary.
-4. **References first.** Every piece starts by studying real examples via MCP/WebFetch.
-5. **Virtual size before skill.** Estimate the whole piece first, split if too big, then build the skill.
+4. **Memory-first research.** Reuse findings from `.claude/memory/`. Query Context7/WebFetch only for genuinely new primitives or patterns.
+5. **Virtual size before skill.** Estimate in one short table. Split if >3 new files, >1 page, >1 hook, or >200 lines.
 6. **Skill-driven agents.** Each (sub-)piece uses a documented skill template and a specialized subagent.
 7. **Test every piece.** Every implementation must include tests that pass.
-8. **Memory is source of truth.** Progress, conventions, and specs live in `.claude/memory/`.
-9. **Update progress after every discussion.** Every decision, plan change, or research finding is recorded in `.claude/memory/progress.md`.
+8. **Memory is source of truth.** Progress, conventions, and specs live in `.claude/memory/` and are indexed by `.claude/memory/MEMORY.md`.
+9. **Update progress after every piece.** One-line status updates in `.claude/memory/progress.md`.
+10. **Save tokens.** Re-read files only when memory is stale; keep chat responses short and ask one confirmation question per turn.
 
 ## Workflow Steps (for every piece)
 
-### 1. Select Piece
+### 1. Read Memory
+Start every piece by reading `.claude/CLAUDE.md`, `.claude/memory/MEMORY.md`, `.claude/memory/conventions.md`, `.claude/memory/progress.md`, and this file.
+
+### 2. Select Piece
 Choose the next piece from the roadmap below.
 
-### 2. Research
-- Query Context7 MCP for relevant library docs.
-- Use WebSearch/WebFetch/GitHub MCP to study real examples.
-- Summarize findings in `.claude/memory/progress.md`.
+### 3. Research
+- Check whether memory already covers the needed pattern.
+- If yes, reference memory and skip Context7.
+- If a new primitive is needed, run one targeted Context7/WebFetch query.
+- Summarize only new findings in `.claude/memory/progress.md`.
 
-### 3. Virtual Sizing Review
-Estimate the whole piece size BEFORE building a skill:
-- How many files will be created/modified/deleted?
-- How many UI components?
-- How many store slices/hooks?
-- How many pages/routes?
-- Estimated lines of code?
+### 4. Virtual Sizing Review
+Report in one table before building a skill:
+
+| Metric | Value |
+|---|---|
+| New files | n |
+| Modified files | n |
+| Hooks | n |
+| Pages | n |
+| Est. lines | n |
+| Verdict | Small / Medium / Too Big |
 
 **Sizing thresholds:**
 - ✅ **Small**: ≤3 new files, ≤1 page, ≤1 hook, ≤200 lines
 - ⚠️ **Medium**: ≤6 new files, ≤2 pages, ≤2 hooks, ≤400 lines
 - ❌ **Too Big**: >6 files, >2 pages, >2 hooks, or >400 lines
 
-If too big, split the piece BEFORE building the skill. Update roadmap.
+If too big, split BEFORE building the skill and update the roadmap.
 
-### 4. Build/Update Skill
-Create/update the skill for the final (sub-)piece in `.claude/skills/`. Include testing strategy.
+### 5. Build/Update Skill
+After scope is finalized, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat.
 
-### 5. Report Ready State
-Tell the user:
-- What piece is next
-- What references were studied
-- What skill will be used
-- Which agent will be spawned
-- Estimated size
-- Testing plan
+### 6. Report Ready State
+One concise message with:
+- Piece name
+- Skill file path
+- Agent type
+- Test plan
 - Ask for confirmation
 
-### 6. Spawn Agent + Implement + Test
-Only after user confirmation, spawn the subagent. The agent must implement AND write tests.
+### 7. Spawn Agent + Implement + Test
+Only after explicit user confirmation. The agent must implement AND write tests.
 
-### 7. Verify
+### 8. Verify
 - Run `npx tsc --noEmit`.
-- Run `npm run dev` briefly.
-- **Run tests** (`npm test` or `npx vitest run`).
-- Test the specific feature manually if needed.
+- Run `npm run dev` briefly if UI changed.
+- Run tests (`npx vitest run <test-file>` or `npm test`).
 
-### 8. Update Memory
-Update `.claude/memory/progress.md` and `.claude/memory/conventions.md`.
+### 9. Update Memory
+- Append one-line status to `.claude/memory/progress.md`.
+- Update `.claude/memory/conventions.md` only if conventions changed.
 
-### 9. User Review
-Explain what was built and tested. Wait for approval before next piece.
+### 10. User Review
+Explain what was built and tested. Wait for explicit approval before the next piece.
 
 ## Approved Piece Roadmap
 
@@ -92,7 +99,10 @@ Explain what was built and tested. Wait for approval before next piece.
    - 3b: Project Card + List + Page ✅
 
 ### Phase 4: Sub-Pieces
-4. Sub-piece form + list ← current
+4. Sub-piece form + list ← split into small pieces
+   - 4a: SubPiece Form Only
+   - 4b: Add SubPiece Button + ProjectCard Footer Integration
+   - 4c: SubPiece Card + List + ProjectCard Body Integration
 
 ### Phase 5: Timer
 5. Timer engine hook
