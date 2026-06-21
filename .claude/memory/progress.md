@@ -402,7 +402,71 @@ None.
 - Run `npx tsc --noEmit`, `npx vitest run extension/lib/__tests__/focusSync.test.ts`, and `npm run build:ext` to verify the content script is bundled.
 
 ## Next Action
-Piece 12 complete. Proceed to next piece after user review.
+Piece 13a complete. Awaiting user review before Piece 13b.
+
+## Latest Update
+- Piece 13b complete: `extension/entrypoints/popup.html` (styled popup with Burmese-first labels, pastel nature theme), `extension/lib/popup.ts` (reads `ff_extension_timer`, renders project/sub-piece names, elapsed/remaining times, status dot, open-app button with `browser.tabs.create`), `extension/lib/__tests__/popup.test.ts` (12 tests all passing), TypeScript clean, WXT build succeeds with popup bundle and manifest `action.default_popup`.
+- Piece 13a complete: `ExtensionTimerState` enriched with optional `projectName` and `subPieceName`; `hooks/useTimer.ts` `persistSession` now includes names from store; `extension/lib/focusSync.ts` passes names through without validation blocking; focusSync test (12 tests) and useTimer test (20 tests) all passing; TypeScript clean; WXT build succeeds.
+
+## Piece 13: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Current popup is a plain HTML placeholder with no logic (`extension/entrypoints/popup.html`).
+- Background now stores `ff_extension_timer` via Piece 12 content-script sync.
+- Context7 `/wxt-dev/wxt` confirms:
+  - Popup entrypoints are HTML files under `entrypoints/` mapped to `action.default_popup`.
+  - To bundle TypeScript, use `<script src="./popup.ts" type="module"></script>`.
+  - Extension APIs (`browser.*`) are imported from `wxt/browser`.
+  - A new tab can be opened via `browser.tabs.create({ url })` (existing `tabs` permission).
+- Real-world reference from `dominhduy09/pomodoro-extension` (GitHub MCP):
+  - `popup.html` + `popup.js` plain HTML/CSS/JS.
+  - Popup requests state from service worker via `chrome.runtime.sendMessage({ type: 'GET_STATE' })`.
+  - Renders timer, mode label, stats, controls; listens to `chrome.storage.onChanged`.
+  - For FocusFlow MVP, read-only popup (status + times + open-app link) is enough; controls would desync with web app timer.
+- To show project/sub-piece names, `ExtensionTimerState` needs optional `projectName` and `subPieceName`, requiring small changes to `useTimer` and `focusSync.ts`.
+
+### Original Virtual Sizing — Piece 13 (Monolithic)
+| Metric | Value |
+|---|---|
+| New files | 3 (`extension/entrypoints/popup.html`, `extension/entrypoints/popup.ts`, `extension/lib/__tests__/popup.test.ts`) |
+| Modified files | 3 (`extension/lib/types.ts`, `hooks/useTimer.ts`, `extension/lib/focusSync.ts`) |
+| Hooks | 0 |
+| Pages | 1 (popup) |
+| Est. lines | ~200 |
+| Verdict | ❌ Too Big / borderline — split required |
+
+### Proposed Split
+
+#### Piece 13a — Enrich Timer State with Names ✅ Small
+| Metric | Value |
+|---|---|
+| New files | 0 |
+| Modified files | 3 (`extension/lib/types.ts`, `hooks/useTimer.ts`, `extension/lib/focusSync.ts`) |
+| Hooks | 0 |
+| Pages | 0 |
+| Est. lines | ~40 |
+| Verdict | ✅ Small |
+
+- Add optional `projectName` and `subPieceName` to `ExtensionTimerState`.
+- Update `useTimer.persistSession` to include names from the store.
+- Update `focusSync.ts` validation to accept the optional name fields.
+
+#### Piece 13b — Extension Popup UI ✅ Small
+| Metric | Value |
+|---|---|
+| New files | 3 (`extension/entrypoints/popup.html`, `extension/entrypoints/popup.ts`, `extension/lib/__tests__/popup.test.ts`) |
+| Modified files | 0 |
+| Hooks | 0 |
+| Pages | 1 (popup) |
+| Est. lines | ~160 |
+| Verdict | ✅ Small |
+
+- Replace `popup.html` placeholder with styled popup loading `popup.ts`.
+- `popup.ts` reads `ff_extension_timer`, renders names, elapsed/remaining, status, and an "Open FocusFlow" link.
+- Test rendering logic with `fakeBrowser` and jsdom.
+
+## Next Action
+Piece 13a complete. 13b skill plan approved and skill file created. Awaiting user confirmation to spawn Extension Engineer agent.
 
 ## Blockers
 None.

@@ -82,6 +82,31 @@ describe("focusSync.ts", () => {
     });
   });
 
+  it("sends UPDATE_TIMER_STATE with optional names preserved", async () => {
+    const session: ExtensionTimerState = {
+      projectId: "proj-1",
+      subPieceId: "sub-1",
+      projectName: "My Project",
+      subPieceName: "My Task",
+      projectElapsed: 120,
+      subPieceRemaining: 300,
+      isRunning: true,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
+    fakeBrowser.runtime.sendMessage = sendMessageMock;
+
+    await syncFocusSession();
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      action: "UPDATE_TIMER_STATE",
+      payload: session,
+    });
+  });
+
   it("does not send message twice for identical raw session (dedup)", async () => {
     const now = Date.now();
     const session: ExtensionTimerState = {

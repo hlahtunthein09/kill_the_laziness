@@ -166,6 +166,46 @@ describe('useTimer', () => {
       expect(result.current.projectElapsed).toBe(5)
     })
 
+    it('persists session with project and sub-piece names on pause', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(3)
+
+      act(() => result.current.pause())
+
+      const raw = localStorage.getItem('ff_active_session')
+      expect(raw).toBeTruthy()
+      const session = JSON.parse(raw!)
+      expect(session.projectId).toBe(project.id)
+      expect(session.projectName).toBe('Test Project')
+      expect(session.subPieceId).toBe(subPiece.id)
+      expect(session.subPieceName).toBe('Task 1')
+      expect(session.isRunning).toBe(false)
+    })
+
+    it('persists session with project name only when no sub-piece', async () => {
+      const { project } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(3)
+
+      act(() => result.current.pause())
+
+      const raw = localStorage.getItem('ff_active_session')
+      expect(raw).toBeTruthy()
+      const session = JSON.parse(raw!)
+      expect(session.projectId).toBe(project.id)
+      expect(session.projectName).toBe('Test Project')
+      expect(session.subPieceId).toBeUndefined()
+      expect(session.subPieceName).toBeUndefined()
+      expect(session.isRunning).toBe(false)
+    })
+
     it('persists session to localStorage every 5 seconds', async () => {
       const { project } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id))

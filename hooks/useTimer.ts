@@ -8,6 +8,8 @@ const SESSION_KEY = "ff_active_session";
 interface SessionData {
   projectId: string;
   subPieceId?: string;
+  projectName?: string;
+  subPieceName?: string;
   projectElapsed: number;
   subPieceRemaining: number;
   savedAt: number;
@@ -167,6 +169,8 @@ export function useTimer(
       const sessionData: SessionData = {
         projectId,
         subPieceId,
+        projectName: project?.name,
+        subPieceName: subPiece?.name,
         projectElapsed: projElapsed,
         subPieceRemaining: spRemaining,
         savedAt: Date.now(),
@@ -174,7 +178,7 @@ export function useTimer(
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
     },
-    [projectId, subPieceId]
+    [projectId, subPieceId, project?.name, subPiece?.name]
   );
 
   const tick = useCallback(
