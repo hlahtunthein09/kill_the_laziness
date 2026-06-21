@@ -331,3 +331,43 @@ None.
 - Piece 10a complete: `ExtensionTimerState` interface, `extension/lib/storage.ts` wrapper for `browser.storage.local`, `extension/lib/messageHandler.ts` with `handleMessage` exported for tests, `background.ts` wired with `onMessage` listener, `externally_connectable` added to manifest, 10 tests passing (5 storage + 5 background), TypeScript clean, WXT build succeeds.
 - Piece 10b complete: `extension/lib/timerAlarm.ts` with `startFocusAlarm`, `stopFocusAlarm`, `onAlarmTick` (reads stored state, calculates drift, sends Burmese notification when sub-piece completes, clears alarm), `background.ts` wired with `browser.alarms.onAlarm` listener, `messageHandler.ts` starts/stops alarm on `UPDATE_TIMER_STATE`, 7 tests passing in `timerAlarm.test.ts`, all 17 extension tests passing, TypeScript clean, WXT build succeeds.
 - Piece 9 complete: WXT extension scaffold built and verified.
+- Piece 11a complete: `extension/lib/urlChecker.ts` (forbidden URL matcher + default patterns), `extension/entrypoints/blocked.html` (pastel theme, Burmese-first message), `extension/lib/redirect.ts` (tab update handler, strict mode check, settings reader), `extension/entrypoints/background.ts` updated with `tabs.onUpdated` listener, `wxt.config.ts` updated with `web_accessible_resources`, 7 urlChecker tests + 11 redirect tests all passing, TypeScript clean, WXT build succeeds with `blocked.html` in output, manifest includes `web_accessible_resources`.
+
+## Piece 11: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- MV3 extensions can block/redirect URLs via `declarativeNetRequest` (fast, no content script) or background `tabs.onUpdated` + `tabs.update`.
+- Warn mode requires a content script to inject an overlay on the distracting page.
+- A blocked page can be an extension page (`blocked.html`) declared in `web_accessible_resources`.
+- Settings store has `strictMode` and `forbiddenUrls` already.
+- Background can read settings from `browser.storage.local` (synced later) or wait for web app messaging.
+
+### Virtual Sizing — Original Piece 11
+- Strict redirect + blocked page + warn overlay + tests.
+- Estimated: ~6 files, ~350 lines.
+- **Verdict: ⚠️ Medium** — blocking and overlay are two distinct concerns.
+
+### Proposed Split
+- **Piece 11a — Background Tab Monitoring + Strict Mode Redirect** ✅ Small
+  - Create `extension/lib/urlChecker.ts` to match URLs against forbidden fragments.
+  - Create `extension/entrypoints/blocked.html` page with motivational message.
+  - Update `extension/entrypoints/background.ts` to listen to `tabs.onUpdated` and redirect if strict mode.
+  - Update `wxt.config.ts` to add `web_accessible_resources`.
+  - Add tests for URL checker and redirect logic using fake-browser.
+- **Piece 11b — Warn Mode Content Script Overlay** ✅ Small
+  - Create `extension/entrypoints/warn.content.ts` content script for forbidden URLs.
+  - Inject a calming overlay with motivational message instead of redirecting.
+  - Add tests for overlay creation.
+
+## Next Action
+Piece 11 complete. Proceed to Piece 12 after user review.
+
+## Blockers
+None.
+
+## Latest Update
+- Piece 10a complete: `ExtensionTimerState` interface, `extension/lib/storage.ts` wrapper for `browser.storage.local`, `extension/lib/messageHandler.ts` with `handleMessage` exported for tests, `background.ts` wired with `onMessage` listener, `externally_connectable` added to manifest, 10 tests passing (5 storage + 5 background), TypeScript clean, WXT build succeeds.
+- Piece 10b complete: `extension/lib/timerAlarm.ts` with `startFocusAlarm`, `stopFocusAlarm`, `onAlarmTick` (reads stored state, calculates drift, sends Burmese notification when sub-piece completes, clears alarm), `background.ts` wired with `browser.alarms.onAlarm` listener, `messageHandler.ts` starts/stops alarm on `UPDATE_TIMER_STATE`, 7 tests passing in `timerAlarm.test.ts`, all 17 extension tests passing, TypeScript clean, WXT build succeeds.
+- Piece 9 complete: WXT extension scaffold built and verified.
+- Piece 11a complete: `extension/lib/urlChecker.ts` (forbidden URL matcher + default patterns), `extension/entrypoints/blocked.html` (pastel theme, Burmese-first message), `extension/lib/redirect.ts` (tab update handler, strict mode check, settings reader), `extension/entrypoints/background.ts` updated with `tabs.onUpdated` listener, `wxt.config.ts` updated with `web_accessible_resources`, 7 urlChecker tests + 11 redirect tests all passing, TypeScript clean, WXT build succeeds with `blocked.html` in output, manifest includes `web_accessible_resources`.
+- Piece 11b complete: `extension/lib/warnOverlay.ts` (injectWarnOverlay with pastel nature themed card, Burmese title + English subtitle, Back to Focus and Continue anyway buttons), `extension/entrypoints/warn.content.ts` (defineContentScript with 7 host patterns, checks strict mode, injects overlay with struggling motivation message), `extension/lib/__tests__/warnOverlay.test.ts` (6 tests all passing), TypeScript clean, WXT build succeeds with `content-scripts/warn.js` in output and manifest content_scripts entry.

@@ -26,5 +26,11 @@ export default defineConfig({
       ids: [],
       matches: ["http://localhost:3000/*"],
     },
+    web_accessible_resources: [
+      {
+        resources: ["blocked.html"],
+        matches: ["<all_urls>"],
+      },
+    ],
   },
 });
