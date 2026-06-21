@@ -249,8 +249,56 @@ Build a single focused `useTimer` hook that:
   - `components/timer/TimerPanel.tsx` modified — renders `TimerToast`, triggers `start` on pause→running, `milestone` every 5 min and on tier change, `complete` on sub-piece finish
   - TypeScript clean, 95/95 tests passing across all suites
 
+## Phase 7 / Piece 9: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- WXT is the chosen extension build tool (from project tech stack).
+- WXT project can live inside `extension/` folder with root config pointing `srcDir` to it.
+- Required MV3 permissions: `storage`, `tabs`, `alarms`, `notifications`, `scripting`, `declarativeNetRequest`, plus host permissions for forbidden URLs.
+- Entrypoints: `background.ts`, `popup.html`, content scripts, options.
+- No web-extension code needed yet; setup only.
+
+### Virtual Sizing — Piece 9
+| Metric | Estimate |
+|---|---|
+| New files | 5 (`wxt.config.ts`, `extension/entrypoints/background.ts`, `extension/entrypoints/popup.html`, `extension/README.md`, `.claude/memory/extension-architecture.md`) |
+| Modified files | 1 (`package.json` — add WXT dependency + scripts) |
+| Hooks | 0 |
+| Pages | 0 |
+| Est. lines | ~120 |
+| Verdict | ✅ Small |
+
+### Proposed Approach
+- Install `wxt` as dev dependency.
+- Create `wxt.config.ts` with `srcDir: "extension"`.
+- Create `extension/entrypoints/background.ts` with a simple `defineBackground` placeholder.
+- Create `extension/entrypoints/popup.html` placeholder.
+- Add `dev:ext`, `build:ext`, `zip:ext` scripts to root `package.json`.
+- Create `.claude/memory/extension-architecture.md` with manifest/permissions notes.
+- Run `npm install` and `npm run build:ext` to verify WXT builds.
+
+## Piece 9: Extension WXT Setup + Manifest — DONE
+  - `wxt.config.ts` created with `srcDir: "extension"`, MV3 manifest, all 6 permissions, 7 host permissions
+  - `extension/entrypoints/background.ts` created with `defineBackground` placeholder
+  - `extension/entrypoints/popup.html` created as minimal placeholder with pastel theme
+  - `extension/README.md` created with manual load instructions for Chrome/Edge/Firefox
+  - `.claude/memory/extension-architecture.md` created with manifest/permissions/messaging plans
+  - `extension/env.d.ts` added for WXT auto-import globals
+  - `extension/__tests__/wxt.config.test.ts` added (4 tests, all passing)
+  - `package.json` updated with `dev:ext`, `build:ext`, `zip:ext`, `postinstall` scripts; `wxt` moved to devDependencies
+  - `npm run build:ext` succeeds — Chrome MV3 bundle produced at `.output/chrome-mv3/`
+  - Manifest output verified: all permissions and host permissions present, service worker + action popup configured
+  - TypeScript clean, 99/99 tests passing across all suites
+
+## Next Action
+Approve Piece 10 scope (Extension Anti-Distraction Blocking — background script + content script + blocked page), then write skill and spawn agent.
+
 ## Blockers
 None.
 
 ## Decisions Pending
-- Notification messages: Burmese-only or bilingual from start? (proposed: Burmese-first with English secondary)
+- Extension popup framework: plain HTML or reuse Next.js static export? (proposed: plain HTML for now)
+- Content script warn overlay design: minimal or themed with pastel nature palette?
+
+## Latest Update
+- Piece 9 complete: WXT extension scaffold built and verified.
