@@ -176,5 +176,48 @@ Build a single focused `useTimer` hook that:
   - `components/timer/__tests__/TimerPanel.test.tsx` created (5 tests, all passing)
   - TypeScript clean, 78/78 tests passing across all suites
 
+## Piece 7: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Piece 7 is content/logic only; no UI components or new libraries.
+- FocusFlow AI needs encouraging, Burmese-first motivational messages.
+- Messages should be tiered by user state: beginning, struggling, succeeding, completing.
+- A helper function should pick a message based on context (elapsed %, remaining %, completed).
+- No Context7 research needed; this is domain-specific content design.
+
+### Virtual Sizing — Piece 7
+| Metric | Estimate |
+|---|---|
+| New files | 3 (`lib/notifications.ts`, `lib/motivation.ts`, `lib/__tests__/motivation.test.ts`) |
+| Modified files | 0 |
+| Hooks | 0 |
+| Pages | 0 |
+| Est. lines | ~150 |
+| Verdict | ✅ Small |
+
+### Proposed Approach
+- Create `lib/notifications.ts` with default notification title/body templates.
+- Create `lib/motivation.ts` with tiered message arrays and a `getMotivation(context)` helper.
+- Context object: `{ elapsedSeconds, totalElapsedSeconds, remainingSeconds, isRunning, completedToday }`.
+- Tiers:
+  - **beginning** — when timer just started
+  - **struggling** — when little progress after a while
+  - **succeeding** — when making good progress
+  - **completing** — when sub-piece nearly done or just finished
+- Create tests verifying each tier returns a Burmese string and helper picks correct tier.
+
+## Piece 7: Motivation Message Bank — DONE
+  - `.claude/memory/notification-spec.md` created with tier definitions and tone guidelines
+  - `lib/motivation.ts` created with `MotivationTier`, `MotivationContext`, 4 tiered message arrays (4 msgs each), `getMotivation(context)` helper
+  - `lib/notifications.ts` created with `sessionCompleteNotification`, `distractionBlockedNotification`, `milestoneNotification`
+  - `lib/__tests__/motivation.test.ts` created (11 tests, all passing)
+  - TypeScript clean, 89/89 tests passing across all suites
+
 ## Next Action
-Piece 6b done. Ready for next piece after user review.
+User review of Piece 7. Proceed to Piece 8 after approval.
+
+## Blockers
+None.
+
+## Decisions Pending
+- Notification messages: Burmese-only or bilingual from start? (proposed: Burmese-first with English secondary)
