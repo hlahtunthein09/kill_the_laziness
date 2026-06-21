@@ -7,6 +7,7 @@ declare module "wxt/browser" {
     | "/"
     | "/background.js"
     | "/blocked.html"
+    | "/content-scripts/focusSync.js"
     | "/content-scripts/warn.js"
     | "/file.svg"
     | "/globe.svg"

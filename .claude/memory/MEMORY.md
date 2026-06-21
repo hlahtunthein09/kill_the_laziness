@@ -15,6 +15,7 @@ This file loads all project memory files into context for each session.
 
 ## Data Layer
 - [Store Schema](store-schema.md) — current Zustand `useFocusStore` shape, slices, and actions
+- [Sync Protocol](sync-protocol.md) — web app ↔ extension timer sync protocol
 
 ## Future Specs (to be filled as pieces progress)
 - [Timer Behavior](timer-behavior.md) — timer modes and edge cases
@@ -23,4 +24,3 @@ This file loads all project memory files into context for each session.
 - [Fortress SVG Spec](fortress-svg-spec.md) — Dev-Fortress SVG component specs
 - [Analytics Queries](analytics-queries.md) — data aggregation patterns
 - [Extension Architecture](extension-architecture.md) — extension file structure and messaging
-- [Sync Protocol](sync-protocol.md) — web app ↔ extension sync protocol

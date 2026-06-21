@@ -371,3 +371,38 @@ None.
 - Piece 9 complete: WXT extension scaffold built and verified.
 - Piece 11a complete: `extension/lib/urlChecker.ts` (forbidden URL matcher + default patterns), `extension/entrypoints/blocked.html` (pastel theme, Burmese-first message), `extension/lib/redirect.ts` (tab update handler, strict mode check, settings reader), `extension/entrypoints/background.ts` updated with `tabs.onUpdated` listener, `wxt.config.ts` updated with `web_accessible_resources`, 7 urlChecker tests + 11 redirect tests all passing, TypeScript clean, WXT build succeeds with `blocked.html` in output, manifest includes `web_accessible_resources`.
 - Piece 11b complete: `extension/lib/warnOverlay.ts` (injectWarnOverlay with pastel nature themed card, Burmese title + English subtitle, Back to Focus and Continue anyway buttons), `extension/entrypoints/warn.content.ts` (defineContentScript with 7 host patterns, checks strict mode, injects overlay with struggling motivation message), `extension/lib/__tests__/warnOverlay.test.ts` (6 tests all passing), TypeScript clean, WXT build succeeds with `content-scripts/warn.js` in output and manifest content_scripts entry.
+- Piece 12 complete: `extension/lib/focusSync.ts` (swappable browser instance, readFocusSession, syncFocusSession with dedup, startFocusSyncPolling), `extension/entrypoints/focusSync.content.ts` (defineContentScript matching `http://localhost:3000/*`), `extension/lib/__tests__/focusSync.test.ts` (11 tests all passing), TypeScript clean, WXT build succeeds with `content-scripts/focusSync.js` in output and manifest content_scripts entry.
+
+## Piece 12: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- Piece 10b already sends a desktop notification from the background when `subPieceRemaining` reaches 0.
+- The notification trigger depends on `ff_extension_timer` state being up-to-date in extension storage.
+- The web app currently only persists timer state to `localStorage` (`ff_active_session`); it does not send anything to the extension.
+- Therefore, closing the FocusFlow tab leaves the background with stale state and off-screen notifications do not fire.
+- A content script polling `window.localStorage` on `http://localhost:3000/*` and forwarding state via `browser.runtime.sendMessage` is the smallest, most robust fix:
+  - No extension ID is required (unlike web-page direct messaging).
+  - Reuses the existing `UPDATE_TIMER_STATE` handler and background alarm logic.
+  - Does not require any web app code changes.
+
+### Virtual Sizing — Piece 12 (Option A: Content Script Sync)
+| Metric | Value |
+|---|---|
+| New files | 3 (`extension/lib/focusSync.ts`, `extension/entrypoints/focusSync.content.ts`, `extension/lib/__tests__/focusSync.test.ts`) |
+| Modified files | 0 |
+| Hooks | 0 |
+| Pages | 0 |
+| Est. lines | ~140 |
+| Verdict | ✅ Small |
+
+### Proposed Approach
+- Create `extension/lib/focusSync.ts` with swappable `browser` instance, `readFocusSession`, `syncFocusSession` (with dedup), and `startFocusSyncPolling`.
+- Create `extension/entrypoints/focusSync.content.ts` matching `http://localhost:3000/*` that starts polling.
+- Create `extension/lib/__tests__/focusSync.test.ts` using `fakeBrowser` to verify message sending, dedup, and error handling.
+- Run `npx tsc --noEmit`, `npx vitest run extension/lib/__tests__/focusSync.test.ts`, and `npm run build:ext` to verify the content script is bundled.
+
+## Next Action
+Piece 12 complete. Proceed to next piece after user review.
+
+## Blockers
+None.
