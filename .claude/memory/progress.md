@@ -89,11 +89,16 @@ Piece 2 (UI shell/layout) tests deferred for now due to lower value; will add on
   - Focus: display sub-pieces under each project.
 
 ## Next Action
-Get user approval for the split, then write the skill for Piece 4a and spawn an agent.
+Piece 4a done. Proceed to Piece 4b after user review.
 
 ## Blockers
 None.
 
 ## Decisions Pending
 - Notification messages: Burmese-only or bilingual from start?
-- Sub-piece form integration point: `ProjectCard` footer vs. separate project detail page?
+- Sub-piece form integration point: `ProjectCard` footer vs. separate project detail page? (tentatively ProjectCard footer for 4b)
+
+## Latest Update
+- Piece 4a complete: `SubPieceForm.tsx` + `SubPieceForm.test.tsx` created; 7 tests passing; TypeScript clean.
+- Piece 4b complete: `AddSubPieceButton.tsx` + `AddSubPieceButton.test.tsx` created; `ProjectCard.tsx` footer updated; 2 tests passing; TypeScript clean.
+- Piece 4c complete: `SubPieceCard.tsx`, `SubPieceList.tsx`, `SubPieceList.test.tsx` created; `ProjectCard.tsx` body renders sub-pieces below progress bar; 3 tests passing; TypeScript clean.

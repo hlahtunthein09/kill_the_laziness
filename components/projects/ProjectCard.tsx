@@ -16,6 +16,8 @@ import {
 import { Progress, ProgressLabel, ProgressTrack, ProgressIndicator, ProgressValue } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Target } from "lucide-react";
+import { AddSubPieceButton } from "./AddSubPieceButton";
+import { SubPieceList } from "./SubPieceList";
 
 interface ProjectCardProps {
   project: Project;
@@ -109,15 +111,20 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <ProgressIndicator className={cn("transition-all duration-500", colorStyle.progress)} />
           </ProgressTrack>
         </Progress>
+
+        <div className="mt-3">
+          <SubPieceList subPieces={project.subPieces} />
+        </div>
       </CardContent>
 
-      <CardFooter className="pt-2 border-t border-stone-100">
+      <CardFooter className="pt-2 border-t border-stone-100 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-stone-500">
           <Clock className="h-3 w-3 text-stone-400" />
           <span>
             စုစုပေါင်း အချိန်: {formattedTime} (Total time: {formattedTime})
           </span>
         </div>
+        <AddSubPieceButton projectId={project.id} />
       </CardFooter>
     </Card>
   );
