@@ -22,5 +22,9 @@ export default defineConfig({
       "*://*.reddit.com/*",
       "*://*.netflix.com/*",
     ],
+    externally_connectable: {
+      ids: [],
+      matches: ["http://localhost:3000/*"],
+    },
   },
 });

@@ -8,3 +8,8 @@ declare function defineContentScript(
 declare function definePopup(
   fn: () => void
 ): { main: () => void };
+
+// WXT browser module (webextension-polyfill)
+declare module "wxt/browser" {
+  export const browser: typeof import("webextension-polyfill").default;
+}

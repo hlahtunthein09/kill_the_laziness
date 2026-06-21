@@ -290,8 +290,34 @@ Build a single focused `useTimer` hook that:
   - Manifest output verified: all permissions and host permissions present, service worker + action popup configured
   - TypeScript clean, 99/99 tests passing across all suites
 
+## Piece 10: Research + Virtual Sizing (in progress)
+
+### Research Findings
+- MV3 background is a service worker; it cannot use `setInterval` reliably.
+- Use `chrome.alarms` (via `browser.alarms`) to wake the service worker periodically.
+- Use `chrome.storage.local` (via `browser.storage.local`) to persist timer state.
+- Use `chrome.runtime.onMessage` to receive state updates from the web app.
+- Web app → extension messaging requires `externally_connectable` in the manifest.
+- `@webext-core/fake-browser` (already a WXT dependency) can mock browser APIs for tests.
+
+### Virtual Sizing — Original Piece 10
+- Original idea: background script + storage wrapper + alarms + notifications + tests.
+- Estimated: ~5 files, ~350 lines.
+- **Verdict: ⚠️ Medium with risk** — timer + notifications + tests in one piece is dense.
+
+### Proposed Split
+- **Piece 10a — Extension Storage + Timer State Listener** ✅ Small
+  - Create `extension/lib/storage.ts` wrapper for `browser.storage.local`.
+  - Update `extension/entrypoints/background.ts` to listen for `UPDATE_TIMER_STATE` messages and persist them.
+  - Update `wxt.config.ts` to add `externally_connectable`.
+  - Add tests using `@webext-core/fake-browser`.
+- **Piece 10b — Background Alarms + Off-Screen Notifications** ✅ Small
+  - Create `chrome.alarms` logic in background to wake service worker.
+  - Send desktop notification when sub-piece remaining reaches 0.
+  - Add tests for alarm handler and notification trigger.
+
 ## Next Action
-Approve Piece 10 scope (Extension Anti-Distraction Blocking — background script + content script + blocked page), then write skill and spawn agent.
+Approve the split, then start Piece 10a.
 
 ## Blockers
 None.
@@ -299,6 +325,9 @@ None.
 ## Decisions Pending
 - Extension popup framework: plain HTML or reuse Next.js static export? (proposed: plain HTML for now)
 - Content script warn overlay design: minimal or themed with pastel nature palette?
+- Web app origin for `externally_connectable`: localhost only for dev, or also production domain placeholder?
 
 ## Latest Update
+- Piece 10a complete: `ExtensionTimerState` interface, `extension/lib/storage.ts` wrapper for `browser.storage.local`, `extension/lib/messageHandler.ts` with `handleMessage` exported for tests, `background.ts` wired with `onMessage` listener, `externally_connectable` added to manifest, 10 tests passing (5 storage + 5 background), TypeScript clean, WXT build succeeds.
+- Piece 10b complete: `extension/lib/timerAlarm.ts` with `startFocusAlarm`, `stopFocusAlarm`, `onAlarmTick` (reads stored state, calculates drift, sends Burmese notification when sub-piece completes, clears alarm), `background.ts` wired with `browser.alarms.onAlarm` listener, `messageHandler.ts` starts/stops alarm on `UPDATE_TIMER_STATE`, 7 tests passing in `timerAlarm.test.ts`, all 17 extension tests passing, TypeScript clean, WXT build succeeds.
 - Piece 9 complete: WXT extension scaffold built and verified.
