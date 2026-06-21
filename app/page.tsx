@@ -1,3 +1,7 @@
+"use client";
+
+import { useFocusStore } from "@/lib/store/useFocusStore";
+import { getLevelFromXp } from "@/lib/constants";
 import {
   Card,
   CardContent,
@@ -14,6 +18,19 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const projects = useFocusStore((state) => state.projects);
+
+  const totalProjects = projects.length;
+
+  const todayFocusSeconds = projects.reduce(
+    (sum, project) => sum + project.totalTimeSeconds,
+    0
+  );
+  const todayFocusMinutes = Math.floor(todayFocusSeconds / 60);
+
+  const totalXp = projects.reduce((sum, project) => sum + project.xp, 0);
+  const currentLevel = getLevelFromXp(totalXp);
+
   return (
     <div className="flex min-h-full flex-col gap-6 p-6 lg:p-8 bg-gradient-soft">
       {/* Page heading */}
@@ -35,7 +52,7 @@ export default function Home() {
               <FolderKanban className="h-4 w-4 text-teal-500" />
               စုစုပေါင်း ပရောဂျက်များ
             </CardDescription>
-            <CardTitle className="text-3xl font-bold text-stone-900">0</CardTitle>
+            <CardTitle className="text-3xl font-bold text-stone-900">{totalProjects}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-stone-400">Total Projects</p>
@@ -50,7 +67,7 @@ export default function Home() {
               ယနေ့ focus အချိန်
             </CardDescription>
             <CardTitle className="text-3xl font-bold text-stone-900">
-              0 <span className="text-lg font-normal text-stone-500">မိနစ်</span>
+              {todayFocusMinutes} <span className="text-lg font-normal text-stone-500">မိနစ်</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -65,7 +82,7 @@ export default function Home() {
               <Trophy className="h-4 w-4 text-emerald-500" />
               လက်ရှိ အဆင့်
             </CardDescription>
-            <CardTitle className="text-3xl font-bold text-stone-900">1</CardTitle>
+            <CardTitle className="text-3xl font-bold text-stone-900">{currentLevel}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-stone-400">Current Level</p>

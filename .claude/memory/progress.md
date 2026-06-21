@@ -474,9 +474,9 @@ Verification run found web app not ready for release. Fixed so far:
 
 - **Piece 1 — TimerPanel conditional-hooks crash:** all hooks moved before conditional returns; live browser verified `/timer` refresh no longer crashes.
 - **Piece 2 — Zustand store rehydration:** added `HydrationSlice`, `skipHydration: true`, and explicit `persist.rehydrate()` in provider; live browser verified projects appear after client-side navigation.
+- **Piece 3 — Dashboard stats hardcoded:** converted `app/page.tsx` to client component, wired `totalProjects`, `todayFocusMinutes`, and `currentLevel` to `useFocusStore`; created `app/__tests__/page.test.tsx` with 4 tests; all 176/176 tests passing, TypeScript clean; live browser verified stats update after project creation and timer run.
 
 Remaining pieces:
-- **Piece 3:** Dashboard stats hardcoded (wire to store).
 - **Piece 4:** `useTimer` reset/lint cleanup.
 - **Piece 5:** Extension `require()` lint errors.
 - **Piece 6:** `/settings` page missing.
