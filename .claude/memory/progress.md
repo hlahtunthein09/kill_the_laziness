@@ -478,15 +478,21 @@ Verification run found web app not ready for release. Fixed so far:
 
 - **Piece 4 — `useTimer` reset/lint cleanup:** replaced `init.shouldAutoComplete` mutation with `autoCompleteHandledRef`; restructured `tick` so it is declared before the RAF loop references it; verified reset restores `projectElapsed` and `subPieceRemaining` to store values and pauses the timer; `hooks/useTimer.ts` lint errors resolved; 177/177 tests passing, TypeScript clean; live browser verified reset behavior.**
 
-- **Piece 5 — Extension `require()` lint errors:** replaced `require("wxt/browser")` with dynamic `import("wxt/browser")` in `extension/lib/focusSync.ts`, `redirect.ts`, `storage.ts`, and `timerAlarm.ts`; made `getBrowser()` async and propagated `await` to callers; updated `timerAlarm.test.ts`; all 4 target files lint-clean; `npm run build:ext` succeeds; 69/69 extension tests + 177/177 full suite passing; TypeScript clean.**
-
 Remaining pieces:
-- **Piece 6:** `/settings` page missing.
+- **Piece 5:** Extension `require()` lint errors. — **REVERTED** due to PC crashes; will revisit later with lighter approach.
+- **Piece 6:** `/settings` page missing. — **DELETED** (monolithic attempt caused crashes); will revisit as lightweight feature-by-feature when PC is stable.
 
-Workflow updated: live browser verification with Playwright MCP is now mandatory for UI/timer/extension changes.
+Workflow updated: live browser verification with Playwright MCP is now mandatory for UI/timer/extension changes. **Additional rule added:** use lightweight agent mode (narrow scope, targeted tests only, one focused live browser check) when PC resources are limited.
+
+## Current State (2026-06-22)
+
+- **Piece 1–4:** Complete and pushed to GitHub.
+- **Piece 5:** Reverted to pre-fix state (`git revert 5fa610f`).
+- **Piece 6:** Deleted; no settings page exists.
+- **PC status:** Crashed multiple times during Piece 5/6 work; currently cooling down.
 
 ## Next Action
-Decide next bugfix piece (Piece 3 dashboard stats, Piece 4 useTimer reset/lint, or Piece 5 extension lint).
+When PC is stable, re-analyze Piece 5/6 with even smaller scope or direct implementation (no heavy agents). For now, no further agent work.
 
 ## Blockers
 None.

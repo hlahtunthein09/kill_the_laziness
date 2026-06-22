@@ -10,22 +10,20 @@ export function setAlarmBrowserInstance(browser: Browser): void {
   _browser = browser;
 }
 
-async function getBrowser(): Promise<Browser> {
+function getBrowser(): Browser {
   if (!_browser) {
-    const { browser } = await import("wxt/browser");
+    const { browser } = require("wxt/browser");
     _browser = browser;
   }
   return _browser!;
 }
 
-export async function startFocusAlarm(): Promise<void> {
-  const browser = await getBrowser();
-  browser.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
+export function startFocusAlarm(): void {
+  getBrowser().alarms.create(ALARM_NAME, { periodInMinutes: 1 });
 }
 
-export async function stopFocusAlarm(): Promise<void> {
-  const browser = await getBrowser();
-  browser.alarms.clear(ALARM_NAME);
+export function stopFocusAlarm(): void {
+  getBrowser().alarms.clear(ALARM_NAME);
 }
 
 export async function onAlarmTick(): Promise<void> {
@@ -51,14 +49,14 @@ export async function onAlarmTick(): Promise<void> {
     updatedIsRunning = false;
 
     const notif = sessionCompleteNotification;
-    await (await getBrowser()).notifications.create("session-complete", {
+    await getBrowser().notifications.create("session-complete", {
       type: "basic",
       iconUrl: "/icon/128.png",
       title: notif.title.my,
       message: notif.body.my,
     });
 
-    await stopFocusAlarm();
+    stopFocusAlarm();
   }
 
   await setTimerState({

@@ -17,9 +17,9 @@ export function setRedirectBrowserInstance(browser: Browser): void {
   _browser = browser;
 }
 
-async function getBrowser(): Promise<Browser> {
+function getBrowser(): Browser {
   if (!_browser) {
-    const { browser } = await import("wxt/browser");
+    const { browser } = require("wxt/browser");
     _browser = browser;
   }
   return _browser!;
@@ -31,7 +31,7 @@ export interface ExtensionSettings {
 }
 
 async function getExtensionSettings(): Promise<ExtensionSettings | null> {
-  const result = await (await getBrowser()).storage.local.get(SETTINGS_KEY);
+  const result = await getBrowser().storage.local.get(SETTINGS_KEY);
   return (result[SETTINGS_KEY] as ExtensionSettings | undefined) ?? null;
 }
 
@@ -70,8 +70,8 @@ export async function handleTabUpdate(
   const patterns = await getForbiddenPatterns();
   if (!isForbiddenUrl(changeInfo.url, patterns)) return;
 
-  const blockedUrl = (await getBrowser()).runtime.getURL(BLOCKED_HTML_PATH);
-  await (await getBrowser()).tabs.update(tabId, { url: blockedUrl });
+  const blockedUrl = getBrowser().runtime.getURL(BLOCKED_HTML_PATH);
+  await getBrowser().tabs.update(tabId, { url: blockedUrl });
 }
 
 /**
@@ -79,7 +79,7 @@ export async function handleTabUpdate(
  */
 export async function logDistractionAttempt(url: string): Promise<void> {
   const LOGS_KEY = "ff_distraction_logs";
-  const result = await (await getBrowser()).storage.local.get(LOGS_KEY);
+  const result = await getBrowser().storage.local.get(LOGS_KEY);
   const logs = (result[LOGS_KEY] as Array<{ url: string; timestamp: number; action: string }> | undefined) ?? [];
 
   logs.push({
@@ -88,5 +88,5 @@ export async function logDistractionAttempt(url: string): Promise<void> {
     action: "blocked",
   });
 
-  await (await getBrowser()).storage.local.set({ [LOGS_KEY]: logs });
+  await getBrowser().storage.local.set({ [LOGS_KEY]: logs });
 }

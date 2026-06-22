@@ -75,6 +75,13 @@ Only after explicit user confirmation. The agent must:
 
 If tests are missing or failing, the agent must fix them before reporting.
 
+**Lightweight mode (use when PC resources are limited or the piece is UI-heavy):**
+- Split the work into the smallest feature slices possible (e.g., one toggle at a time, one form section at a time).
+- Give the agent an explicit, narrow scope: exact files to read, exact component to build, exact tests to write.
+- Instruct the agent to run only the targeted test file (`npx vitest run <path>`), not the full suite, unless the final verification step.
+- Instruct the agent to perform one focused live browser check, not a broad multi-page sweep.
+- Prefer sequential small agents over one large agent.
+
 ### 8. Verify
 - Run `npx tsc --noEmit`.
 - Run `npm run dev` briefly if UI changed.

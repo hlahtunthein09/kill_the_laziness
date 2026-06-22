@@ -18,7 +18,7 @@ describe("timerAlarm.ts", () => {
 
   describe("startFocusAlarm", () => {
     it("creates a periodic alarm named focus-timer", async () => {
-      await startFocusAlarm();
+      startFocusAlarm();
 
       const alarm = await fakeBrowser.alarms.get("focus-timer");
       expect(alarm).not.toBeNull();
@@ -29,10 +29,10 @@ describe("timerAlarm.ts", () => {
 
   describe("stopFocusAlarm", () => {
     it("clears the focus-timer alarm", async () => {
-      await startFocusAlarm();
+      startFocusAlarm();
       expect(await fakeBrowser.alarms.get("focus-timer")).not.toBeUndefined();
 
-      await stopFocusAlarm();
+      stopFocusAlarm();
       expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
     });
   });
