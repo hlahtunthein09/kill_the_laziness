@@ -16,9 +16,9 @@ FocusFlow AI = **Todo List + Timer + Motivated Speech Notifications**
 2. **User is a beginner.** Explain each step concisely. No silent implementation marathons.
 3. **Burmese-first UI.** All user-facing text is in Burmese; English is secondary.
 4. **Memory-first research.** Reuse findings from `.claude/memory/`. Query Context7/WebFetch only for genuinely new primitives or patterns.
-5. **Virtual size before skill.** Estimate in one short table. Split if >3 new files, >1 page, >1 hook, or >200 lines.
-6. **Skill-driven agents.** Each (sub-)piece uses a documented skill template and a specialized subagent.
-7. **Test every piece.** Every implementation must include tests that pass.
+5. **Virtual size before skill.** Estimate in one short table. Split if >3 new files, >1 page, >1 hook, or >200 lines. **For PC-sensitive work, split further: prefer ≤1 new file, ≤1 modified file, ≤100 lines per feature.**
+6. **Skill-driven agents.** Each (sub-)piece uses a documented skill template and a specialized subagent. **Agents must stay lightweight: narrow scope, limited file reads, no browser automation unless explicitly requested.**
+7. **Test every piece.** Every implementation must include tests that pass. **Run only the targeted test file, not the full suite, during agent work.**
 8. **Memory is source of truth.** Progress, conventions, and specs live in `.claude/memory/` and are indexed by `.claude/memory/MEMORY.md`.
 9. **Update progress after every piece.** One-line status updates in `.claude/memory/progress.md`.
 10. **Save tokens.** Re-read files only when memory is stale; keep chat responses short and ask one confirmation question per turn.
@@ -54,7 +54,12 @@ Report in one table before building a skill:
 - ⚠️ **Medium**: ≤6 new files, ≤2 pages, ≤2 hooks, ≤400 lines
 - ❌ **Too Big**: >6 files, >2 pages, >2 hooks, or >400 lines
 
-If too big, split BEFORE building the skill and update the roadmap.
+**PC-sensitive / lightweight thresholds (default when machine resources are limited or the piece touches UI/timer/extension):**
+- ✅ **Tiny**: ≤1 new file, ≤1 modified file, ≤1 hook, ≤100 lines
+- ⚠️ **Small**: ≤2 new files, ≤2 modified files, ≤1 hook, ≤150 lines
+- ❌ **Too Big**: anything larger — must split into tinier features
+
+If too big, split BEFORE building the skill and update the roadmap. Prefer many tiny features over one medium feature.
 
 ### 5. Build/Update Skill
 After scope is finalized, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat. **Every skill must include a concrete test strategy: test file path(s), what to test, and how to verify.**
@@ -75,23 +80,24 @@ Only after explicit user confirmation. The agent must:
 
 If tests are missing or failing, the agent must fix them before reporting.
 
-**Lightweight mode (use when PC resources are limited or the piece is UI-heavy):**
-- Split the work into the smallest feature slices possible (e.g., one toggle at a time, one form section at a time).
+**Lightweight agent rules (mandatory when PC resources are limited or the piece touches UI/timer/extension):**
 - Give the agent an explicit, narrow scope: exact files to read, exact component to build, exact tests to write.
-- Instruct the agent to run only the targeted test file (`npx vitest run <path>`), not the full suite, unless the final verification step.
-- Instruct the agent to perform one focused live browser check, not a broad multi-page sweep.
-- Prefer sequential small agents over one large agent.
+- Instruct the agent to run only the targeted test file (`npx vitest run <path>`), not the full suite.
+- **Instruct the agent NOT to open any browser, use Playwright MCP, or run `npm run dev`.**
+- Maximum 3 files to read unless the user explicitly allows more.
+- Prefer sequential tiny agents over one large agent.
+- If the agent needs browser verification, it must report what to check and let the user or I verify manually.
 
 ### 8. Verify
 - Run `npx tsc --noEmit`.
-- Run `npm run dev` briefly if UI changed.
-- Run tests (`npx vitest run <test-file>` or `npm test`).
-- **For any UI/timer/extension change, run live browser verification with the Playwright MCP server:**
-  - `mcp__playwright__browser_navigate` to the affected route.
-  - `mcp__playwright__browser_snapshot` or `mcp__playwright__browser_take_screenshot` to confirm the real rendered output.
-  - Reproduce the reported bug scenario in the browser and confirm it is fixed.
-- A piece is **not done** until TypeScript, tests, and live browser verification all pass.
-- If the agent reports completion without live browser proof, do not accept it; re-run the verification yourself.
+- Run tests (`npx vitest run <test-file>`). **Run the full suite (`npm test`) only at the end of a batch of tiny features, not for every single feature.**
+- If the piece touches the extension, run `npm run build:ext`.
+- **For UI/timer/extension changes, prefer `npm run build` over `npm run dev` to avoid a recompile loop.**
+- **Live browser verification is optional and lightweight by default:**
+  - The user can manually open the browser and confirm.
+  - If automated verification is needed, use Playwright MCP only for one focused check, not a broad sweep.
+  - Avoid opening multiple browser tabs or running long browser sessions.
+- A piece is **not done** until TypeScript and the targeted tests pass. Browser verification is required only when the change directly affects rendered UI behavior.
 
 ### 9. Update Memory
 - Append one-line status to `.claude/memory/progress.md`.
