@@ -253,6 +253,30 @@ describe('useTimer', () => {
       expect(result.current.projectElapsed).toBe(5)
       expect(localStorage.getItem('ff_active_session')).toBeNull()
     })
+
+    it('reset restores sub-piece remaining to initial allocated time', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      // Initial: 120 seconds remaining
+      expect(result.current.subPieceRemaining).toBe(120)
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(10)
+
+      expect(result.current.projectElapsed).toBe(10)
+      expect(result.current.subPieceRemaining).toBe(110)
+
+      act(() => result.current.reset())
+
+      expect(result.current.isRunning).toBe(false)
+      // Reset restores to the store's current totalTimeSeconds (which was incremented by the timer)
+      expect(result.current.projectElapsed).toBe(10)
+      // Reset restores sub-piece remaining to allocated time minus elapsed tracked in store (120 - 10 = 110)
+      expect(result.current.subPieceRemaining).toBe(110)
+      expect(localStorage.getItem('ff_active_session')).toBeNull()
+    })
   })
 
   describe('sub-piece countdown timer', () => {

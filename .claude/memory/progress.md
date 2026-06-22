@@ -476,8 +476,9 @@ Verification run found web app not ready for release. Fixed so far:
 - **Piece 2 — Zustand store rehydration:** added `HydrationSlice`, `skipHydration: true`, and explicit `persist.rehydrate()` in provider; live browser verified projects appear after client-side navigation.
 - **Piece 3 — Dashboard stats hardcoded:** converted `app/page.tsx` to client component, wired `totalProjects`, `todayFocusMinutes`, and `currentLevel` to `useFocusStore`; created `app/__tests__/page.test.tsx` with 4 tests; all 176/176 tests passing, TypeScript clean; live browser verified stats update after project creation and timer run.
 
+- **Piece 4 — `useTimer` reset/lint cleanup:** replaced `init.shouldAutoComplete` mutation with `autoCompleteHandledRef`; restructured `tick` so it is declared before the RAF loop references it; verified reset restores `projectElapsed` and `subPieceRemaining` to store values and pauses the timer; `hooks/useTimer.ts` lint errors resolved; 177/177 tests passing, TypeScript clean; live browser verified reset behavior.**
+
 Remaining pieces:
-- **Piece 4:** `useTimer` reset/lint cleanup.
 - **Piece 5:** Extension `require()` lint errors.
 - **Piece 6:** `/settings` page missing.
 

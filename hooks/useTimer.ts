@@ -148,6 +148,7 @@ export function useTimer(
   const accumulatedRef = useRef(0);
   const lastPersistRef = useRef(0);
   const initialProjectTimeRef = useRef(initialProjectTime);
+  const autoCompleteHandledRef = useRef(false);
 
   // Keep latest values in refs for the RAF loop (avoids stale closures)
   const projectElapsedRef = useRef(init.projectElapsed);
@@ -166,14 +167,13 @@ export function useTimer(
 
   // Auto-complete sub-piece on restore if drift brought it to zero
   useEffect(() => {
-    if (projectId && init.shouldAutoComplete && subPieceId) {
+    if (projectId && init.shouldAutoComplete && subPieceId && !autoCompleteHandledRef.current) {
+      autoCompleteHandledRef.current = true;
       const state = useFocusStore.getState();
       state.incrementProjectTime(projectId, init.autoCompleteSeconds);
       state.incrementSubPieceTime(projectId, subPieceId, init.autoCompleteSeconds);
       state.completeSubPiece(projectId, subPieceId);
       localStorage.removeItem(SESSION_KEY);
-      // Mark as handled so we don't run again
-      init.shouldAutoComplete = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -196,8 +196,31 @@ export function useTimer(
     [projectId, subPieceId, project?.name, subPiece?.name]
   );
 
-  const tick = useCallback(
-    (now: number) => {
+  // Keep the latest persistSession in a ref so tick can access it without
+  // being a dependency (avoids stale closure and ESLint immutability issues).
+  const persistSessionRef = useRef(persistSession);
+  useEffect(() => {
+    persistSessionRef.current = persistSession;
+  }, [persistSession]);
+
+  // Keep the latest setters in refs so the RAF loop can call them without
+  // creating stale closures.
+  const setProjectElapsedRef = useRef(setProjectElapsed);
+  const setSubPieceRemainingRef = useRef(setSubPieceRemaining);
+  const setIsRunningRef = useRef(setIsRunning);
+  useEffect(() => { setProjectElapsedRef.current = setProjectElapsed; }, []);
+  useEffect(() => { setSubPieceRemainingRef.current = setSubPieceRemaining; }, []);
+  useEffect(() => { setIsRunningRef.current = setIsRunning; }, []);
+
+  // RAF loop effect. tick is defined as a regular function inside the effect
+  // so it can reference itself without ESLint "accessed before declaration" errors,
+  // and all mutable values are read from refs to avoid stale closures.
+  useEffect(() => {
+    if (!isRunning) return;
+
+    lastTickRef.current = null;
+
+    function tick(now: number) {
       if (!projectId) return;
 
       if (lastTickRef.current === null) {
@@ -221,18 +244,18 @@ export function useTimer(
           : 0;
 
         projectElapsedRef.current = nextProjectElapsed;
-        setProjectElapsed(nextProjectElapsed);
+        setProjectElapsedRef.current(nextProjectElapsed);
 
         if (subPieceId) {
           subPieceRemainingRef.current = nextSubPieceRemaining;
-          setSubPieceRemaining(nextSubPieceRemaining);
+          setSubPieceRemainingRef.current(nextSubPieceRemaining);
         }
 
         // Persist every 5 seconds
         const totalElapsed = nextProjectElapsed - initialProjectTimeRef.current;
         if (totalElapsed - lastPersistRef.current >= 5) {
           lastPersistRef.current = totalElapsed;
-          persistSession(true, nextProjectElapsed, subPieceRemainingRef.current);
+          persistSessionRef.current(true, nextProjectElapsed, subPieceRemainingRef.current);
         }
 
         // Update store each accumulated second
@@ -244,7 +267,7 @@ export function useTimer(
 
         // Auto-complete sub-piece when it hits zero
         if (subPieceId && prevSubPieceRemaining > 0 && nextSubPieceRemaining === 0) {
-          setIsRunning(false);
+          setIsRunningRef.current(false);
           if (rafRef.current !== null) {
             cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
@@ -261,22 +284,17 @@ export function useTimer(
       if (isRunningRef.current) {
         rafRef.current = requestAnimationFrame(tick);
       }
-    },
-    [projectId, subPieceId, persistSession]
-  );
-
-  useEffect(() => {
-    if (isRunning) {
-      lastTickRef.current = null;
-      rafRef.current = requestAnimationFrame(tick);
     }
+
+    rafRef.current = requestAnimationFrame(tick);
+
     return () => {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
     };
-  }, [isRunning, tick]);
+  }, [isRunning, projectId, subPieceId]);
 
   const start = useCallback(() => {
     if (!projectId) return;
