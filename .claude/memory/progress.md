@@ -478,8 +478,9 @@ Verification run found web app not ready for release. Fixed so far:
 
 - **Piece 4 — `useTimer` reset/lint cleanup:** replaced `init.shouldAutoComplete` mutation with `autoCompleteHandledRef`; restructured `tick` so it is declared before the RAF loop references it; verified reset restores `projectElapsed` and `subPieceRemaining` to store values and pauses the timer; `hooks/useTimer.ts` lint errors resolved; 177/177 tests passing, TypeScript clean; live browser verified reset behavior.**
 
+- **Piece 5 — Extension `require()` lint errors:** replaced `require("wxt/browser")` with dynamic `import("wxt/browser")` in `extension/lib/focusSync.ts`, `redirect.ts`, `storage.ts`, and `timerAlarm.ts`; made `getBrowser()` async and propagated `await` to callers; updated `timerAlarm.test.ts`; all 4 target files lint-clean; `npm run build:ext` succeeds; 69/69 extension tests + 177/177 full suite passing; TypeScript clean.**
+
 Remaining pieces:
-- **Piece 5:** Extension `require()` lint errors.
 - **Piece 6:** `/settings` page missing.
 
 Workflow updated: live browser verification with Playwright MCP is now mandatory for UI/timer/extension changes.

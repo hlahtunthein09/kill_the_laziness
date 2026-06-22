@@ -10,10 +10,10 @@ export function setFocusSyncBrowserInstance(browser: Browser): void {
   _browser = browser;
 }
 
-function getBrowser(): Browser {
+async function getBrowser(): Promise<Browser> {
   if (!_browser) {
     // In production, import from wxt/browser
-    const { browser } = require("wxt/browser");
+    const { browser } = await import("wxt/browser");
     _browser = browser;
   }
   return _browser!;
@@ -72,7 +72,7 @@ export async function syncFocusSession(): Promise<void> {
   }
 
   try {
-    await getBrowser().runtime.sendMessage({
+    await (await getBrowser()).runtime.sendMessage({
       action: "UPDATE_TIMER_STATE",
       payload: state,
     });
