@@ -484,15 +484,31 @@ Remaining pieces:
 
 Workflow updated: live browser verification with Playwright MCP is now mandatory for UI/timer/extension changes. **Additional rule added:** use lightweight agent mode (narrow scope, targeted tests only, one focused live browser check) when PC resources are limited.
 
-## Current State (2026-06-22)
+## Current State (2026-06-22 / end of session)
 
 - **Piece 1–4:** Complete and pushed to GitHub.
-- **Piece 5:** Reverted to pre-fix state (`git revert 5fa610f`).
+  - Piece 1: TimerPanel hooks crash fixed.
+  - Piece 2: Zustand store rehydration fixed.
+  - Piece 3: Dashboard stats wired to store.
+  - Piece 4: useTimer lint/reset fixed.
+- **Piece 5:** Reverted to pre-fix state (`git revert 5fa610f`). Extension `require()` lint errors remain.
 - **Piece 6:** Deleted; no settings page exists.
-- **PC status:** Crashed multiple times during Piece 5/6 work; currently cooling down.
+- **Playwright MCP:** Disabled by user to reduce PC load.
+- **Project status:** `npm run dev` and `npm run build` both working; `npm test` 177/177 passing.
+- **Workflow updated:** lightweight feature-by-feature mode documented in `.claude/memory/workflow.md`.
 
-## Next Action
-When PC is stable, re-analyze Piece 5/6 with even smaller scope or direct implementation (no heavy agents). For now, no further agent work.
+## Current State (2026-06-23 / new chat)
+
+- **No new implementation in this session.** User confirmed Playwright MCP remains disabled and manual browser verification will be used for UI/timer/extension changes.
+- **Open pieces unchanged:** Piece 5 (extension `require()` lint errors, reverted) and Piece 6 (`/settings` page, deleted) still pending.
+- **Test suite:** 177/177 tests passing, TypeScript clean, `npm run dev` and `npm run build` working.
+- **Workflow confirmed:** lightweight feature-by-feature mode (≤100 lines, ≤1 new file, targeted tests, no browser automation from agents).
+
+## Next Action (for next chat)
+Continue with tiny features only. Piece 5/6 remain open but must be split into ≤100-line features and implemented without Playwright MCP or heavy agents.
+
+## Blockers
+None.
 
 ## Blockers
 None.
