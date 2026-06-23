@@ -509,11 +509,22 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Piece 6b complete:** `StrictModeToggle` component created; reads/writes `settings.strictMode` via `useFocusStore`; 4/4 tests passing; TypeScript clean; `npm run build` succeeds.
 - **Piece 6c-a complete:** `AddForbiddenUrl` component created; input + add button with validation; reads/writes `settings.forbiddenUrls` via `useFocusStore`; 5/5 tests passing; TypeScript clean; `npm run build` succeeds.
 - **Piece 6c-b complete:** `ForbiddenUrlsList` component created; integrated into `/settings` page; reads `settings.forbiddenUrls` and calls `removeForbiddenUrl`/`resetForbiddenUrls`; 4/4 tests passing; TypeScript clean; `npm run build` succeeds.
-- **Open pieces:** Piece 6d (notification preferences), 6e (theme selector).
-- **Workflow confirmed:** lightweight feature-by-feature mode (≤100 lines, ≤1 new file, targeted tests, no browser automation from agents).
+- **Piece 6d complete:** `NotificationsToggle` component created; reads/writes `settings.notificationsEnabled` via `useFocusStore`; integrated into `/settings` page; 3/3 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 6e-a complete:** `ThemeProvider` wrapper created around `next-themes`; `app/layout.tsx` wraps app with `<ThemeProvider>`; `suppressHydrationWarning` kept on `<html>`; 1/1 test passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 6e-b complete:** `ThemeSelector` component created; reads `settings.theme` from `useFocusStore`, calls `setTheme` from `next-themes`; uses native `<select>` with Burmese labels and Lucide icons; integrated into `/settings` page; removed leftover placeholder section from `app/settings/page.tsx`; updated `app/__tests__/settings-page.test.tsx` descriptions; full suite 199/199 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 7b complete:** `ProjectCard.tsx` active-project indicator added — card-level `ring-2 ring-teal-500 border-teal-500` highlight + `"လက်ရှိ focus လုပ်နေသည် (Currently focusing)"` badge in header; `ProjectCard.test.tsx` active/inactive indicator tests added; 10/10 tests passing; full suite 202/202; TypeScript clean; `npm run build` succeeds.
+- **Piece 8a complete:** `incrementProjectTime` now adds `Math.floor(seconds / 60) * XP_PER_MINUTE` XP to the project; `useFocusStore.test.ts` adds 2 tests for full-minute XP gain and partial-minute no-XP; 26/26 store tests passing; full suite 204/204; TypeScript clean; `npm run build` succeeds.
+- **Piece 8b complete:** `completeSubPiece` now adds `XP_SUB_PIECE_COMPLETE` (50 XP) to the project; `useFocusStore.test.ts` adds test verifying sub-piece completion grants bonus XP; 27/27 store tests passing; full suite 205/205; TypeScript clean; `npm run build` succeeds.
+- **Piece 9b complete:** `extension/lib/focusSync.ts` extended with `syncExtensionSettings()` — reads `ff_focus_store` settings and syncs `strictMode`/`forbiddenUrls` to extension storage via `setExtensionSettings()`; `focusSync.content.ts` polls settings alongside timer; `focusSync.test.ts` updated with 7 settings-sync tests (19/19 passing); full suite 222/222; TypeScript clean; `npm run build:ext` succeeds.
+- **MVP status:** Core web app + extension engine complete. User research completed comparing Pomofocus, Forest, Freedom, Todoist Karma, and MV3 pomodoro extension. Identified that the project needs workflow UX fixes to become a daily useful tool, especially off-screen motivational notifications.
+- **Roadmap update (2026-06-23):** Prioritized 12 small pieces across 4 tiers to transform FocusFlow AI into a friction-free daily focus tool:
+  - **Tier 1 (must-have, 4 pieces):** focus button navigation, extension milestone notifications, default project auto-creation, timer empty-state CTA
+  - **Tier 2 (habit formation, 3 pieces):** daily focus goal, quick focus input, streak counter
+  - **Tier 3 (polish, 5 pieces):** visual timer ring, session summary, project status updates, extension popup controls, distraction log in web app
+  - **Tier 4 (future):** sound toggle, fortress visualization, cross-device sync, scheduled focus sessions
 
 ## Next Action (for next chat)
-Continue with tiny features only. Piece 5/6 remain open but must be split into ≤100-line features and implemented without Playwright MCP or heavy agents.
+Proceed with Tier 1 pieces in order. Start with focus button navigation to `/timer`, then extension milestone notifications, then default project, then timer empty-state CTA. Keep lightweight feature-by-feature mode.
 
 ## Blockers
 None.

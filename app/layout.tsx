@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { StoreHydrationProvider } from "@/components/providers/StoreHydrationProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -29,12 +30,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground">
-        <TooltipProvider>
-          <AppShell>
-            <StoreHydrationProvider>{children}</StoreHydrationProvider>
-          </AppShell>
-        </TooltipProvider>
-        <Toaster />
+        <ThemeProvider>
+          <TooltipProvider>
+            <AppShell>
+              <StoreHydrationProvider>{children}</StoreHydrationProvider>
+            </AppShell>
+          </TooltipProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

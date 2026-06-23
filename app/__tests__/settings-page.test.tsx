@@ -10,7 +10,7 @@ describe('SettingsPage', () => {
     expect(heading.textContent).toContain('Settings')
   })
 
-  it('renders all placeholder section labels in Burmese', () => {
+  it('renders all section labels in Burmese', () => {
     render(<SettingsPage />)
     expect(screen.getByText('အထူးသတိပြုရန် မုဒ်')).toBeInTheDocument()
     expect(screen.getByText('တားမြစ်ထားသော ဝဘ်ဆိုက်များ')).toBeInTheDocument()
@@ -18,7 +18,7 @@ describe('SettingsPage', () => {
     expect(screen.getByText('အပြင်အဆင်')).toBeInTheDocument()
   })
 
-  it('renders all placeholder section labels in English', () => {
+  it('renders all section labels in English', () => {
     render(<SettingsPage />)
     expect(screen.getByText('Strict Mode')).toBeInTheDocument()
     expect(screen.getByText('Forbidden URLs')).toBeInTheDocument()

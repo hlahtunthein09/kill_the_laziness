@@ -4,6 +4,7 @@ import type { StateCreator } from "zustand";
 import type { Project, SubPiece, PieceStatus } from "@/lib/types";
 import type { FocusState } from "../useFocusStore";
 import { generateId } from "@/lib/utils";
+import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
 
 export interface ProjectSlice {
   projects: Project[];
@@ -169,9 +170,12 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   },
 
   incrementProjectTime: (projectId, seconds) => {
+    const xpToAdd = Math.floor(seconds / 60) * XP_PER_MINUTE;
     set((state) => ({
       projects: state.projects.map((p) =>
-        p.id === projectId ? { ...p, totalTimeSeconds: p.totalTimeSeconds + seconds } : p
+        p.id === projectId
+          ? { ...p, totalTimeSeconds: p.totalTimeSeconds + seconds, xp: p.xp + xpToAdd }
+          : p
       ),
     }));
   },
@@ -197,6 +201,7 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
         p.id === projectId
           ? {
               ...p,
+              xp: p.xp + XP_SUB_PIECE_COMPLETE,
               subPieces: p.subPieces.map((sp) =>
                 sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
               ),

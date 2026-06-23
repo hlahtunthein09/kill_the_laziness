@@ -1,12 +1,9 @@
+import { NotificationsToggle } from "@/components/settings/NotificationsToggle";
 import { Settings } from "lucide-react";
 import { StrictModeToggle } from "@/components/settings/StrictModeToggle";
 import { AddForbiddenUrl } from "@/components/settings/AddForbiddenUrl";
 import { ForbiddenUrlsList } from "@/components/settings/ForbiddenUrlsList";
-
-const sections = [
-  { burmese: "အသိပေးချက်များ", english: "Notifications" },
-  { burmese: "အပြင်အဆင်", english: "Theme" },
-];
+import { ThemeSelector } from "@/components/settings/ThemeSelector";
 
 export default function SettingsPage() {
   return (
@@ -29,6 +26,11 @@ export default function SettingsPage() {
           <StrictModeToggle />
         </div>
 
+        {/* Notifications toggle — live component */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <NotificationsToggle />
+        </div>
+
         {/* Forbidden URLs — live component */}
         <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
           <AddForbiddenUrl />
@@ -37,19 +39,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Placeholder sections */}
-        {sections.map((section) => (
-          <div
-            key={section.english}
-            className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm"
-          >
-            <h2 className="text-lg font-semibold text-stone-900">
-              {section.burmese}
-            </h2>
-            <p className="text-sm text-stone-500 mt-1">{section.english}</p>
-            <div className="mt-4 h-8 rounded-md bg-stone-100" />
-          </div>
-        ))}
+        {/* Theme selector — live component */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <ThemeSelector />
+        </div>
       </div>
     </div>
   );

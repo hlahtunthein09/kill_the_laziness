@@ -18,6 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Target } from "lucide-react";
 import { AddSubPieceButton } from "./AddSubPieceButton";
 import { SubPieceList } from "./SubPieceList";
+import { useFocusStore } from "@/lib/store/useFocusStore";
+import { Button } from "@/components/ui/button";
+import { Crosshair } from "lucide-react";
 
 interface ProjectCardProps {
   project: Project;
@@ -67,13 +70,20 @@ export function ProjectCard({ project }: ProjectCardProps) {
     return Math.min(100, Math.round((project.totalTimeSeconds / project.targetTimeSeconds) * 100));
   }, [project.totalTimeSeconds, project.targetTimeSeconds]);
 
+  const activeProjectId = useFocusStore((s) => s.activeProjectId);
+  const setActiveProject = useFocusStore((s) => s.setActiveProject);
+  const isActive = project.id === activeProjectId;
+
   const formattedTime = useMemo(() => formatDuration(project.totalTimeSeconds), [project.totalTimeSeconds]);
   const formattedTarget = useMemo(() => formatDuration(project.targetTimeSeconds), [project.targetTimeSeconds]);
 
   const description = project.description?.trim();
 
   return (
-    <Card className="group bg-card-glow hover:shadow-md transition-shadow duration-200">
+    <Card className={cn(
+      "group bg-card-glow hover:shadow-md transition-shadow duration-200",
+      isActive && "ring-2 ring-teal-500 border-teal-500"
+    )}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <span className={cn("size-3 rounded-full shrink-0", colorStyle.dot)} />
@@ -86,13 +96,18 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {description}
           </CardDescription>
         )}
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <Badge
             variant="outline"
             className={cn("text-xs font-medium", colorStyle.badge)}
           >
             {statusInfo.label} ({statusInfo.en})
           </Badge>
+          {isActive && (
+            <Badge className="text-xs font-medium bg-teal-500 text-white">
+              လက်ရှိ focus လုပ်နေသည် (Currently focusing)
+            </Badge>
+          )}
         </div>
       </CardHeader>
 
@@ -124,7 +139,23 @@ export function ProjectCard({ project }: ProjectCardProps) {
             စုစုပေါင်း အချိန်: {formattedTime} (Total time: {formattedTime})
           </span>
         </div>
-        <AddSubPieceButton projectId={project.id} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveProject(project.id)}
+            className={cn(
+              "text-xs gap-1",
+              isActive && "border-teal-500 text-teal-700 bg-teal-50"
+            )}
+            aria-pressed={isActive}
+          >
+            <Crosshair className="h-3 w-3" />
+            <span className="hidden sm:inline">ဤပရောဂျက်ကို focus လုပ်မယ်</span>
+            <span className="sm:hidden">Focus</span>
+          </Button>
+          <AddSubPieceButton projectId={project.id} />
+        </div>
       </CardFooter>
     </Card>
   );

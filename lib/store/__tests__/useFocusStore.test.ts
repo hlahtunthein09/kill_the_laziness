@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useFocusStore } from '../useFocusStore'
-import { DEFAULT_APP_SETTINGS } from '@/lib/constants'
+import { DEFAULT_APP_SETTINGS, XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from '@/lib/constants'
 
 describe('useFocusStore', () => {
   beforeEach(() => {
@@ -296,6 +296,30 @@ describe('useFocusStore', () => {
       const updatedProject = useFocusStore.getState().projects[0]
       expect(updatedProject.subPieces[0].status).toBe('completed')
     })
+
+    it('awards XP_SUB_PIECE_COMPLETE to the project', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Project',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Sub-task',
+        allocatedMinutes: 30,
+        order: 0,
+      })
+
+      expect(project.xp).toBe(0)
+
+      useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+
+      const updatedProject = useFocusStore.getState().projects[0]
+      expect(updatedProject.subPieces[0].status).toBe('completed')
+      expect(updatedProject.xp).toBe(XP_SUB_PIECE_COMPLETE)
+    })
   })
 
   describe('updateSettings', () => {
@@ -335,6 +359,38 @@ describe('useFocusStore', () => {
       expect(log.timestamp).toBeDefined()
 
       expect(useFocusStore.getState().logs).toHaveLength(1)
+    })
+  })
+
+  describe('incrementProjectTime', () => {
+    it('adds XP per full minute of focused time', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'XP Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 120)
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.totalTimeSeconds).toBe(120)
+      expect(updated.xp).toBe(2 * XP_PER_MINUTE)
+    })
+
+    it('does not add XP for partial minutes', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Partial Test',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 30)
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.totalTimeSeconds).toBe(30)
+      expect(updated.xp).toBe(0)
     })
   })
 

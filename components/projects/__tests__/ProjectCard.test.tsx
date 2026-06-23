@@ -1,7 +1,20 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ProjectCard } from '../ProjectCard'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { Project } from '@/lib/types'
+
+const setActiveProjectMock = vi.fn()
+let mockActiveProjectId: string | null = null
+
+vi.mock('@/lib/store/useFocusStore', () => ({
+  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock }) => unknown) =>
+    selector({
+      activeProjectId: mockActiveProjectId,
+      setActiveProject: setActiveProjectMock,
+    }),
+}))
+
+// Import after mock is set up
+import { ProjectCard } from '../ProjectCard'
 
 function createMockProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -22,6 +35,33 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 }
 
 describe('ProjectCard', () => {
+  beforeEach(() => {
+    setActiveProjectMock.mockClear()
+    mockActiveProjectId = null
+  })
+
+  it('shows active badge when project is active', () => {
+    mockActiveProjectId = 'proj-1'
+
+    const { container } = render(<ProjectCard project={createMockProject({ id: 'proj-1' })} />)
+
+    expect(screen.getByText(/လက်ရှိ focus လုပ်နေသည်/)).toBeInTheDocument()
+    expect(screen.getByText(/Currently focusing/)).toBeInTheDocument()
+    expect(container.querySelector('.ring-2')).toBeInTheDocument()
+    expect(container.querySelector('.ring-teal-500')).toBeInTheDocument()
+    expect(container.querySelector('.border-teal-500')).toBeInTheDocument()
+  })
+
+  it('does not show active badge when project is inactive', () => {
+    mockActiveProjectId = 'proj-other'
+
+    const { container } = render(<ProjectCard project={createMockProject({ id: 'proj-1' })} />)
+
+    expect(screen.queryByText(/လက်ရှိ focus လုပ်နေသည်/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Currently focusing/)).not.toBeInTheDocument()
+    expect(container.querySelector('.ring-2')).not.toBeInTheDocument()
+  })
+
   it('shows project name', () => {
     render(<ProjectCard project={createMockProject()} />)
 
@@ -74,5 +114,17 @@ describe('ProjectCard', () => {
       <ProjectCard project={createMockProject({ color: 'ocean' })} />
     )
     expect(oceanContainer.querySelector('.bg-sky-400')).toBeInTheDocument()
+  })
+
+  it('clicking focus button calls setActiveProject with project id', () => {
+    render(<ProjectCard project={createMockProject({ id: 'proj-abc' })} />)
+
+    const focusButton = screen.getByRole('button', { name: /focus/i })
+    expect(focusButton).toBeInTheDocument()
+
+    fireEvent.click(focusButton)
+
+    expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
+    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-abc')
   })
 })
