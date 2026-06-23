@@ -4,6 +4,7 @@ import { StrictModeToggle } from "@/components/settings/StrictModeToggle";
 import { AddForbiddenUrl } from "@/components/settings/AddForbiddenUrl";
 import { ForbiddenUrlsList } from "@/components/settings/ForbiddenUrlsList";
 import { ThemeSelector } from "@/components/settings/ThemeSelector";
+import { DailyFocusGoalInput } from "@/components/settings/DailyFocusGoalInput";
 
 export default function SettingsPage() {
   return (
@@ -21,6 +22,11 @@ export default function SettingsPage() {
 
       {/* Settings sections */}
       <div className="grid gap-4">
+        {/* Daily Focus Goal — live component */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <DailyFocusGoalInput />
+        </div>
+
         {/* Strict Mode — live component */}
         <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
           <StrictModeToggle />

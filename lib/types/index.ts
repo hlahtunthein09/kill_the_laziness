@@ -39,6 +39,9 @@ export interface AppSettings {
   strictMode: boolean;
   notificationsEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
+  dailyFocusGoalMinutes: number;
+  todayFocusSeconds: number;
+  lastFocusDate: string;
 }
 
 export interface FocusSession {

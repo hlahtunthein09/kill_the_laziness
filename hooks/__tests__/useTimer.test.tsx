@@ -49,12 +49,9 @@ describe('useTimer', () => {
       rafCallbacks.delete(id)
     })
 
-    // Mock Date.now
+    // Mock Date.now without replacing the Date constructor
     now = 0
-    vi.stubGlobal('Date', {
-      ...Date,
-      now: () => now,
-    })
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
   })
 
   afterEach(() => {

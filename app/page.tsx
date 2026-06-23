@@ -10,9 +10,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AddProjectButton } from "@/components/projects/AddProjectButton";
+import { DailyFocusGoal } from "@/components/analytics/DailyFocusGoal";
 import {
   FolderKanban,
-  Timer,
   Trophy,
   Plus,
 } from "lucide-react";
@@ -21,12 +21,6 @@ export default function Home() {
   const projects = useFocusStore((state) => state.projects);
 
   const totalProjects = projects.length;
-
-  const todayFocusSeconds = projects.reduce(
-    (sum, project) => sum + project.totalTimeSeconds,
-    0
-  );
-  const todayFocusMinutes = Math.floor(todayFocusSeconds / 60);
 
   const totalXp = projects.reduce((sum, project) => sum + project.xp, 0);
   const currentLevel = getLevelFromXp(totalXp);
@@ -59,21 +53,8 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Today's Focus Time */}
-        <Card className="bg-card-glow">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-stone-500">
-              <Timer className="h-4 w-4 text-sky-500" />
-              ယနေ့ focus အချိန်
-            </CardDescription>
-            <CardTitle className="text-3xl font-bold text-stone-900">
-              {todayFocusMinutes} <span className="text-lg font-normal text-stone-500">မိနစ်</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-stone-400">Today&apos;s Focus Time</p>
-          </CardContent>
-        </Card>
+        {/* Daily Focus Goal */}
+        <DailyFocusGoal />
 
         {/* Current Level */}
         <Card className="bg-card-glow">

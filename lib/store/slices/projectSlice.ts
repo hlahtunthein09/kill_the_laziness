@@ -171,13 +171,24 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
 
   incrementProjectTime: (projectId, seconds) => {
     const xpToAdd = Math.floor(seconds / 60) * XP_PER_MINUTE;
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId
-          ? { ...p, totalTimeSeconds: p.totalTimeSeconds + seconds, xp: p.xp + xpToAdd }
-          : p
-      ),
-    }));
+    const today = new Date().toISOString().slice(0, 10);
+    set((state) => {
+      const lastDate = state.settings.lastFocusDate;
+      const newTodayFocus =
+        lastDate !== today ? seconds : state.settings.todayFocusSeconds + seconds;
+      return {
+        projects: state.projects.map((p) =>
+          p.id === projectId
+            ? { ...p, totalTimeSeconds: p.totalTimeSeconds + seconds, xp: p.xp + xpToAdd }
+            : p
+        ),
+        settings: {
+          ...state.settings,
+          todayFocusSeconds: newTodayFocus,
+          lastFocusDate: today,
+        },
+      };
+    });
   },
 
   incrementSubPieceTime: (projectId, subPieceId, seconds) => {

@@ -27,8 +27,15 @@ describe('useFocusStore', () => {
       expect(useFocusStore.getState().activeProjectId).toBeNull()
     })
 
-    it('has default settings', () => {
-      expect(useFocusStore.getState().settings).toEqual(DEFAULT_APP_SETTINGS)
+    it('has default settings with daily focus fields', () => {
+      const settings = useFocusStore.getState().settings
+      expect(settings.dailyFocusGoalMinutes).toBe(60)
+      expect(settings.todayFocusSeconds).toBe(0)
+      expect(settings.lastFocusDate).toBe('')
+      expect(settings.forbiddenUrls).toEqual(DEFAULT_APP_SETTINGS.forbiddenUrls)
+      expect(settings.strictMode).toBe(false)
+      expect(settings.notificationsEnabled).toBe(true)
+      expect(settings.theme).toBe('system')
     })
 
     it('has empty logs array', () => {
@@ -391,6 +398,44 @@ describe('useFocusStore', () => {
       const updated = useFocusStore.getState().projects[0]
       expect(updated.totalTimeSeconds).toBe(30)
       expect(updated.xp).toBe(0)
+    })
+
+    it('adds seconds to todayFocusSeconds when lastFocusDate is today', () => {
+      const today = new Date().toISOString().slice(0, 10)
+      useFocusStore.setState({
+        settings: { ...DEFAULT_APP_SETTINGS, lastFocusDate: today, todayFocusSeconds: 300 },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Daily Focus Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 120)
+
+      expect(useFocusStore.getState().settings.todayFocusSeconds).toBe(420)
+      expect(useFocusStore.getState().settings.lastFocusDate).toBe(today)
+    })
+
+    it('resets todayFocusSeconds when lastFocusDate is not today', () => {
+      const today = new Date().toISOString().slice(0, 10)
+      useFocusStore.setState({
+        settings: { ...DEFAULT_APP_SETTINGS, lastFocusDate: '2020-01-01', todayFocusSeconds: 9999 },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Date Reset Test',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 120)
+
+      expect(useFocusStore.getState().settings.todayFocusSeconds).toBe(120)
+      expect(useFocusStore.getState().settings.lastFocusDate).toBe(today)
     })
   })
 

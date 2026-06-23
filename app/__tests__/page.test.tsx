@@ -4,14 +4,23 @@ import Home from '../page'
 
 const mockUseFocusStore = vi.fn()
 
+const DEFAULT_SETTINGS = {
+  todayFocusSeconds: 0,
+  dailyFocusGoalMinutes: 120,
+  forbiddenUrls: [],
+  strictMode: false,
+  notifications: true,
+  theme: 'light',
+}
+
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: (selector: (state: { projects: any[] }) => any) =>
+  useFocusStore: (selector: (state: { projects: any[]; settings: any }) => any) =>
     mockUseFocusStore(selector),
 }))
 
-function mockStore(projects: any[]) {
-  mockUseFocusStore.mockImplementation((selector: (state: { projects: any[] }) => any) =>
-    selector({ projects })
+function mockStore(projects: any[], settings = DEFAULT_SETTINGS) {
+  mockUseFocusStore.mockImplementation((selector: (state: { projects: any[]; settings: any }) => any) =>
+    selector({ projects, settings })
   )
 }
 
@@ -29,11 +38,9 @@ describe('Home (Dashboard)', () => {
     expect(totalProjectsCard).toBeTruthy()
     expect(totalProjectsCard.textContent).toContain('0')
 
-    // Focus time should show 0 မိနစ်
-    const focusTimeCard = screen.getByText('ယနေ့ focus အချိန်').closest('[data-slot="card"]') as HTMLElement
-    expect(focusTimeCard).toBeTruthy()
-    expect(focusTimeCard.textContent).toContain('0')
-    expect(focusTimeCard.textContent).toContain('မိနစ်')
+    // DailyFocusGoal should show 0 / 120 with 0% progress
+    expect(screen.getByText('0 / 120')).toBeInTheDocument()
+    expect(screen.getByText('0% achieved (Goal reached)')).toBeInTheDocument()
 
     // Current Level should be 1 (default level)
     const levelCard = screen.getByText('လက်ရှိ အဆင့်').closest('[data-slot="card"]') as HTMLElement
@@ -62,9 +69,8 @@ describe('Home (Dashboard)', () => {
     const totalProjectsCard = screen.getByText('စုစုပေါင်း ပရောဂျက်များ').closest('[data-slot="card"]') as HTMLElement
     expect(totalProjectsCard.textContent).toContain('2')
 
-    // Today Focus Minutes = floor((3661 + 120) / 60) = floor(63.01) = 63
-    const focusTimeCard = screen.getByText('ယနေ့ focus အချိန်').closest('[data-slot="card"]') as HTMLElement
-    expect(focusTimeCard.textContent).toContain('63')
+    // DailyFocusGoal still shows 0 / 120 (it reads from settings, not project totals)
+    expect(screen.getByText('0 / 120')).toBeInTheDocument()
 
     // Total XP = 250 + 100 = 350 -> Level 2 (threshold 200)
     const levelCard = screen.getByText('လက်ရှိ အဆင့်').closest('[data-slot="card"]') as HTMLElement
@@ -92,7 +98,7 @@ describe('Home (Dashboard)', () => {
     render(<Home />)
 
     expect(screen.getByText('စုစုပေါင်း ပရောဂျက်များ')).toBeInTheDocument()
-    expect(screen.getByText('ယနေ့ focus အချိန်')).toBeInTheDocument()
+    expect(screen.getByText('နေ့စဉ် focus ရည်မှန်းချက်')).toBeInTheDocument()
     expect(screen.getByText('လက်ရှိ အဆင့်')).toBeInTheDocument()
   })
 })

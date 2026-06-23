@@ -82,4 +82,7 @@ export const DEFAULT_APP_SETTINGS = {
   strictMode: false,
   notificationsEnabled: true,
   theme: 'system' as const,
+  dailyFocusGoalMinutes: 60,
+  todayFocusSeconds: 0,
+  lastFocusDate: '',
 };

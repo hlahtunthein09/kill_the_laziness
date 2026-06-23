@@ -522,6 +522,12 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 1 Piece 4b complete:** `ProjectCard.tsx` focus button now auto-creates a default sub-piece `"အထွေထွေ focus (General Focus)"` when focusing a project with no sub-pieces; `ProjectCard.test.tsx` adds 2 tests for empty vs non-empty project focus behavior (11/11 passing); TypeScript clean; `npm run build` succeeds; full suite 242/242.
 - **Tier 1 Piece 4c complete:** `ProjectCard.tsx` focus button now auto-creates a default sub-piece when a project has no incomplete sub-pieces (covers both empty projects and fully completed projects); completed projects can be re-focused; `ProjectCard.test.tsx` adds re-focus test (12/12 passing); TypeScript clean; `npm run build` succeeds; full suite 243/243.
 - **Tier 1 complete:** Core daily focus tool workflow now fully friction-free for all project states — empty projects get default sub-piece, focus navigates to timer, extension sends milestone desktop notifications, default project auto-created, and timer empty-state has clear CTA.
+- **Tier 2 Piece 1a complete:** daily focus goal fields added to `AppSettings` and `DEFAULT_APP_SETTINGS`; `incrementProjectTime` now tracks `todayFocusSeconds` with date rollover; 29/29 store tests passing; TypeScript clean.
+- **Tier 2 Piece 1b-1 complete:** `components/analytics/DailyFocusGoal.tsx` created showing `todayMinutes / dailyFocusGoalMinutes`; `DailyFocusGoal.test.tsx` 3/3 passing; TypeScript clean; `npm run build` succeeds.
+- **Tier 2 Piece 1b-2 complete:** `DailyFocusGoal.tsx` progress bar added (`bg-stone-200` track + `bg-teal-500` fill with percentage); `DailyFocusGoal.test.tsx` 6/6 passing (50% progress, 100% cap, 0% progress); `app/page.tsx` replaced "ယနေ့ focus အချိန်" card with `<DailyFocusGoal />`; `page.test.tsx` updated for new mock shape and assertions; full suite 245/245; TypeScript clean; `npm run build` succeeds.
+- **Bugfix:** `DailyFocusGoal.tsx` NaN dashboard bug fixed by defaulting `todayFocusSeconds ?? 0` and `dailyFocusGoalMinutes ?? 60`, plus guarding division by zero; test added for missing persisted settings fields; 6/6 component tests passing; `npm run build` succeeds.
+- **Tier 2 Piece 1c complete:** `components/settings/DailyFocusGoalInput.tsx` created — number input with `min={15}`, `max={480}`, `step={5}`; reads/writes `settings.dailyFocusGoalMinutes` via `useFocusStore`; clamps on blur; Burmese-first label + English subtitle; `DailyFocusGoalInput.test.tsx` 4/4 passing (render, update, below-min clamp, above-max clamp); `app/settings/page.tsx` updated; full suite 249/249; TypeScript clean; `npm run build` succeeds.
+- **UX fix (Piece 1c):** `DailyFocusGoalInput` now has show/edit mode — input disabled by default with Edit (pencil) button; tapping Edit enables input and shows Confirm (check) button; value only saves on confirm; 6/6 tests passing; `npm run build` succeeds.
 - **Roadmap update (2026-06-23):** Prioritized 12 small pieces across 4 tiers to transform FocusFlow AI into a friction-free daily focus tool:
   - **Tier 1 (must-have):** ✅ Complete
   - **Tier 2 (habit formation, 3 pieces):** daily focus goal, quick focus input, streak counter
@@ -529,7 +535,7 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
   - **Tier 4 (future):** sound toggle, fortress visualization, cross-device sync, scheduled focus sessions
 
 ## Next Action (for next chat)
-Tier 1 is complete including re-focus on completed projects. Push to GitHub, then manual browser verification of the core flow: open app → default project exists → add task → focus (empty/completed projects auto-create default sub-piece) → timer runs → minimize browser → extension milestone notifications appear → complete notification appears. After verification, decide whether to continue with Tier 2 or fix any issues found during manual testing.
+Tier 2 Piece 1 complete. Push to GitHub and do manual browser verification, or continue with Tier 2 Piece 2 (quick focus input).
 
 ## Blockers
 None.
