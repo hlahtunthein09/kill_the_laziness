@@ -25,9 +25,9 @@ export async function handleMessage(
       await setTimerState(payload);
 
       if (payload.isRunning) {
-        startFocusAlarm();
+        await startFocusAlarm();
       } else {
-        stopFocusAlarm();
+        await stopFocusAlarm();
       }
 
       return { ok: true };

@@ -500,8 +500,16 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 ## Current State (2026-06-23 / new chat)
 
 - **No new implementation in this session.** User confirmed Playwright MCP remains disabled and manual browser verification will be used for UI/timer/extension changes.
-- **Open pieces unchanged:** Piece 5 (extension `require()` lint errors, reverted) and Piece 6 (`/settings` page, deleted) still pending.
-- **Test suite:** 177/177 tests passing, TypeScript clean, `npm run dev` and `npm run build` working.
+- **Piece 5a complete:** `extension/lib/storage.ts` `require("wxt/browser")` replaced with dynamic `await import("wxt/browser")`; 5/5 storage tests passing; TypeScript clean; WXT build succeeds.
+- **Piece 5b complete:** `extension/lib/timerAlarm.ts` `require("wxt/browser")` replaced with dynamic import; `startFocusAlarm`/`stopFocusAlarm` made async; `messageHandler.ts` updated to await them; 7/7 timerAlarm tests passing; TypeScript clean; WXT build succeeds.
+- **Piece 5c complete:** `extension/lib/redirect.ts` `require("wxt/browser")` replaced with dynamic import; 11/11 background-redirect tests passing; TypeScript clean; WXT build succeeds.
+- **Piece 5d complete:** `extension/lib/focusSync.ts` `require("wxt/browser")` replaced with dynamic import; 12/12 focusSync tests passing; TypeScript clean; WXT build succeeds.
+- **Piece 5 complete:** All 4 extension `require("wxt/browser")` usages fixed across `storage.ts`, `timerAlarm.ts`, `redirect.ts`, and `focusSync.ts`.
+- **Piece 6a complete:** `/settings` page shell created with Burmese-first title and 4 placeholder sections; 3/3 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 6b complete:** `StrictModeToggle` component created; reads/writes `settings.strictMode` via `useFocusStore`; 4/4 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 6c-a complete:** `AddForbiddenUrl` component created; input + add button with validation; reads/writes `settings.forbiddenUrls` via `useFocusStore`; 5/5 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Piece 6c-b complete:** `ForbiddenUrlsList` component created; integrated into `/settings` page; reads `settings.forbiddenUrls` and calls `removeForbiddenUrl`/`resetForbiddenUrls`; 4/4 tests passing; TypeScript clean; `npm run build` succeeds.
+- **Open pieces:** Piece 6d (notification preferences), 6e (theme selector).
 - **Workflow confirmed:** lightweight feature-by-feature mode (≤100 lines, ≤1 new file, targeted tests, no browser automation from agents).
 
 ## Next Action (for next chat)
