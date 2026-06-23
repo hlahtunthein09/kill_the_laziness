@@ -2,6 +2,7 @@ import type { Browser } from "webextension-polyfill";
 import type { ExtensionTimerState } from "./types";
 
 const TIMER_STATE_KEY = "ff_extension_timer";
+const MILESTONE_KEY = "ff_extension_last_milestone";
 
 let _browser: Browser | null = null;
 
@@ -32,4 +33,22 @@ export async function getTimerState(): Promise<ExtensionTimerState | null> {
 export async function clearTimerState(): Promise<void> {
   const browser = await getBrowser();
   await browser.storage.local.remove(TIMER_STATE_KEY);
+}
+
+// --- Milestone helpers ---
+
+export async function getLastMilestone(): Promise<number | null> {
+  const browser = await getBrowser();
+  const result = await browser.storage.local.get(MILESTONE_KEY);
+  return (result[MILESTONE_KEY] as number | undefined) ?? null;
+}
+
+export async function setLastMilestone(milestone: number): Promise<void> {
+  const browser = await getBrowser();
+  await browser.storage.local.set({ [MILESTONE_KEY]: milestone });
+}
+
+export async function clearLastMilestone(): Promise<void> {
+  const browser = await getBrowser();
+  await browser.storage.local.remove(MILESTONE_KEY);
 }

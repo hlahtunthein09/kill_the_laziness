@@ -517,14 +517,19 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Piece 8b complete:** `completeSubPiece` now adds `XP_SUB_PIECE_COMPLETE` (50 XP) to the project; `useFocusStore.test.ts` adds test verifying sub-piece completion grants bonus XP; 27/27 store tests passing; full suite 205/205; TypeScript clean; `npm run build` succeeds.
 - **Piece 9b complete:** `extension/lib/focusSync.ts` extended with `syncExtensionSettings()` — reads `ff_focus_store` settings and syncs `strictMode`/`forbiddenUrls` to extension storage via `setExtensionSettings()`; `focusSync.content.ts` polls settings alongside timer; `focusSync.test.ts` updated with 7 settings-sync tests (19/19 passing); full suite 222/222; TypeScript clean; `npm run build:ext` succeeds.
 - **MVP status:** Core web app + extension engine complete. User research completed comparing Pomofocus, Forest, Freedom, Todoist Karma, and MV3 pomodoro extension. Identified that the project needs workflow UX fixes to become a daily useful tool, especially off-screen motivational notifications.
+- **Tier 1 Piece 1 complete:** ProjectCard focus button now navigates to `/timer` after setting active project; reusable `__mocks__/next-navigation.ts` mock created; `vitest.config.ts` aliased; 10/10 ProjectCard tests passing; full suite 222/222; TypeScript clean; `npm run build` succeeds.
+- **Tier 1 Piece 4 complete:** `TimerPanel.tsx` empty state now shows a CTA button `"ပရောဂျက်တစ်ခုရွေးချယ်ပါ (Choose a project)"` that navigates to `/projects`; `TimerPanel.test.tsx` adds navigation test (7/7 passing); TypeScript clean; `npm run build` succeeds; full suite 241/241.
+- **Tier 1 Piece 4b complete:** `ProjectCard.tsx` focus button now auto-creates a default sub-piece `"အထွေထွေ focus (General Focus)"` when focusing a project with no sub-pieces; `ProjectCard.test.tsx` adds 2 tests for empty vs non-empty project focus behavior (11/11 passing); TypeScript clean; `npm run build` succeeds; full suite 242/242.
+- **Tier 1 Piece 4c complete:** `ProjectCard.tsx` focus button now auto-creates a default sub-piece when a project has no incomplete sub-pieces (covers both empty projects and fully completed projects); completed projects can be re-focused; `ProjectCard.test.tsx` adds re-focus test (12/12 passing); TypeScript clean; `npm run build` succeeds; full suite 243/243.
+- **Tier 1 complete:** Core daily focus tool workflow now fully friction-free for all project states — empty projects get default sub-piece, focus navigates to timer, extension sends milestone desktop notifications, default project auto-created, and timer empty-state has clear CTA.
 - **Roadmap update (2026-06-23):** Prioritized 12 small pieces across 4 tiers to transform FocusFlow AI into a friction-free daily focus tool:
-  - **Tier 1 (must-have, 4 pieces):** focus button navigation, extension milestone notifications, default project auto-creation, timer empty-state CTA
+  - **Tier 1 (must-have):** ✅ Complete
   - **Tier 2 (habit formation, 3 pieces):** daily focus goal, quick focus input, streak counter
   - **Tier 3 (polish, 5 pieces):** visual timer ring, session summary, project status updates, extension popup controls, distraction log in web app
   - **Tier 4 (future):** sound toggle, fortress visualization, cross-device sync, scheduled focus sessions
 
 ## Next Action (for next chat)
-Proceed with Tier 1 pieces in order. Start with focus button navigation to `/timer`, then extension milestone notifications, then default project, then timer empty-state CTA. Keep lightweight feature-by-feature mode.
+Tier 1 is complete including re-focus on completed projects. Push to GitHub, then manual browser verification of the core flow: open app → default project exists → add task → focus (empty/completed projects auto-create default sub-piece) → timer runs → minimize browser → extension milestone notifications appear → complete notification appears. After verification, decide whether to continue with Tier 2 or fix any issues found during manual testing.
 
 ## Blockers
 None.

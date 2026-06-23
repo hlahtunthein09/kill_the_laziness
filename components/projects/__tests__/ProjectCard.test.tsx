@@ -3,18 +3,21 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import type { Project } from '@/lib/types'
 
 const setActiveProjectMock = vi.fn()
+const addSubPieceMock = vi.fn()
 let mockActiveProjectId: string | null = null
 
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock }) => unknown) =>
+  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; addSubPiece: typeof addSubPieceMock }) => unknown) =>
     selector({
       activeProjectId: mockActiveProjectId,
       setActiveProject: setActiveProjectMock,
+      addSubPiece: addSubPieceMock,
     }),
 }))
 
 // Import after mock is set up
 import { ProjectCard } from '../ProjectCard'
+import { mockPush } from '../../../__mocks__/next-navigation'
 
 function createMockProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -37,6 +40,8 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 describe('ProjectCard', () => {
   beforeEach(() => {
     setActiveProjectMock.mockClear()
+    addSubPieceMock.mockClear()
+    mockPush.mockClear()
     mockActiveProjectId = null
   })
 
@@ -116,15 +121,94 @@ describe('ProjectCard', () => {
     expect(oceanContainer.querySelector('.bg-sky-400')).toBeInTheDocument()
   })
 
-  it('clicking focus button calls setActiveProject with project id', () => {
-    render(<ProjectCard project={createMockProject({ id: 'proj-abc' })} />)
+  it('clicking focus button on empty project auto-creates a default sub-piece, sets active, and navigates to /timer', () => {
+    render(<ProjectCard project={createMockProject({ id: 'proj-empty', subPieces: [] })} />)
 
     const focusButton = screen.getByRole('button', { name: /focus/i })
     expect(focusButton).toBeInTheDocument()
 
     fireEvent.click(focusButton)
 
+    expect(addSubPieceMock).toHaveBeenCalledTimes(1)
+    expect(addSubPieceMock).toHaveBeenCalledWith({
+      projectId: 'proj-empty',
+      name: 'အထွေထွေ focus (General Focus)',
+      allocatedMinutes: 25,
+      order: 0,
+    })
     expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
-    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-abc')
+    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-empty')
+    expect(mockPush).toHaveBeenCalledTimes(1)
+    expect(mockPush).toHaveBeenCalledWith('/timer')
+  })
+
+  it('clicking focus button on project with sub-pieces does NOT call addSubPiece', () => {
+    render(
+      <ProjectCard
+        project={createMockProject({
+          id: 'proj-with-sub',
+          subPieces: [
+            {
+              id: 'sp-1',
+              projectId: 'proj-with-sub',
+              name: 'Existing Sub-piece',
+              allocatedMinutes: 30,
+              elapsedSeconds: 0,
+              status: 'idle',
+              order: 0,
+            },
+          ],
+        })}
+      />
+    )
+
+    const focusButton = screen.getByRole('button', { name: /focus/i })
+    expect(focusButton).toBeInTheDocument()
+
+    fireEvent.click(focusButton)
+
+    expect(addSubPieceMock).not.toHaveBeenCalled()
+    expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
+    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-with-sub')
+    expect(mockPush).toHaveBeenCalledTimes(1)
+    expect(mockPush).toHaveBeenCalledWith('/timer')
+  })
+
+  it('clicking focus button on project with all completed sub-pieces auto-creates a default sub-piece, sets active, and navigates to /timer', () => {
+    render(
+      <ProjectCard
+        project={createMockProject({
+          id: 'proj-completed',
+          subPieces: [
+            {
+              id: 'sp-1',
+              projectId: 'proj-completed',
+              name: 'Old Sub-piece',
+              allocatedMinutes: 30,
+              elapsedSeconds: 1800,
+              status: 'completed',
+              order: 0,
+            },
+          ],
+        })}
+      />
+    )
+
+    const focusButton = screen.getByRole('button', { name: /focus/i })
+    expect(focusButton).toBeInTheDocument()
+
+    fireEvent.click(focusButton)
+
+    expect(addSubPieceMock).toHaveBeenCalledTimes(1)
+    expect(addSubPieceMock).toHaveBeenCalledWith({
+      projectId: 'proj-completed',
+      name: 'အထွေထွေ focus (General Focus)',
+      allocatedMinutes: 25,
+      order: 0,
+    })
+    expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
+    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-completed')
+    expect(mockPush).toHaveBeenCalledTimes(1)
+    expect(mockPush).toHaveBeenCalledWith('/timer')
   })
 })

@@ -1,6 +1,7 @@
 import type { Browser } from "webextension-polyfill";
-import { getTimerState, setTimerState } from "./storage";
+import { getTimerState, setTimerState, getLastMilestone, setLastMilestone, clearLastMilestone } from "./storage";
 import { sessionCompleteNotification } from "../../lib/notifications";
+import { getMotivation } from "./motivation";
 
 const ALARM_NAME = "focus-timer";
 
@@ -59,7 +60,31 @@ export async function onAlarmTick(): Promise<void> {
       message: notif.body.my,
     });
 
+    await clearLastMilestone();
     await stopFocusAlarm();
+  } else {
+    // Milestone notification logic (every 5 minutes of project elapsed time)
+    const currentMilestone = Math.floor(updatedProjectElapsed / 300);
+    const lastMilestone = (await getLastMilestone()) ?? 0;
+
+    if (currentMilestone >= 1 && currentMilestone > lastMilestone) {
+      const motivation = getMotivation({
+        elapsedSeconds: updatedProjectElapsed,
+        remainingSeconds: updatedSubPieceRemaining,
+        isRunning: true,
+        completedToday: 0,
+      });
+
+      const browser = await getBrowser();
+      await browser.notifications.create("focus-milestone", {
+        type: "basic",
+        iconUrl: "/icon/128.png",
+        title: "FocusFlow AI — ရှေ့ဆက်နေတယ်",
+        message: `${motivation.my} (${motivation.en})`,
+      });
+
+      await setLastMilestone(currentMilestone);
+    }
   }
 
   await setTimerState({

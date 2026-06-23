@@ -16,6 +16,7 @@ export default defineConfig({
       'tw-animate-css': path.resolve(__dirname, './__mocks__/empty-module.ts'),
       'shadcn/tailwind.css': path.resolve(__dirname, './__mocks__/empty-module.ts'),
       'next-themes': path.resolve(__dirname, './__mocks__/next-themes.ts'),
+      'next/navigation': path.resolve(__dirname, './__mocks__/next-navigation.ts'),
     },
   },
 })

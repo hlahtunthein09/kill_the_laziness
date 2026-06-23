@@ -9,8 +9,11 @@ import { FolderOpen, ListTodo } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export function TimerPanel() {
+  const router = useRouter();
   const activeProjectId = useFocusStore((s) => s.activeProjectId);
   const projects = useFocusStore((s) => s.projects);
 
@@ -106,6 +109,13 @@ export function TimerPanel() {
             No active project — ပရောဂျက်တစ်ခုရွေးချယ်ပြီး စတင်လိုက်ပါ
           </p>
         </div>
+        <Button
+          onClick={() => router.push("/projects")}
+          className="mt-2 bg-teal-500 hover:bg-teal-600 text-white"
+        >
+          <span className="block">ပရောဂျက်တစ်ခုရွေးချယ်ပါ</span>
+          <span className="block text-xs opacity-80">Choose a project</span>
+        </Button>
       </div>
     );
   }

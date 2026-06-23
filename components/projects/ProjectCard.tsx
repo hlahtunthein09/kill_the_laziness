@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Target } from "lucide-react";
 import { AddSubPieceButton } from "./AddSubPieceButton";
 import { SubPieceList } from "./SubPieceList";
+import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { Button } from "@/components/ui/button";
 import { Crosshair } from "lucide-react";
@@ -72,7 +73,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const activeProjectId = useFocusStore((s) => s.activeProjectId);
   const setActiveProject = useFocusStore((s) => s.setActiveProject);
+  const addSubPiece = useFocusStore((s) => s.addSubPiece);
   const isActive = project.id === activeProjectId;
+  const router = useRouter();
 
   const formattedTime = useMemo(() => formatDuration(project.totalTimeSeconds), [project.totalTimeSeconds]);
   const formattedTarget = useMemo(() => formatDuration(project.targetTimeSeconds), [project.targetTimeSeconds]);
@@ -143,7 +146,19 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setActiveProject(project.id)}
+            onClick={() => {
+              const hasIncomplete = project.subPieces.some((sp) => sp.status !== "completed");
+              if (!hasIncomplete) {
+                addSubPiece({
+                  projectId: project.id,
+                  name: "အထွေထွေ focus (General Focus)",
+                  allocatedMinutes: 25,
+                  order: 0,
+                });
+              }
+              setActiveProject(project.id);
+              router.push("/timer");
+            }}
             className={cn(
               "text-xs gap-1",
               isActive && "border-teal-500 text-teal-700 bg-teal-50"

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { TimerPanel } from "../TimerPanel";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import type { Project, SubPiece } from "@/lib/types";
+import { mockPush } from "@/__mocks__/next-navigation";
 
 // Mock the store
 vi.mock("@/lib/store/useFocusStore", () => ({
@@ -71,6 +72,25 @@ describe("TimerPanel", () => {
       screen.getByText(/လက်ရှိ ပရောဂျက် မရွေးရသေးပါ/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/No active project/i)).toBeInTheDocument();
+  });
+
+  it("navigates to /projects when CTA button is clicked in empty state", () => {
+    mockPush.mockClear();
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [], activeProjectId: null })
+    );
+
+    render(<TimerPanel />);
+
+    const ctaButton = screen.getByText(/ပရောဂျက်တစ်ခုရွေးချယ်ပါ/i);
+    expect(ctaButton).toBeInTheDocument();
+
+    fireEvent.click(ctaButton);
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/projects");
   });
 
   it("shows empty state when active project has no incomplete sub-pieces", () => {
