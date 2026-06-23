@@ -11,6 +11,8 @@ const DEFAULT_SETTINGS = {
   strictMode: false,
   notifications: true,
   theme: 'light',
+  currentStreak: 0,
+  longestStreak: 0,
 }
 
 vi.mock('@/lib/store/useFocusStore', () => ({
@@ -42,6 +44,11 @@ describe('Home (Dashboard)', () => {
     expect(screen.getByText('0 / 120')).toBeInTheDocument()
     expect(screen.getByText('0% achieved (Goal reached)')).toBeInTheDocument()
 
+    // StreakCounter should show 0
+    const streakCard = screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
+    expect(streakCard).toBeTruthy()
+    expect(streakCard.textContent).toContain('0')
+
     // Current Level should be 1 (default level)
     const levelCard = screen.getByText('လက်ရှိ အဆင့်').closest('[data-slot="card"]') as HTMLElement
     expect(levelCard).toBeTruthy()
@@ -72,6 +79,10 @@ describe('Home (Dashboard)', () => {
     // DailyFocusGoal still shows 0 / 120 (it reads from settings, not project totals)
     expect(screen.getByText('0 / 120')).toBeInTheDocument()
 
+    // StreakCounter shows 0 (default settings)
+    const streakCard = screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
+    expect(streakCard.textContent).toContain('0')
+
     // Total XP = 250 + 100 = 350 -> Level 2 (threshold 200)
     const levelCard = screen.getByText('လက်ရှိ အဆင့်').closest('[data-slot="card"]') as HTMLElement
     expect(levelCard.textContent).toContain('2')
@@ -99,6 +110,7 @@ describe('Home (Dashboard)', () => {
 
     expect(screen.getByText('စုစုပေါင်း ပရောဂျက်များ')).toBeInTheDocument()
     expect(screen.getByText('နေ့စဉ် focus ရည်မှန်းချက်')).toBeInTheDocument()
+    expect(screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)')).toBeInTheDocument()
     expect(screen.getByText('လက်ရှိ အဆင့်')).toBeInTheDocument()
   })
 })

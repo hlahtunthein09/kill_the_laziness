@@ -27,11 +27,14 @@ describe('useFocusStore', () => {
       expect(useFocusStore.getState().activeProjectId).toBeNull()
     })
 
-    it('has default settings with daily focus fields', () => {
+    it('has default settings with daily focus and streak fields', () => {
       const settings = useFocusStore.getState().settings
       expect(settings.dailyFocusGoalMinutes).toBe(60)
       expect(settings.todayFocusSeconds).toBe(0)
       expect(settings.lastFocusDate).toBe('')
+      expect(settings.currentStreak).toBe(0)
+      expect(settings.longestStreak).toBe(0)
+      expect(settings.lastStreakDate).toBe('')
       expect(settings.forbiddenUrls).toEqual(DEFAULT_APP_SETTINGS.forbiddenUrls)
       expect(settings.strictMode).toBe(false)
       expect(settings.notificationsEnabled).toBe(true)
@@ -436,6 +439,117 @@ describe('useFocusStore', () => {
 
       expect(useFocusStore.getState().settings.todayFocusSeconds).toBe(120)
       expect(useFocusStore.getState().settings.lastFocusDate).toBe(today)
+    })
+
+    it('increments currentStreak to 1 when daily goal is reached', () => {
+      const today = new Date().toISOString().slice(0, 10)
+      useFocusStore.setState({
+        settings: { ...DEFAULT_APP_SETTINGS, dailyFocusGoalMinutes: 1, todayFocusSeconds: 0 },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Streak Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      const settings = useFocusStore.getState().settings
+      expect(settings.currentStreak).toBe(1)
+      expect(settings.longestStreak).toBe(1)
+      expect(settings.lastStreakDate).toBe(today)
+    })
+
+    it('increments streak on consecutive days', () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+      useFocusStore.setState({
+        settings: {
+          ...DEFAULT_APP_SETTINGS,
+          dailyFocusGoalMinutes: 1,
+          currentStreak: 3,
+          longestStreak: 3,
+          lastStreakDate: yesterdayStr,
+        },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Consecutive Streak',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      const settings = useFocusStore.getState().settings
+      expect(settings.currentStreak).toBe(4)
+      expect(settings.longestStreak).toBe(4)
+      expect(settings.lastStreakDate).toBe(today)
+    })
+
+    it('resets streak to 1 after a gap', () => {
+      const today = new Date().toISOString().slice(0, 10)
+
+      useFocusStore.setState({
+        settings: {
+          ...DEFAULT_APP_SETTINGS,
+          dailyFocusGoalMinutes: 1,
+          currentStreak: 5,
+          longestStreak: 5,
+          lastStreakDate: '2020-01-01',
+        },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Gap Reset',
+        description: '',
+        color: 'forest',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      const settings = useFocusStore.getState().settings
+      expect(settings.currentStreak).toBe(1)
+      expect(settings.longestStreak).toBe(5) // unchanged
+      expect(settings.lastStreakDate).toBe(today)
+    })
+
+    it('only counts streak once per goal-reaching day', () => {
+      const today = new Date().toISOString().slice(0, 10)
+
+      useFocusStore.setState({
+        settings: {
+          ...DEFAULT_APP_SETTINGS,
+          dailyFocusGoalMinutes: 1,
+          currentStreak: 2,
+          longestStreak: 2,
+          lastStreakDate: '',
+        },
+      })
+
+      const project = useFocusStore.getState().addProject({
+        name: 'Double Count',
+        description: '',
+        color: 'coral',
+        targetTimeSeconds: 3600,
+      })
+
+      // First increment reaches goal
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+      expect(useFocusStore.getState().settings.currentStreak).toBe(1)
+      expect(useFocusStore.getState().settings.lastStreakDate).toBe(today)
+
+      // Second increment on same day should not increment streak again
+      useFocusStore.getState().incrementProjectTime(project.id, 30)
+      expect(useFocusStore.getState().settings.currentStreak).toBe(1)
+      expect(useFocusStore.getState().settings.lastStreakDate).toBe(today)
     })
   })
 

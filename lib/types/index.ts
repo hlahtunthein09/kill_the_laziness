@@ -42,6 +42,9 @@ export interface AppSettings {
   dailyFocusGoalMinutes: number;
   todayFocusSeconds: number;
   lastFocusDate: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastStreakDate: string;
 }
 
 export interface FocusSession {

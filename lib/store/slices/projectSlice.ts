@@ -176,6 +176,23 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
       const lastDate = state.settings.lastFocusDate;
       const newTodayFocus =
         lastDate !== today ? seconds : state.settings.todayFocusSeconds + seconds;
+
+      // Streak logic
+      const goalSeconds = state.settings.dailyFocusGoalMinutes * 60;
+      let { currentStreak, longestStreak, lastStreakDate } = state.settings;
+      if (newTodayFocus >= goalSeconds && lastStreakDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().slice(0, 10);
+        if (lastStreakDate === yesterdayStr) {
+          currentStreak += 1;
+        } else {
+          currentStreak = 1;
+        }
+        longestStreak = Math.max(longestStreak, currentStreak);
+        lastStreakDate = today;
+      }
+
       return {
         projects: state.projects.map((p) =>
           p.id === projectId
@@ -186,6 +203,9 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
           ...state.settings,
           todayFocusSeconds: newTodayFocus,
           lastFocusDate: today,
+          currentStreak,
+          longestStreak,
+          lastStreakDate,
         },
       };
     });

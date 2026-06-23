@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { getLevelFromXp } from "@/lib/constants";
 import {
@@ -11,6 +12,8 @@ import {
 } from "@/components/ui/card";
 import { AddProjectButton } from "@/components/projects/AddProjectButton";
 import { DailyFocusGoal } from "@/components/analytics/DailyFocusGoal";
+import { StreakCounter } from "@/components/analytics/StreakCounter";
+import { QuickFocusInput } from "@/components/timer/QuickFocusInput";
 import {
   FolderKanban,
   Trophy,
@@ -18,6 +21,7 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const projects = useFocusStore((state) => state.projects);
 
   const totalProjects = projects.length;
@@ -38,7 +42,7 @@ export default function Home() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Projects */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
@@ -56,6 +60,9 @@ export default function Home() {
         {/* Daily Focus Goal */}
         <DailyFocusGoal />
 
+        {/* Streak Counter */}
+        <StreakCounter />
+
         {/* Current Level */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
@@ -70,6 +77,22 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Focus */}
+      <Card className="bg-card-glow border-teal-200">
+        <CardHeader className="pb-2">
+          <CardDescription className="flex items-center gap-2 text-stone-500">
+            <Plus className="h-4 w-4 text-teal-500" />
+            အခု focus လုပ်မယ်
+          </CardDescription>
+          <CardTitle className="text-sm font-normal text-stone-400">
+            Quick Focus — jump straight into a 25-min sprint
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <QuickFocusInput onStart={() => router.push("/timer")} />
+        </CardContent>
+      </Card>
 
       {/* Quick action */}
       <Card className="bg-card-glow border-dashed border-2 border-teal-200">

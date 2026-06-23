@@ -85,4 +85,7 @@ export const DEFAULT_APP_SETTINGS = {
   dailyFocusGoalMinutes: 60,
   todayFocusSeconds: 0,
   lastFocusDate: '',
+  currentStreak: 0,
+  longestStreak: 0,
+  lastStreakDate: '',
 };

@@ -528,6 +528,10 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Bugfix:** `DailyFocusGoal.tsx` NaN dashboard bug fixed by defaulting `todayFocusSeconds ?? 0` and `dailyFocusGoalMinutes ?? 60`, plus guarding division by zero; test added for missing persisted settings fields; 6/6 component tests passing; `npm run build` succeeds.
 - **Tier 2 Piece 1c complete:** `components/settings/DailyFocusGoalInput.tsx` created — number input with `min={15}`, `max={480}`, `step={5}`; reads/writes `settings.dailyFocusGoalMinutes` via `useFocusStore`; clamps on blur; Burmese-first label + English subtitle; `DailyFocusGoalInput.test.tsx` 4/4 passing (render, update, below-min clamp, above-max clamp); `app/settings/page.tsx` updated; full suite 249/249; TypeScript clean; `npm run build` succeeds.
 - **UX fix (Piece 1c):** `DailyFocusGoalInput` now has show/edit mode — input disabled by default with Edit (pencil) button; tapping Edit enables input and shows Confirm (check) button; value only saves on confirm; 6/6 tests passing; `npm run build` succeeds.
+- **Tier 2 Piece 2a complete:** `components/timer/QuickFocusInput.tsx` created — input + start button; creates sub-piece under active/default project (auto-creates default project if none); `QuickFocusInput.test.tsx` 5/5 passing; TypeScript clean; `npm run build` succeeds.
+- **Tier 2 Piece 2b complete:** `QuickFocusInput` integrated into `app/page.tsx` with `onStart` prop navigating to `/timer`; dashboard renders quick-focus card; 10/10 tests passing (QuickFocusInput + page); TypeScript clean; `npm run build` succeeds.
+- **Tier 2 Piece 3a complete:** streak counter fields (`currentStreak`, `longestStreak`, `lastStreakDate`) added to `AppSettings` and `DEFAULT_APP_SETTINGS`; `incrementProjectTime` now increments streak on daily goal reach, continues on consecutive days, resets after gap, and counts only once per day; `useFocusStore.test.ts` 33/33 passing; TypeScript clean; `npm run build` succeeds.
+- **Tier 2 Piece 3b complete:** `components/analytics/StreakCounter.tsx` created — reads `settings.currentStreak` and `settings.longestStreak` from `useFocusStore`; renders `Card` matching existing dashboard stat cards with `Flame` icon, Burmese title, big number, and longest streak subtitle; `StreakCounter.test.tsx` 4/4 passing; `app/page.tsx` updated to 4-column grid (`sm:grid-cols-2 lg:grid-cols-4`) with `<StreakCounter />` as 3rd card; `page.test.tsx` updated with streak assertions; full suite 253/253; TypeScript clean; `npm run build` succeeds.
 - **Roadmap update (2026-06-23):** Prioritized 12 small pieces across 4 tiers to transform FocusFlow AI into a friction-free daily focus tool:
   - **Tier 1 (must-have):** ✅ Complete
   - **Tier 2 (habit formation, 3 pieces):** daily focus goal, quick focus input, streak counter
@@ -535,10 +539,7 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
   - **Tier 4 (future):** sound toggle, fortress visualization, cross-device sync, scheduled focus sessions
 
 ## Next Action (for next chat)
-Tier 2 Piece 1 complete. Push to GitHub and do manual browser verification, or continue with Tier 2 Piece 2 (quick focus input).
-
-## Blockers
-None.
+Tier 2 complete. Push to GitHub, then continue with Tier 3 or manual browser verification.
 
 ## Blockers
 None.
