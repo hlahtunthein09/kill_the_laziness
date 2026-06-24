@@ -162,6 +162,29 @@
     .btn-primary:active {
       background: #0f766e;
     }
+    .btn-secondary {
+      background: #0ea5e9;
+      color: #fff;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover {
+      background: #0284c7;
+    }
+    .btn-secondary:active {
+      background: #0369a1;
+    }
+    .btn-outline {
+      background: transparent;
+      color: #14b8a6;
+      border: 1.5px solid #14b8a6;
+      margin-top: 8px;
+    }
+    .btn-outline:hover {
+      background: #f0fdfa;
+    }
+    .btn-outline:active {
+      background: #ccfbf1;
+    }
     .footer {
       margin-top: 12px;
       padding-top: 10px;
@@ -211,6 +234,16 @@
           <div id="remaining-time" class="time-card-value remaining">0m</div>
         </div>
       </div>
+
+      <button id="start-btn" class="btn btn-primary" type="button" style="display: none;">
+        စတင်ရန် (Start)
+      </button>
+      <button id="pause-btn" class="btn btn-secondary" type="button" style="display: none;">
+        ခဏရပ်ရန် (Pause)
+      </button>
+      <button id="reset-btn" class="btn btn-outline" type="button" style="display: none;">
+        ပြန်စရန် (Reset)
+      </button>
     </div>
 
     <div id="empty-state" class="empty-state" style="display: none;">

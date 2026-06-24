@@ -16,6 +16,7 @@ describe('SettingsPage', () => {
     expect(screen.getByText('တားမြစ်ထားသော ဝဘ်ဆိုက်များ')).toBeInTheDocument()
     expect(screen.getByText('အသိပေးချက်များ')).toBeInTheDocument()
     expect(screen.getByText('အပြင်အဆင်')).toBeInTheDocument()
+    expect(screen.getByText('အာရုံစားသမျှမှတ်တမ်း')).toBeInTheDocument()
   })
 
   it('renders all section labels in English', () => {
@@ -24,5 +25,6 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Forbidden URLs')).toBeInTheDocument()
     expect(screen.getByText('Notifications')).toBeInTheDocument()
     expect(screen.getByText('Theme')).toBeInTheDocument()
+    expect(screen.getByText('Distraction Log')).toBeInTheDocument()
   })
 })

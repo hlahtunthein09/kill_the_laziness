@@ -3,21 +3,26 @@
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/time";
 import { Badge } from "@/components/ui/badge";
+import { TimerRing } from "./TimerRing";
 
 interface TimerDisplayProps {
   projectElapsed: number;
   subPieceRemaining: number;
   isRunning: boolean;
+  allocatedMinutes?: number;
 }
 
 export function TimerDisplay({
   projectElapsed,
   subPieceRemaining,
   isRunning,
+  allocatedMinutes,
 }: TimerDisplayProps) {
   const statusLabel = isRunning
     ? { label: "လုပ်ဆောင်နေသည်", en: "Running", color: "bg-emerald-100 text-emerald-700 border-emerald-200" }
     : { label: "ခဏရပ်ထား", en: "Paused", color: "bg-amber-100 text-amber-700 border-amber-200" };
+
+  const showRing = allocatedMinutes && allocatedMinutes > 0;
 
   return (
     <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-white border border-stone-200 shadow-sm">
@@ -27,11 +32,22 @@ export function TimerDisplay({
         </Badge>
       </div>
 
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-xs text-stone-500">ပရောဂျက် အချိန် (Project Time)</span>
-        <span className="text-4xl font-bold text-stone-900 tabular-nums">
-          {formatDuration(projectElapsed)}
-        </span>
+      <div className="relative flex items-center justify-center">
+        {showRing && (
+          <TimerRing
+            remainingSeconds={subPieceRemaining}
+            allocatedMinutes={allocatedMinutes}
+            size={220}
+            strokeWidth={12}
+            className="absolute"
+          />
+        )}
+        <div className="flex flex-col items-center gap-1 z-10">
+          <span className="text-xs text-stone-500">ပရောဂျက် အချိန် (Project Time)</span>
+          <span className="text-4xl font-bold text-stone-900 tabular-nums">
+            {formatDuration(projectElapsed)}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-1">

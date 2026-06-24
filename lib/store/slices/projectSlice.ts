@@ -92,7 +92,14 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   },
 
   setActiveProject: (id) => {
-    set({ activeProjectId: id });
+    set((state) => ({
+      activeProjectId: id,
+      projects: state.projects.map((p) => {
+        if (p.id === id) return { ...p, status: "running" as PieceStatus };
+        if (p.status === "running") return { ...p, status: "idle" as PieceStatus };
+        return p;
+      }),
+    }));
   },
 
   addSubPiece: (subPiece) => {
@@ -228,17 +235,19 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
 
   completeSubPiece: (projectId, subPieceId) => {
     set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId
-          ? {
-              ...p,
-              xp: p.xp + XP_SUB_PIECE_COMPLETE,
-              subPieces: p.subPieces.map((sp) =>
-                sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
-              ),
-            }
-          : p
-      ),
+      projects: state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const updatedSubPieces = p.subPieces.map((sp) =>
+          sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
+        );
+        const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
+        return {
+          ...p,
+          xp: p.xp + XP_SUB_PIECE_COMPLETE,
+          status: allCompleted ? ("completed" as PieceStatus) : p.status,
+          subPieces: updatedSubPieces,
+        };
+      }),
     }));
   },
 

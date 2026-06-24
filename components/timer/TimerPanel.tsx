@@ -6,11 +6,13 @@ import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
 import { TimerToast } from "./TimerToast";
 import { FolderOpen, ListTodo } from "lucide-react";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SessionSummary } from "./SessionSummary";
+import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
 
 export function TimerPanel() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export function TimerPanel() {
   const [toastTrigger, setToastTrigger] = useState<
     "start" | "milestone" | "complete" | undefined
   >(undefined);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Track last milestone (every 5 minutes = 300s)
   const lastMilestoneRef = useRef(0);
@@ -85,13 +88,46 @@ export function TimerPanel() {
       subPieceRemaining === 0
     ) {
       setToastTrigger("complete");
+      setShowSummary(true);
     }
     prevSubPieceRemainingRef.current = subPieceRemaining;
   }, [subPieceRemaining]);
 
+  // Extension control listeners: ff:start, ff:pause, ff:reset
+  const handleExtensionStart = useCallback(() => {
+    start();
+  }, [start]);
+
+  const handleExtensionPause = useCallback(() => {
+    pause();
+  }, [pause]);
+
+  const handleExtensionReset = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  useEffect(() => {
+    if (!activeProject || !firstIncompleteSubPiece) return;
+
+    window.addEventListener("ff:start", handleExtensionStart);
+    window.addEventListener("ff:pause", handleExtensionPause);
+    window.addEventListener("ff:reset", handleExtensionReset);
+
+    return () => {
+      window.removeEventListener("ff:start", handleExtensionStart);
+      window.removeEventListener("ff:pause", handleExtensionPause);
+      window.removeEventListener("ff:reset", handleExtensionReset);
+    };
+  }, [activeProject, firstIncompleteSubPiece, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
+
   // Reset trigger after it has been consumed by TimerToast
   const handleToastShown = () => {
     setToastTrigger(undefined);
+  };
+
+  const handleContinue = () => {
+    reset();
+    setShowSummary(false);
   };
 
   // Empty state: no active project
@@ -116,6 +152,45 @@ export function TimerPanel() {
           <span className="block">ပရောဂျက်တစ်ခုရွေးချယ်ပါ</span>
           <span className="block text-xs opacity-80">Choose a project</span>
         </Button>
+      </div>
+    );
+  }
+
+  // Find the most recently completed sub-piece for the summary
+  const completedSubPiece = activeProject?.subPieces.find(
+    (sp) => sp.status === "completed"
+  );
+
+  // Compute XP for the completed sub-piece
+  const xpGained = completedSubPiece
+    ? Math.floor(completedSubPiece.elapsedSeconds / 60) * XP_PER_MINUTE + XP_SUB_PIECE_COMPLETE
+    : 0;
+
+  // Show summary when a sub-piece just completed — this takes precedence over empty state
+  if (showSummary && completedSubPiece) {
+    return (
+      <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
+        <TimerToast
+          context={motivationContext}
+          trigger={toastTrigger}
+          onShown={handleToastShown}
+        />
+        <div className="w-full flex flex-col items-center gap-4">
+          <SessionSummary
+            projectName={activeProject.name}
+            subPieceName={completedSubPiece.name}
+            elapsedSeconds={completedSubPiece.elapsedSeconds}
+            allocatedMinutes={completedSubPiece.allocatedMinutes}
+            xpGained={xpGained}
+          />
+          <Button
+            onClick={handleContinue}
+            className="bg-teal-500 hover:bg-teal-600 text-white"
+          >
+            <span className="block">ဆက်လက်ပါ</span>
+            <span className="block text-xs opacity-80">Continue</span>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -160,6 +235,7 @@ export function TimerPanel() {
         projectElapsed={projectElapsed}
         subPieceRemaining={subPieceRemaining}
         isRunning={isRunning}
+        allocatedMinutes={firstIncompleteSubPiece.allocatedMinutes}
       />
 
       <TimerControls

@@ -62,9 +62,17 @@ const STATUS_LABELS: Record<string, { label: string; en: string }> = {
   completed: { label: "ပြီးစီး", en: "Completed" },
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  idle: "bg-stone-100 text-stone-600 border-stone-200",
+  running: "bg-teal-100 text-teal-700 border-teal-200",
+  paused: "bg-amber-100 text-amber-700 border-amber-200",
+  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+};
+
 export function ProjectCard({ project }: ProjectCardProps) {
   const colorStyle = COLOR_MAP[project.color] ?? COLOR_MAP.mint;
   const statusInfo = STATUS_LABELS[project.status] ?? STATUS_LABELS.idle;
+  const statusColor = STATUS_COLORS[project.status] ?? STATUS_COLORS.idle;
 
   const progressPercent = useMemo(() => {
     if (project.targetTimeSeconds <= 0) return 0;
@@ -102,7 +110,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <div className="mt-2 flex items-center gap-2">
           <Badge
             variant="outline"
-            className={cn("text-xs font-medium", colorStyle.badge)}
+            className={cn("text-xs font-medium", statusColor)}
           >
             {statusInfo.label} ({statusInfo.en})
           </Badge>
