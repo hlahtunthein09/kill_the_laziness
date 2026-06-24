@@ -14,15 +14,21 @@ import { AddProjectButton } from "@/components/projects/AddProjectButton";
 import { DailyFocusGoal } from "@/components/analytics/DailyFocusGoal";
 import { StreakCounter } from "@/components/analytics/StreakCounter";
 import { QuickFocusInput } from "@/components/timer/QuickFocusInput";
+import FortressSvg from "@/components/fortress/FortressSvg";
 import {
   FolderKanban,
   Trophy,
   Plus,
+  Shield,
 } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
   const projects = useFocusStore((state) => state.projects);
+  const activeProjectId = useFocusStore((state) => state.activeProjectId);
+
+  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const fortressProject = activeProject ?? projects[0];
 
   const totalProjects = projects.length;
 
@@ -42,7 +48,7 @@ export default function Home() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {/* Total Projects */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
@@ -74,6 +80,23 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-stone-400">Current Level</p>
+          </CardContent>
+        </Card>
+
+        {/* Fortress */}
+        <Card className="bg-card-glow">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2 text-stone-500">
+              <Shield className="h-4 w-4 text-teal-500" />
+              ခံတပ် (Fortress)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-2">
+            {fortressProject ? (
+              <FortressSvg level={fortressProject.fortressLevel} health={fortressProject.fortressHealth} />
+            ) : (
+              <p className="text-sm text-stone-500">ပရောဂျက်မရှိသေးပါ</p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -554,13 +554,12 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 3 Piece 4e complete:** `extension/entrypoints/control.content.ts` created — `defineContentScript` matching `http://localhost:3000/*`, `setupControlListener()` with swappable browser instance, listens for `EXT_START_TIMER`/`EXT_PAUSE_TIMER`/`EXT_RESET_TIMER` and dispatches `ff:start`/`ff:pause`/`ff:reset` CustomEvents with `bubbles: true`; `extension/lib/__tests__/control.content.test.ts` created (4 tests); full suite 283/283; TypeScript clean; `npm run build:ext` succeeds with `content-scripts/control.js` in output.
 - **Tier 3 Piece 4f complete:** `components/timer/TimerPanel.tsx` updated — added `useEffect` listeners for `ff:start`/`ff:pause`/`ff:reset` custom events, calling `start()`/`pause()`/`reset()` from `useTimer`; `TimerPanel.extension-controls.test.tsx` created (3/3 passing); TypeScript clean; `npm run build` succeeds; full suite 286/286.
 - **Tier 4 Piece 1a complete:** `soundEnabled: boolean` added to `AppSettings` and `DEFAULT_APP_SETTINGS`; `SoundToggle.tsx` created with Burmese-first label + English subtitle, reads/writes `settings.soundEnabled` via `useFocusStore`; `SoundToggle.test.tsx` 4/4 passing; integrated into `app/settings/page.tsx`; TypeScript clean; `npm run build` succeeds; full suite 287/287.
-- **Tier 4 Piece 1b complete:** `lib/sound.ts` created — `playCompleteSound()` (880Hz, 0.15s) and `playMilestoneSound()` (660Hz, 0.1s) via Web Audio API oscillator, both gated by `settings.soundEnabled`; `lib/__tests__/sound.test.ts` 4/4 passing; `TimerPanel.tsx` wired to play complete sound on sub-piece finish and milestone sound on every 5-min milestone; TypeScript clean; `npm run build` succeeds; full suite 291/291.
+- **Tier 4 Piece 2a complete:** `lib/store/slices/projectSlice.ts` updated — added `getFortressLevelFromXp()` and `getFortressHealthFromXp()` helpers, `fortressLevel`/`fortressHealth` recomputed after XP gain in `incrementProjectTime` and after XP bonus in `completeSubPiece`; `fortress.test.ts` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 295/295.
+- **Tier 4 Piece 2b complete:** `components/fortress/FortressSvg.tsx` created — inline SVG fortress with level-based towers (1/2/3), flag at level 4+, health bar (amber < 50, emerald >= 50), Burmese/English label; `FortressSvg.test.tsx` 4/4 passing; TypeScript clean; `npm run build` succeeds; full suite 299/299.
+- **Tier 4 Piece 2c complete:** `app/page.tsx` updated — Fortress card added to 5-column stat grid (`lg:grid-cols-5`), reads `activeProjectId` from store, falls back to first project, renders `FortressSvg` with `fortressLevel`/`fortressHealth`; `app/__tests__/page.fortress.test.tsx` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 303/303.
 
 ## Context switch note
-Tier 4 Piece 1 (Sound Toggle) complete. Proceed to Piece 2 (Fortress visualization) after user review.
+Tier 4 Piece 2 (Fortress visualization) complete. Proceed to Piece 3 (Cross-device sync) or Piece 4 (Scheduled focus sessions) after user review.
 
 ## Next Action (for next chat)
-Tier 4 Piece 1 complete. Proceed to Piece 2a (Fortress level/health computation from XP) after user review.
-
-## Blockers
-None.
+Tier 4 Piece 2 complete. Review before choosing Piece 3 or Piece 4.

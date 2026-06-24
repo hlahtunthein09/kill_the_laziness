@@ -4,7 +4,19 @@ import type { StateCreator } from "zustand";
 import type { Project, SubPiece, PieceStatus } from "@/lib/types";
 import type { FocusState } from "../useFocusStore";
 import { generateId } from "@/lib/utils";
-import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
+import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE, LEVEL_THRESHOLDS, getLevelFromXp } from "@/lib/constants";
+
+function getFortressLevelFromXp(xp: number): number {
+  return getLevelFromXp(xp);
+}
+
+function getFortressHealthFromXp(xp: number): number {
+  const level = getFortressLevelFromXp(xp);
+  if (level >= LEVEL_THRESHOLDS.length) return 100;
+  const current = LEVEL_THRESHOLDS[level - 1];
+  const next = LEVEL_THRESHOLDS[level];
+  return Math.round(((xp - current) / (next - current)) * 100);
+}
 
 export interface ProjectSlice {
   projects: Project[];
@@ -201,11 +213,17 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
       }
 
       return {
-        projects: state.projects.map((p) =>
-          p.id === projectId
-            ? { ...p, totalTimeSeconds: p.totalTimeSeconds + seconds, xp: p.xp + xpToAdd }
-            : p
-        ),
+        projects: state.projects.map((p) => {
+          if (p.id !== projectId) return p;
+          const newXp = p.xp + xpToAdd;
+          return {
+            ...p,
+            totalTimeSeconds: p.totalTimeSeconds + seconds,
+            xp: newXp,
+            fortressLevel: getFortressLevelFromXp(newXp),
+            fortressHealth: getFortressHealthFromXp(newXp),
+          };
+        }),
         settings: {
           ...state.settings,
           todayFocusSeconds: newTodayFocus,
@@ -241,9 +259,12 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
           sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
         );
         const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
+        const newXp = p.xp + XP_SUB_PIECE_COMPLETE;
         return {
           ...p,
-          xp: p.xp + XP_SUB_PIECE_COMPLETE,
+          xp: newXp,
+          fortressLevel: getFortressLevelFromXp(newXp),
+          fortressHealth: getFortressHealthFromXp(newXp),
           status: allCompleted ? ("completed" as PieceStatus) : p.status,
           subPieces: updatedSubPieces,
         };
