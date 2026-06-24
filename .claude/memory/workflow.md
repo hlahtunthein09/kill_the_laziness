@@ -38,7 +38,7 @@ Choose the next piece from the roadmap below.
 - Summarize only new findings in `.claude/memory/progress.md`.
 
 ### 4. Virtual Sizing Review
-Report in one table before building a skill:
+Report in one table **before building a skill**. The report must include a short **Why** line explaining why this piece is needed.
 
 | Metric | Value |
 |---|---|
@@ -48,6 +48,9 @@ Report in one table before building a skill:
 | Pages | n |
 | Est. lines | n |
 | Verdict | Small / Medium / Too Big |
+| Why | one sentence |
+
+**Approval gate:** Do not write the skill file until the user explicitly approves the scope and any split.
 
 **Sizing thresholds:**
 - ✅ **Small**: ≤3 new files, ≤1 page, ≤1 hook, ≤200 lines
@@ -59,10 +62,12 @@ Report in one table before building a skill:
 - ⚠️ **Small**: ≤2 new files, ≤2 modified files, ≤1 hook, ≤150 lines
 - ❌ **Too Big**: anything larger — must split into tinier features
 
+**Feature-by-feature rule:** Prefer many tiny features over one medium feature. Each feature should touch as few files as possible to reduce review surface and PC load. When in doubt, split more.
+
 If too big, split BEFORE building the skill and update the roadmap. Prefer many tiny features over one medium feature.
 
 ### 5. Build/Update Skill
-After scope is finalized, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat. **Every skill must include a concrete test strategy: test file path(s), what to test, and how to verify.**
+**Only after scope is finalized and the user has explicitly approved it**, create/update the skill in `.claude/skills/`. Do not paste the full skill in chat. **Every skill must include a concrete test strategy: test file path(s), what to test, and how to verify.**
 
 ### 6. Report Ready State
 One concise message with:
@@ -72,8 +77,10 @@ One concise message with:
 - Test plan (file path + what is tested)
 - Ask for confirmation
 
+**Approval gate:** Do not spawn the agent until the user explicitly says "go" or confirms.
+
 ### 7. Spawn Agent + Implement + Test
-Only after explicit user confirmation. The agent must:
+Only after explicit user confirmation.
 1. Implement the piece.
 2. Create the test file(s) listed in the skill.
 3. Run the tests and ensure they pass before reporting completion.
