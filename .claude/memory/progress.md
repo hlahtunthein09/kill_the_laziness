@@ -532,14 +532,19 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 2 Piece 2b complete:** `QuickFocusInput` integrated into `app/page.tsx` with `onStart` prop navigating to `/timer`; dashboard renders quick-focus card; 10/10 tests passing (QuickFocusInput + page); TypeScript clean; `npm run build` succeeds.
 - **Tier 2 Piece 3a complete:** streak counter fields (`currentStreak`, `longestStreak`, `lastStreakDate`) added to `AppSettings` and `DEFAULT_APP_SETTINGS`; `incrementProjectTime` now increments streak on daily goal reach, continues on consecutive days, resets after gap, and counts only once per day; `useFocusStore.test.ts` 33/33 passing; TypeScript clean; `npm run build` succeeds.
 - **Tier 2 Piece 3b complete:** `components/analytics/StreakCounter.tsx` created — reads `settings.currentStreak` and `settings.longestStreak` from `useFocusStore`; renders `Card` matching existing dashboard stat cards with `Flame` icon, Burmese title, big number, and longest streak subtitle; `StreakCounter.test.tsx` 4/4 passing; `app/page.tsx` updated to 4-column grid (`sm:grid-cols-2 lg:grid-cols-4`) with `<StreakCounter />` as 3rd card; `page.test.tsx` updated with streak assertions; full suite 253/253; TypeScript clean; `npm run build` succeeds.
+- **Tier 3 Piece 5a complete:** `components/distraction/DistractionLog.tsx` created — reads `logs` and `clearLogs` from `useFocusStore`; renders log entries with URL, blocked/warned badge, relative time, empty state, and clear button; `DistractionLog.test.tsx` 4/4 passing; TypeScript clean; `npm run build` succeeds.
+- **Context switch note:** conversation nearing context limit; Tier 3 Piece 5b (DistractionLog integration into settings page) queued for next chat.
 - **Roadmap update (2026-06-23):** Prioritized 12 small pieces across 4 tiers to transform FocusFlow AI into a friction-free daily focus tool:
   - **Tier 1 (must-have):** ✅ Complete
-  - **Tier 2 (habit formation, 3 pieces):** daily focus goal, quick focus input, streak counter
+  - **Tier 2 (habit formation, 3 pieces):** ✅ Complete
   - **Tier 3 (polish, 5 pieces):** visual timer ring, session summary, project status updates, extension popup controls, distraction log in web app
   - **Tier 4 (future):** sound toggle, fortress visualization, cross-device sync, scheduled focus sessions
 
 ## Next Action (for next chat)
-Tier 2 complete. Push to GitHub, then continue with Tier 3 or manual browser verification.
+Tier 2 complete. Tier 3 analysis done; Piece 5 split into 5a/5b. Start with 5a.
+
+## Blockers
+None.
 
 ## Blockers
 None.
