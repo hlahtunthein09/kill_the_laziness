@@ -557,9 +557,16 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 4 Piece 2a complete:** `lib/store/slices/projectSlice.ts` updated — added `getFortressLevelFromXp()` and `getFortressHealthFromXp()` helpers, `fortressLevel`/`fortressHealth` recomputed after XP gain in `incrementProjectTime` and after XP bonus in `completeSubPiece`; `fortress.test.ts` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 295/295.
 - **Tier 4 Piece 2b complete:** `components/fortress/FortressSvg.tsx` created — inline SVG fortress with level-based towers (1/2/3), flag at level 4+, health bar (amber < 50, emerald >= 50), Burmese/English label; `FortressSvg.test.tsx` 4/4 passing; TypeScript clean; `npm run build` succeeds; full suite 299/299.
 - **Tier 4 Piece 2c complete:** `app/page.tsx` updated — Fortress card added to 5-column stat grid (`lg:grid-cols-5`), reads `activeProjectId` from store, falls back to first project, renders `FortressSvg` with `fortressLevel`/`fortressHealth`; `app/__tests__/page.fortress.test.tsx` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 303/303.
+- **Tier 4 Piece 3a complete:** `lib/sync.ts` created with `exportStore()` — reads `useFocusStore.getState()`, returns JSON with `version: 1`, `exportedAt`, `projects`, and `settings`; guards against undefined state; `lib/__tests__/sync.export.test.ts` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 307/307.
+- **Tier 4 Piece 3b complete:** `lib/sync.ts` updated with `importStore()` — validates JSON shape (`version`, `projects`, `settings`), validates project `id`/`name` and settings `forbiddenUrls`, loads into `useFocusStore.setState()`; `lib/__tests__/sync.import.test.ts` created (4/4 passing); TypeScript clean; `npm run build` succeeds; full suite 311/311.
+- **Tier 4 Piece 3c complete:** `components/settings/SyncPanel.tsx` created — download backup button with Burmese-first label, shadcn `Button`, card-style container, disabled when export empty; `SyncPanel.test.tsx` 3/3 passing; integrated into `app/settings/page.tsx`; TypeScript clean; `npm run build` succeeds; full suite 314/314.
+- **Tier 4 Piece 3d complete:** `SyncPanel.tsx` updated with hidden file input (`ref`), "Restore Backup" upload button (`Upload` icon, `variant="outline"`, Burmese-first label), `FileReader`-based `onFileChange` handler calling `importStore()`, inline success/error status messages, input cleared after selection for re-import; `SyncPanel.test.tsx` extended with 3 upload tests (6/6 total); TypeScript clean; `npm run build` succeeds; full suite 317/317.
 
 ## Context switch note
-Tier 4 Piece 2 (Fortress visualization) complete. Proceed to Piece 3 (Cross-device sync) or Piece 4 (Scheduled focus sessions) after user review.
+Tier 4 Piece 3 (Cross-device sync) complete. Proceed to Piece 4 (Scheduled focus sessions) after user review.
 
 ## Next Action (for next chat)
-Tier 4 Piece 2 complete. Review before choosing Piece 3 or Piece 4.
+Tier 4 Piece 3 complete. Proceed to Piece 4 (Scheduled focus sessions) after user review.
+
+## Blockers
+None.

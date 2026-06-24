@@ -7,6 +7,7 @@ import { ForbiddenUrlsList } from "@/components/settings/ForbiddenUrlsList";
 import { ThemeSelector } from "@/components/settings/ThemeSelector";
 import { DailyFocusGoalInput } from "@/components/settings/DailyFocusGoalInput";
 import { DistractionLog } from "@/components/distraction/DistractionLog";
+import { SyncPanel } from "@/components/settings/SyncPanel";
 
 export default function SettingsPage() {
   return (
@@ -55,6 +56,11 @@ export default function SettingsPage() {
         {/* Theme selector — live component */}
         <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
           <ThemeSelector />
+        </div>
+
+        {/* Sync Panel — backup & restore */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <SyncPanel />
         </div>
 
         {/* Distraction Log — live component */}
