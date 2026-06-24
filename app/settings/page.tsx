@@ -1,4 +1,5 @@
 import { NotificationsToggle } from "@/components/settings/NotificationsToggle";
+import { SoundToggle } from "@/components/settings/SoundToggle";
 import { Settings } from "lucide-react";
 import { StrictModeToggle } from "@/components/settings/StrictModeToggle";
 import { AddForbiddenUrl } from "@/components/settings/AddForbiddenUrl";
@@ -36,6 +37,11 @@ export default function SettingsPage() {
         {/* Notifications toggle — live component */}
         <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
           <NotificationsToggle />
+        </div>
+
+        {/* Sound toggle — live component */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <SoundToggle />
         </div>
 
         {/* Forbidden URLs — live component */}

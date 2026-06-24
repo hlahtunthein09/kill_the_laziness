@@ -553,13 +553,14 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 3 Piece 4d complete:** `extension/entrypoints/popup.html` updated with Pause (`#pause-btn`) and Reset (`#reset-btn`) buttons inside `#popup-content` with `.btn-secondary` and `.btn-outline` CSS styles; `extension/lib/popup.ts` updated with `setupPauseResetButtons(state)` — shows buttons when `state` exists and `isRunning === true`, hides when paused or null, sends `PAUSE_TIMER`/`RESET_TIMER` messages on click; `extension/lib/__tests__/popup-pause-reset.test.ts` created (7 tests); full suite 279/279; TypeScript clean; `npm run build:ext` succeeds.
 - **Tier 3 Piece 4e complete:** `extension/entrypoints/control.content.ts` created — `defineContentScript` matching `http://localhost:3000/*`, `setupControlListener()` with swappable browser instance, listens for `EXT_START_TIMER`/`EXT_PAUSE_TIMER`/`EXT_RESET_TIMER` and dispatches `ff:start`/`ff:pause`/`ff:reset` CustomEvents with `bubbles: true`; `extension/lib/__tests__/control.content.test.ts` created (4 tests); full suite 283/283; TypeScript clean; `npm run build:ext` succeeds with `content-scripts/control.js` in output.
 - **Tier 3 Piece 4f complete:** `components/timer/TimerPanel.tsx` updated — added `useEffect` listeners for `ff:start`/`ff:pause`/`ff:reset` custom events, calling `start()`/`pause()`/`reset()` from `useTimer`; `TimerPanel.extension-controls.test.tsx` created (3/3 passing); TypeScript clean; `npm run build` succeeds; full suite 286/286.
-- **Workflow discipline update (2026-06-25):** Strict feature-by-feature workflow enforced this session — every sub-piece now requires research/virtual-sizing report with a **Why** line, explicit user approval before skill writing, explicit "go" after ready-state report before spawning agent. This reduces token consumption and PC load while keeping review easy for beginners.
+- **Tier 4 Piece 1a complete:** `soundEnabled: boolean` added to `AppSettings` and `DEFAULT_APP_SETTINGS`; `SoundToggle.tsx` created with Burmese-first label + English subtitle, reads/writes `settings.soundEnabled` via `useFocusStore`; `SoundToggle.test.tsx` 4/4 passing; integrated into `app/settings/page.tsx`; TypeScript clean; `npm run build` succeeds; full suite 287/287.
+- **Tier 4 Piece 1b complete:** `lib/sound.ts` created — `playCompleteSound()` (880Hz, 0.15s) and `playMilestoneSound()` (660Hz, 0.1s) via Web Audio API oscillator, both gated by `settings.soundEnabled`; `lib/__tests__/sound.test.ts` 4/4 passing; `TimerPanel.tsx` wired to play complete sound on sub-piece finish and milestone sound on every 5-min milestone; TypeScript clean; `npm run build` succeeds; full suite 291/291.
 
 ## Context switch note
-Tier 3 complete. Review before deciding on Tier 4 direction.
+Tier 4 Piece 1 (Sound Toggle) complete. Proceed to Piece 2 (Fortress visualization) after user review.
 
 ## Next Action (for next chat)
-Tier 3 complete. Proceed to Tier 4 planning or specific Tier 4 piece after user review.
+Tier 4 Piece 1 complete. Proceed to Piece 2a (Fortress level/health computation from XP) after user review.
 
 ## Blockers
 None.

@@ -38,6 +38,7 @@ export interface AppSettings {
   forbiddenUrls: string[];
   strictMode: boolean;
   notificationsEnabled: boolean;
+  soundEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
   dailyFocusGoalMinutes: number;
   todayFocusSeconds: number;

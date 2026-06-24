@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SessionSummary } from "./SessionSummary";
 import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
+import { playCompleteSound, playMilestoneSound } from "@/lib/sound";
 
 export function TimerPanel() {
   const router = useRouter();
@@ -67,6 +68,7 @@ export function TimerPanel() {
     if (milestone > lastMilestoneRef.current && milestone > 0) {
       lastMilestoneRef.current = milestone;
       setToastTrigger("milestone");
+      playMilestoneSound();
     }
   }, [isRunning, projectElapsed]);
 
@@ -76,6 +78,7 @@ export function TimerPanel() {
     const motivation = getMotivation(motivationContext);
     if (lastTierRef.current && lastTierRef.current !== motivation.tier) {
       setToastTrigger("milestone");
+      playMilestoneSound();
     }
     lastTierRef.current = motivation.tier;
   }, [isRunning, motivationContext]);
@@ -89,6 +92,7 @@ export function TimerPanel() {
     ) {
       setToastTrigger("complete");
       setShowSummary(true);
+      playCompleteSound();
     }
     prevSubPieceRemainingRef.current = subPieceRemaining;
   }, [subPieceRemaining]);

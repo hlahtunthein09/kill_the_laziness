@@ -81,6 +81,7 @@ export const DEFAULT_APP_SETTINGS = {
   forbiddenUrls: DEFAULT_FORBIDDEN_URLS,
   strictMode: false,
   notificationsEnabled: true,
+  soundEnabled: true,
   theme: 'system' as const,
   dailyFocusGoalMinutes: 60,
   todayFocusSeconds: 0,
