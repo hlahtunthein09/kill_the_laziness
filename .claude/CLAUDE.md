@@ -14,9 +14,9 @@ For **every piece** — main or sub-piece — follow this exact order:
 
 1. **Read memory first.** Start with `.claude/CLAUDE.md`, `.claude/memory/conventions.md`, `.claude/memory/progress.md`, and `.claude/memory/workflow.md`.
 2. **Research.** Reuse findings from memory. Only query Context7/WebFetch when a **new primitive or pattern** is needed. No broad Context7 dumps for repeated patterns.
-3. **Virtual sizing.** Report in one table: new files, modified files, estimated lines, verdict. Split if >3 new files, >1 page, >1 hook, or >200 lines.
-4. **Skill.** After user confirms the scope, write/update the skill file in `.claude/skills/`. Do not paste the full skill content in chat.
-5. **Report ready state.** One concise message: skill created, agent choice, test plan. Wait for explicit user confirmation before spawning an agent.
+3. **Virtual sizing.** Report in one table: new files, modified files, hooks, pages, estimated lines, verdict, and a **Why** line. Prefer feature-by-feature splitting to reduce PC load: tiny pieces (≤1 new file, ≤1 modified file, ≤100 lines) for UI/timer/extension work. Split if >3 new files, >1 page, >1 hook, or >200 lines.
+4. **Skill.** Only after the user explicitly approves the scope/split, write/update the skill file in `.claude/skills/`. Do not paste the full skill content in chat. Never write a skill before approval.
+5. **Report ready state.** One concise message: skill created, agent choice, test plan. Wait for an explicit "go" or confirmation from the user before spawning an agent.
 6. **Spawn agent + implement + write tests.** Every piece must have tests. The agent must create test file(s) as part of implementation and cannot report completion until tests are written and passing.
 7. **Verify.** Run `npx tsc --noEmit` and the relevant test command (`npx vitest run <test-file>` or `npm test`). A piece is **not done** until both pass.
 8. **Update memory.** Append a one-line status to `.claude/memory/progress.md` (and `conventions.md` only if conventions change).
