@@ -563,10 +563,10 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 4 Piece 3d complete:** `SyncPanel.tsx` updated with hidden file input (`ref`), "Restore Backup" upload button (`Upload` icon, `variant="outline"`, Burmese-first label), `FileReader`-based `onFileChange` handler calling `importStore()`, inline success/error status messages, input cleared after selection for re-import; `SyncPanel.test.tsx` extended with 3 upload tests (6/6 total); TypeScript clean; `npm run build` succeeds; full suite 317/317.
 
 ## Context switch note
-Tier 4 Piece 3 (Cross-device sync) complete. Proceed to Piece 4 (Scheduled focus sessions) after user review.
+Tier 4 Piece 3 complete. Proceeding to Piece 4 (Scheduled focus sessions).
 
 ## Next Action (for next chat)
-Tier 4 Piece 3 complete. Proceed to Piece 4 (Scheduled focus sessions) after user review.
+Tier 4 Piece 3 complete. Proceed to Piece 4a (Schedule types and store slice) after user review.
 
 ## Blockers
 None.
