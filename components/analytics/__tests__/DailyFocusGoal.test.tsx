@@ -41,7 +41,7 @@ describe("DailyFocusGoal", () => {
 
     render(<DailyFocusGoal />);
 
-    expect(screen.getByText("50% achieved (Goal reached)")).toBeInTheDocument();
+    expect(screen.getByText("50% achieved")).toBeInTheDocument();
     expect(screen.getByTestId("progress-fill")).toHaveStyle("width: 50%");
   });
 
@@ -71,7 +71,7 @@ describe("DailyFocusGoal", () => {
 
     render(<DailyFocusGoal />);
 
-    expect(screen.getByText("0% achieved (Goal reached)")).toBeInTheDocument();
+    expect(screen.getByText("0% achieved")).toBeInTheDocument();
     expect(screen.getByTestId("progress-fill")).toHaveStyle("width: 0%");
   });
 
@@ -87,7 +87,7 @@ describe("DailyFocusGoal", () => {
     render(<DailyFocusGoal />);
 
     expect(screen.getByText("0 / 60")).toBeInTheDocument();
-    expect(screen.getByText("0% achieved (Goal reached)")).toBeInTheDocument();
+    expect(screen.getByText("0% achieved")).toBeInTheDocument();
     expect(screen.getByTestId("progress-fill")).toHaveStyle("width: 0%");
   });
 

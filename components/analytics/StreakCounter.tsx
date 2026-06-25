@@ -20,7 +20,7 @@ export function StreakCounter({ className }: { className?: string }) {
       <CardHeader className="pb-2">
         <CardDescription className="flex items-center gap-2 text-stone-500">
           <Flame className="h-4 w-4 text-orange-500" />
-          အစဉ်လိုက်က် focus ရက်များ (Streak)
+          အစဉ်လိုက် focus ရက်များ (Streak)
         </CardDescription>
         <CardTitle className="text-3xl font-bold text-stone-900">
           {currentStreak}

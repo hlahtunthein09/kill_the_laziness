@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 
 const SESSION_KEY = "ff_active_session";
+const MAX_DRIFT_SECONDS = 60 * 60; // 60 minutes
 
 interface SessionData {
   projectId: string;
@@ -70,9 +71,11 @@ function computeInit(
     };
   }
 
-  const drift = session.isRunning
+  const rawDrift = session.isRunning
     ? Math.floor((Date.now() - session.savedAt) / 1000)
     : 0;
+  const drift = session.isRunning ? Math.min(MAX_DRIFT_SECONDS, rawDrift) : 0;
+  const driftWasCapped = session.isRunning && rawDrift > MAX_DRIFT_SECONDS;
 
   const subPieceRemaining = subPieceId
     ? Math.max(0, session.subPieceRemaining - (session.isRunning ? drift : 0))
@@ -80,6 +83,7 @@ function computeInit(
 
   const shouldAutoComplete =
     session.isRunning &&
+    !driftWasCapped &&
     subPieceId !== undefined &&
     session.subPieceRemaining > 0 &&
     subPieceRemaining === 0;
@@ -92,6 +96,7 @@ function computeInit(
 
   const isRunning =
     session.isRunning &&
+    !driftWasCapped &&
     !shouldAutoComplete &&
     (subPieceId ? subPieceRemaining > 0 : true);
 
@@ -106,7 +111,8 @@ function computeInit(
 
 export function useTimer(
   projectId: string | undefined,
-  subPieceId?: string
+  subPieceId?: string,
+  onComplete?: () => void
 ): UseTimerReturn {
   // Always call store selectors unconditionally to keep hook count stable.
   // When projectId is undefined, these lookups will return undefined safely.
@@ -149,6 +155,11 @@ export function useTimer(
   const lastPersistRef = useRef(0);
   const initialProjectTimeRef = useRef(initialProjectTime);
   const autoCompleteHandledRef = useRef(false);
+
+  // Store onComplete in a ref so the RAF loop can access the latest version
+  // without adding it as a dependency.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   // Keep latest values in refs for the RAF loop (avoids stale closures)
   const projectElapsedRef = useRef(init.projectElapsed);
@@ -277,6 +288,7 @@ export function useTimer(
             .getState()
             .completeSubPiece(projectId, subPieceId);
           localStorage.removeItem(SESSION_KEY);
+          onCompleteRef.current?.();
           return;
         }
       }

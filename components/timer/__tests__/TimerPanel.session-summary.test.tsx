@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TimerPanel } from "../TimerPanel";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import type { Project, SubPiece } from "@/lib/types";
@@ -16,16 +16,22 @@ vi.mock("@/lib/sound", () => ({
   playMilestoneSound: vi.fn(),
 }));
 
-// Mock useTimer hook
+// Mock useTimer hook — captures the onComplete callback so tests can fire it
+let mockOnComplete: (() => void) | undefined;
+const _mockReset = vi.fn();
+
 vi.mock("@/hooks/useTimer", () => ({
-  useTimer: vi.fn(() => ({
-    isRunning: false,
-    projectElapsed: 0,
-    subPieceRemaining: 0,
-    start: vi.fn(),
-    pause: vi.fn(),
-    reset: vi.fn(),
-  })),
+  useTimer: vi.fn((projectId, subPieceId, onComplete) => {
+    mockOnComplete = onComplete;
+    return {
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: _mockReset,
+    };
+  }),
 }));
 
 import { useTimer } from "@/hooks/useTimer";
@@ -62,11 +68,12 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 }
 
 describe("TimerPanel - SessionSummary integration", () => {
-  const mockReset = vi.fn();
+  const mockReset = _mockReset;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockReset.mockClear();
+    mockOnComplete = undefined;
   });
 
   it("renders SessionSummary with project and sub-piece names when sub-piece completes", () => {
@@ -92,36 +99,15 @@ describe("TimerPanel - SessionSummary integration", () => {
       })
     );
 
-    // Mock useTimer with subPieceRemaining: 0 (completed state)
-    // The completion transition is detected when prev > 0 and current === 0
-    // On first render, prevSubPieceRemainingRef starts at 0, so no transition.
-    // We need to simulate a transition: first render with remaining > 0, then rerender with 0.
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 10, // start with > 0
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
+    render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback from useTimer
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
     });
 
-    const { rerender } = render(<TimerPanel />);
-
-    // Now trigger the completion transition
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 0, // now 0 -> triggers completion
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
-    });
-
-    rerender(<TimerPanel />);
-
-    // SessionSummary should show project and sub-piece names (combined as "Test Project — Completed SubPiece")
+    // SessionSummary should show project and sub-piece names
     expect(screen.getByText(/Test Project/)).toBeInTheDocument();
     expect(screen.getByText(/Completed SubPiece/)).toBeInTheDocument();
   });
@@ -153,30 +139,13 @@ describe("TimerPanel - SessionSummary integration", () => {
       })
     );
 
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 5, // start with > 0
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
+    render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
     });
-
-    const { rerender } = render(<TimerPanel />);
-
-    // Trigger completion transition
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 0,
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
-    });
-
-    rerender(<TimerPanel />);
 
     expect(screen.getByText(new RegExp(`XP gained: \\\+${expectedTotalXp}`))).toBeInTheDocument();
   });
@@ -204,30 +173,13 @@ describe("TimerPanel - SessionSummary integration", () => {
       })
     );
 
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 5,
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
+    render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
     });
-
-    const { rerender } = render(<TimerPanel />);
-
-    // Trigger completion
-    // @ts-expect-error - mock return
-    useTimer.mockReturnValue({
-      isRunning: false,
-      projectElapsed: 600,
-      subPieceRemaining: 0,
-      start: vi.fn(),
-      pause: vi.fn(),
-      reset: mockReset,
-    });
-
-    rerender(<TimerPanel />);
 
     // Find and click the continue button
     const continueButton = screen.getByText(/ဆက်လက်ပါ/);

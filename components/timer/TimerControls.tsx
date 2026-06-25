@@ -18,26 +18,26 @@ export function TimerControls({
 }: TimerControlsProps) {
   return (
     <div className="flex items-center gap-3 justify-center">
-      <Button
-        onClick={onStart}
-        disabled={isRunning}
-        className="gap-1.5"
-        data-testid="timer-start"
-      >
-        <Play className="h-4 w-4" />
-        စတင် (Start)
-      </Button>
-
-      <Button
-        onClick={onPause}
-        disabled={!isRunning}
-        variant="secondary"
-        className="gap-1.5"
-        data-testid="timer-pause"
-      >
-        <Pause className="h-4 w-4" />
-        ခဏရပ် (Pause)
-      </Button>
+      {isRunning ? (
+        <Button
+          onClick={onPause}
+          variant="secondary"
+          className="gap-1.5"
+          data-testid="timer-pause"
+        >
+          <Pause className="h-4 w-4" />
+          ခဏရပ် (Pause)
+        </Button>
+      ) : (
+        <Button
+          onClick={onStart}
+          className="gap-1.5"
+          data-testid="timer-start"
+        >
+          <Play className="h-4 w-4" />
+          စတင် (Start)
+        </Button>
+      )}
 
       <Button
         onClick={onReset}

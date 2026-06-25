@@ -31,6 +31,14 @@ describe('Home (Dashboard)', () => {
     mockUseFocusStore.mockClear()
   })
 
+  it('renders the greeting on the dashboard page', () => {
+    mockStore([])
+    render(<Home />)
+
+    expect(screen.getByText('မင်္ဂလာပါ၊ ဒီနေ့လည်း focus လုပ်ကြမယ်')).toBeInTheDocument()
+    expect(screen.getByText('Ready to build your fortress?')).toBeInTheDocument()
+  })
+
   it('shows all zeros when no projects exist', () => {
     mockStore([])
     render(<Home />)
@@ -40,12 +48,12 @@ describe('Home (Dashboard)', () => {
     expect(totalProjectsCard).toBeTruthy()
     expect(totalProjectsCard.textContent).toContain('0')
 
-    // DailyFocusGoal should show 0 / 120 with 0% progress
+    // DailyFocusGoal should show 0 / 120 with 0% progress (no "Goal reached" at 0%)
     expect(screen.getByText('0 / 120')).toBeInTheDocument()
-    expect(screen.getByText('0% achieved (Goal reached)')).toBeInTheDocument()
+    expect(screen.getByText('0% achieved')).toBeInTheDocument()
 
-    // StreakCounter should show 0
-    const streakCard = screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
+    // StreakCounter should show 0 (look for the card description text)
+    const streakCard = screen.getByText('အစဉ်လိုက် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
     expect(streakCard).toBeTruthy()
     expect(streakCard.textContent).toContain('0')
 
@@ -80,7 +88,7 @@ describe('Home (Dashboard)', () => {
     expect(screen.getByText('0 / 120')).toBeInTheDocument()
 
     // StreakCounter shows 0 (default settings)
-    const streakCard = screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
+    const streakCard = screen.getByText('အစဉ်လိုက် focus ရက်များ (Streak)').closest('[data-slot="card"]') as HTMLElement
     expect(streakCard.textContent).toContain('0')
 
     // Total XP = 250 + 100 = 350 -> Level 2 (threshold 200)
@@ -110,7 +118,7 @@ describe('Home (Dashboard)', () => {
 
     expect(screen.getByText('စုစုပေါင်း ပရောဂျက်များ')).toBeInTheDocument()
     expect(screen.getByText('နေ့စဉ် focus ရည်မှန်းချက်')).toBeInTheDocument()
-    expect(screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)')).toBeInTheDocument()
+    expect(screen.getByText('အစဉ်လိုက် focus ရက်များ (Streak)')).toBeInTheDocument()
     expect(screen.getByText('လက်ရှိ အဆင့်')).toBeInTheDocument()
   })
 })

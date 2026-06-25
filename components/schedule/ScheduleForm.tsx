@@ -184,7 +184,7 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <Button className="bg-teal-500 hover:bg-teal-600 text-white">
           <Plus className="mr-2 h-4 w-4" />
           {triggerButtonText}

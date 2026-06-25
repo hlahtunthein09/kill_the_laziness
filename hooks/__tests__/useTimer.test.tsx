@@ -318,19 +318,36 @@ describe('useTimer', () => {
       expect(updatedProject?.subPieces[0].elapsedSeconds).toBe(120)
     })
 
-    it('does not start if sub-piece is already at zero', () => {
+    it('calls onComplete callback when sub-piece reaches zero', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id, onComplete))
+
+      act(() => result.current.start())
+      await flushRaf()
+      // Advance exactly 120 seconds to deplete the sub-piece
+      await advanceTime(120)
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.subPieceRemaining).toBe(0)
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onComplete when sub-piece was already at zero', () => {
       const { project, subPiece } = createProjectWithSubPiece()
       // Manually complete the sub-piece in store
       useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
       useFocusStore.getState().incrementSubPieceTime(project.id, subPiece.id, 120)
 
-      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id, onComplete))
 
       // subPiece elapsed = 120, allocated = 120, so remaining = 0
       expect(result.current.subPieceRemaining).toBe(0)
 
       act(() => result.current.start())
       expect(result.current.isRunning).toBe(false)
+      expect(onComplete).not.toHaveBeenCalled()
     })
 
     it('updates store incrementProjectTime and incrementSubPieceTime each second', async () => {
@@ -460,6 +477,37 @@ describe('useTimer', () => {
 
       const updatedProject = useFocusStore.getState().getProjectById(project.id)
       expect(updatedProject?.subPieces[0].status).toBe('completed')
+    })
+
+    it('caps drift at MAX_DRIFT_SECONDS and pauses timer when raw drift exceeds cap', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+
+      // Session saved 2 hours ago (7200 seconds), running, with 100s remaining
+      const savedSession = {
+        projectId: project.id,
+        subPieceId: subPiece.id,
+        projectElapsed: 20,
+        subPieceRemaining: 100,
+        savedAt: 0,
+        isRunning: true,
+      }
+      localStorage.setItem('ff_active_session', JSON.stringify(savedSession))
+      // 2 hours later
+      now = 7200 * 1000
+
+      render(<TimerTestHarness projectId={project.id} subPieceId={subPiece.id} />)
+
+      // Drift is capped at 3600 seconds (60 minutes)
+      // projectElapsed = 20 + 3600 = 3620
+      // subPieceRemaining = max(0, 100 - 3600) = 0
+      // But since drift was capped, isRunning should be false and no auto-complete
+      expect(screen.getByTestId('isRunning').textContent).toBe('false')
+      expect(screen.getByTestId('projectElapsed').textContent).toBe('3620')
+      expect(screen.getByTestId('subPieceRemaining').textContent).toBe('0')
+
+      // Sub-piece should NOT be auto-completed because drift was capped
+      const updatedProject = useFocusStore.getState().getProjectById(project.id)
+      expect(updatedProject?.subPieces[0].status).toBe('idle')
     })
 
     it('ignores corrupt localStorage data', () => {

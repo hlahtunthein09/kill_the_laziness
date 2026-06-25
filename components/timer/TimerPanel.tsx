@@ -37,8 +37,14 @@ export function TimerPanel() {
 
   // ALL hooks must be called unconditionally BEFORE any conditional return
   // to keep React hook count stable across renders.
+  const handleComplete = useCallback(() => {
+    setToastTrigger("complete");
+    setShowSummary(true);
+    playCompleteSound();
+  }, []);
+
   const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset } =
-    useTimer(activeProject?.id, firstIncompleteSubPiece?.id);
+    useTimer(activeProject?.id, firstIncompleteSubPiece?.id, handleComplete);
 
   // Track previous isRunning to detect transitions (paused -> running)
   const prevIsRunningRef = useRef(isRunning);
@@ -91,20 +97,6 @@ export function TimerPanel() {
     }
     lastTierRef.current = motivation.tier;
   }, [isRunning, motivationContext]);
-
-  // Detect complete trigger: sub-piece finished (remaining went from >0 to 0)
-  const prevSubPieceRemainingRef = useRef(subPieceRemaining);
-  useEffect(() => {
-    if (
-      prevSubPieceRemainingRef.current > 0 &&
-      subPieceRemaining === 0
-    ) {
-      setToastTrigger("complete");
-      setShowSummary(true);
-      playCompleteSound();
-    }
-    prevSubPieceRemainingRef.current = subPieceRemaining;
-  }, [subPieceRemaining]);
 
   // Extension control listeners: ff:start, ff:pause, ff:reset
   const handleExtensionStart = useCallback(() => {

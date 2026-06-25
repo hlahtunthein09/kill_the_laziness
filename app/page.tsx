@@ -37,13 +37,13 @@ export default function Home() {
 
   return (
     <div className="flex min-h-full flex-col gap-6 p-6 lg:p-8 bg-gradient-soft">
-      {/* Page heading */}
-      <div className="animate-fade-in">
+      {/* Greeting */}
+      <div className="animate-fade-in mb-2">
         <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">
-          ကျွမ်းကျင်မှုမြှင့်တင်ရေးအတွက် ပင်မစာမျက်နှာ
+          မင်္ဂလာပါ၊ ဒီနေ့လည်း focus လုပ်ကြမယ်
         </h1>
         <p className="mt-1 text-sm text-stone-500">
-          Build your Dev-Fortress, one focused sprint at a time.
+          Ready to build your fortress?
         </p>
       </div>
 

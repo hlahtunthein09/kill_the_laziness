@@ -24,16 +24,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Center: Greeting */}
-      <div className="hidden md:flex flex-col items-center">
-        <span className="text-sm font-medium text-stone-800 leading-tight">
-          မင်္ဂလာပါ၊ ဒီနေ့လည်း focus လုပ်ကြမယ်
-        </span>
-        <span className="text-xs text-stone-400">
-          Ready to build your fortress?
-        </span>
-      </div>
-
       {/* Right: Streak */}
       <div className="flex items-center gap-2">
         <div

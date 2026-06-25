@@ -42,6 +42,6 @@ describe('StreakCounter', () => {
     mockStore(3, 7)
     render(<StreakCounter />)
 
-    expect(screen.getByText('အစဉ်လိုက်က် focus ရက်များ (Streak)')).toBeInTheDocument()
+    expect(screen.getByText('အစဉ်လိုက် focus ရက်များ (Streak)')).toBeInTheDocument()
   })
 })

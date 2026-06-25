@@ -1,4 +1,9 @@
-.claude project structure, references, and Next.js shell created.
+- **UI reference research done (2026-06-26):** Pomofocus, Forest, Freedom, Todoist Karma, MV3 extension popups, WXT best practices များကို analyze၍ `docs/ui-references.md` နှင့် auto-memory index တွင် သိမ်းထား။ မနက်ဖြန် #10 UI overhaul အတွက် အသုံးပြုမည်။
+- **Session end (2026-06-26):** Issues #6–#9 + Observations #2A–#5A အားလုံး ပြီးစီး။ #10 (dark/system UI) နှင့် #11 (extension live blocking) ကို manual testing မှတဆင့် နောက်နေ့ ဆက်လက်မည်။ Working tree တွင် changes စုစုပေါင်း ရှိနေသည် — push မလုပ်သေးပါ။
+- **Observation #5A decided (2026-06-26):** Reset နှိပ်လျှင် accumulated time ကို ထိန်းထားမည် (undo session semantics မသုံး); code change မလိုပါ။
+- **Observation #4A complete (2026-06-26):** `useTimer` auto-resume drift ကို ၆၀ မိနစ်ဖြင့် capping လုပ်ပြီး ထပ်ကြာခဲ့ရင် paused အဖြစ် load ဖြစ်စေခြင်း; 24/24 tests passing; TypeScript clean. Next: #10 (UI) or #11 (extension live test) — user said UI fixes deferred until tomorrow.
+- **Observation #3A complete (2026-06-26):** `TimerControls` တွင် `isRunning` အလိုက် Start/Pause button ကို toggle ပြသခြင်း (Reset ကတော့ အမြဲပါသည်); 5/5 tests passing; TypeScript clean.
+- **Observation #2A complete (2026-06-26):** Dashboard greeting ကို Header မှ `app/page.tsx` သို့ ရွှေ့ခြင်း; Header.test.tsx 3/3 + page.test.tsx 5/5 passing; TypeScript clean.
 
 ## Current Phase
 Piece 4 split into 4a/4b/4c. Workflow and memory structure updated for token-efficient, memory-first development.
@@ -841,4 +846,8 @@ Quick wins first: #9 (typo) → #8 (asChild) → #7 (goal wording) → #6 (Sessi
 Context filled; switching to a new chat to begin the fix pass. **Playwright MCP switched OFF by user (token cost)** — UI/timer fixes verified via manual browser next chat, not Playwright. Unit tests (vitest) + tsc still mandatory per piece.
 
 - **Next piece: #9 Streak typo** — `StreakCounter.tsx:23` `အစဉ်လိုက်က်` → `အစဉ်လိုက်`; update test `StreakCounter.test.tsx:45` (asserts the typo). Sizing: 0 new / 2 modified / ~2 lines / Trivial. Tests required. Workflow at Step 3 done → Step 4 (skill after approval) next.
-- Fix order: #9 → #8 (asChild on ScheduleForm DialogTrigger) → #7 (goal-at-50%) → #6 (SessionSummary) → #10 (dark theme) → #11 + observations.
+- **Issue #6 complete (2026-06-26):** `useTimer` `onComplete` callback ထည့်ခြင်း (6a) + `TimerPanel` တွင် `showSummary(true)` ခေါ်ခြင်းဖြင့် SessionSummary မပြခြင်း ပြင်ဆင်ခဲ့သည် (6b); session-summary tests 3/3 + TimerPanel tests 9/9 passing; TypeScript clean. Next: #10 or #11/observations.
+- **Issue #6a complete (2026-06-26):** `useTimer` hook တွင် `onComplete` callback ထည့်ပြီး sub-piece auto-complete ဖြစ်သောအခါ reliable အဖြစ် notify လုပ်ခဲ့သည်။ 23/23 tests passing; TypeScript clean.
+- **Issue #7 fixed (2026-06-26):** `DailyFocusGoal` တွင် `(Goal reached)` ကို 100% မှသာ ပြသခြင်းဖြင့် 50% မှာ အမှားပြသခြင်း ပြင်ဆင်ခဲ့သည်။ 6/6 tests passing; TypeScript clean.
+- **Issue #8 fixed (2026-06-26):** `ScheduleForm.tsx` `DialogTrigger` တွင် `asChild` ထည့်ခြင်းဖြင့် nested-button hydration error ဖြေရှင်းခဲ့သည်။ 5/5 tests passing; TypeScript clean.
+- Fix order: #9 ✅ → #8 (asChild on ScheduleForm DialogTrigger) → #7 (goal-at-50%) → #6 (SessionSummary) → #10 (dark theme) → #11 + observations.

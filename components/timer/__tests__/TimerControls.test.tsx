@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { TimerControls } from "../TimerControls";
 
 describe("TimerControls", () => {
-  it("renders Start, Pause, and Reset buttons", () => {
+  it("renders Start and Reset when paused", () => {
     render(
       <TimerControls
         isRunning={false}
@@ -15,6 +15,21 @@ describe("TimerControls", () => {
     );
 
     expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+    expect(screen.queryByTestId("timer-pause")).not.toBeInTheDocument();
+    expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
+  });
+
+  it("renders Pause and Reset when running", () => {
+    render(
+      <TimerControls
+        isRunning={true}
+        onStart={vi.fn()}
+        onPause={vi.fn()}
+        onReset={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("timer-start")).not.toBeInTheDocument();
     expect(screen.getByTestId("timer-pause")).toBeInTheDocument();
     expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
   });
@@ -62,33 +77,5 @@ describe("TimerControls", () => {
 
     await userEvent.click(screen.getByTestId("timer-reset"));
     expect(onReset).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables Start when running", () => {
-    render(
-      <TimerControls
-        isRunning={true}
-        onStart={vi.fn()}
-        onPause={vi.fn()}
-        onReset={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId("timer-start")).toBeDisabled();
-    expect(screen.getByTestId("timer-pause")).not.toBeDisabled();
-  });
-
-  it("disables Pause when not running", () => {
-    render(
-      <TimerControls
-        isRunning={false}
-        onStart={vi.fn()}
-        onPause={vi.fn()}
-        onReset={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId("timer-pause")).toBeDisabled();
-    expect(screen.getByTestId("timer-start")).not.toBeDisabled();
   });
 });

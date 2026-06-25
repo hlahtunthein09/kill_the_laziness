@@ -42,7 +42,10 @@ export function DailyFocusGoal({ className }: { className?: string }) {
             data-testid="progress-fill"
           />
         </div>
-        <p className="text-xs text-stone-400">{progress}% achieved (Goal reached)</p>
+        <p className="text-xs text-stone-400">
+          {progress}% achieved
+          {progress >= 100 && " (Goal reached)"}
+        </p>
       </CardContent>
     </Card>
   );
