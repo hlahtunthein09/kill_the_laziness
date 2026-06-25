@@ -835,3 +835,10 @@ Playwright web-app verification COMPLETE: 28/28 web tests run (all S-tests done)
 
 ### Suggested fix order (when resuming)
 Quick wins first: #9 (typo) → #8 (asChild) → #7 (goal wording) → #6 (SessionSummary, most impactful) → #10 (dark theme, biggest) → #11 + observations (need decisions/manual extension).
+
+## FIX PASS — starting next chat (2026-06-25 handoff)
+
+Context filled; switching to a new chat to begin the fix pass. **Playwright MCP switched OFF by user (token cost)** — UI/timer fixes verified via manual browser next chat, not Playwright. Unit tests (vitest) + tsc still mandatory per piece.
+
+- **Next piece: #9 Streak typo** — `StreakCounter.tsx:23` `အစဉ်လိုက်က်` → `အစဉ်လိုက်`; update test `StreakCounter.test.tsx:45` (asserts the typo). Sizing: 0 new / 2 modified / ~2 lines / Trivial. Tests required. Workflow at Step 3 done → Step 4 (skill after approval) next.
+- Fix order: #9 → #8 (asChild on ScheduleForm DialogTrigger) → #7 (goal-at-50%) → #6 (SessionSummary) → #10 (dark theme) → #11 + observations.
