@@ -627,3 +627,181 @@ Push current changes to GitHub. Then begin Playwright MCP browser verification o
 
 ## Blockers
 None.
+
+## Playwright MCP Verification Plan (Source of Truth)
+
+Execution rules: one test at a time, confirm each before next, ≤90 seconds per test, headless, no screenshots, no vision, **reuse single browser context across tests** (do not close/reopen browser; reset state via localStorage clear + page refresh instead), max 3 assertions per test, UI/UX checks included for every test (layout/ratio/overflow, responsive, theme, color/font, UX labels/empty states/button feedback, glitches/console errors).
+
+**Rationale updated 2026-06-25:** Closing/reopening the browser context per test caused a PC shutdown/crash. Reusing the browser context is now mandatory to reduce resource load.
+
+### Test Catalog
+
+| # | Code | Test | Status |
+|---|---|---|---|
+| 1 | P1 | Open projects page | ✅ PASS |
+| 2 | P2 | Add project dialog | ✅ PASS |
+| 3 | P3 | Create project | ✅ PASS |
+| 4 | P4 | Empty state | ⚠️ PARTIAL (feature issue, see Issue Log) |
+| 5 | P5 | Focus project | ✅ PASS |
+| 6 | SP1 | Default sub-piece | ✅ PASS |
+| 7 | SP2 | Add sub-piece | ✅ PASS |
+| 8 | T1 | Load timer | ✅ PASS |
+| 9 | T2 | Start timer | ✅ PASS |
+| 10 | T3 | Pause timer | ✅ PASS |
+| 11 | T4 | Reset timer | ✅ PASS |
+| 12 | T5 | Session summary | ❌ FAIL |
+| 13 | D1 | Daily goal | ✅ PASS |
+| 14 | D2 | Streak | ✅ PASS |
+| 15 | D3 | Fortress | ✅ PASS |
+| 16 | D4 | Quick focus | ✅ PASS |
+| 17 | S1 | Settings page loads | ⚠️ PARTIAL (nested-button bug, see Issue Log) |
+| 18 | S2 | Strict mode toggle | ✅ PASS |
+| 19 | S3 | Notifications toggle | ✅ PASS |
+| 20 | S4 | Sound toggle | ✅ PASS |
+| 21 | S5 | Theme selector | ✅ PASS |
+| 22 | S6 | Daily focus goal input | ✅ PASS |
+| 23 | S7 | Add forbidden URL | ✅ PASS |
+| 24 | S8 | Forbidden URLs list | ✅ PASS |
+| 25 | S9 | Distraction log | ✅ PASS |
+| 26 | S10 | Sync export | ✅ PASS |
+| 27 | S11 | Sync import | ✅ PASS |
+| 28 | S12 | Schedule add/edit/delete | ✅ PASS (Issue #8 reconfirmed) |
+| 29 | E1 | Extension popup loads | ⏸️ DEFERRED (user manual) |
+| 30 | E2 | Extension start button | ⏸️ DEFERRED (user manual) |
+
+### SP2 Notes
+- Dialog title: "အခန်းကဏ္ဍအသစ် ထည့်ရန် (Add New Sub-piece)" ✓
+- Name input + allocated minutes spinbutton (default 25) rendered ✓
+- Saved "Test Sub-piece" with 25 minutes; appeared in project card as "Test Sub-piece / 25 မိနစ် / စောင့်ဆိုင်းနေသည် (Idle)" ✓
+- No console errors ✓
+- Observation: dashboard header greeting ("မင်္ဂလါပါ၊ ဒီနေ့လည်း focus လုပ်ကြမယ်") renders at top of /projects page — may be intentional layout or worth reviewing.
+
+### T1 Notes
+- Timer page title "အချိန်မှတ်တမ်း (Timer)" rendered ✓
+- Active project name "Test Project" visible ✓
+- Active sub-piece name "Test Sub-piece" visible ✓
+- Timer display shows "Project Time: 0m" and "Remaining: 25m" ✓
+- Start/Pause/Reset buttons visible ✓
+- No console errors ✓
+
+### T2 Notes
+- Clicked Start button; status changed from "ခဏရပ်ထား (Paused)" to "လုပ်ဆောင်နေသည် (Running)" ✓
+- Project time increased from 0m to 1m 39s ✓
+- Remaining time decreased from 25m to 23m 21s ✓
+- No console errors ✓
+- Observation: Start/Pause/Reset button labels all remain in DOM text; need to verify actual visible toggle via CSS/snapshot if this becomes a UX concern.
+
+### T3 Notes
+- Start button was disabled on load because an active session (`ff_active_session`) already existed and timer was auto-running. Pause button was clickable instead.
+- Clicked Pause; status changed from "လုပ်ဆောင်နေသည် (Running)" to "ခဏရပ်ထား (Paused)" ✓
+- `ff_active_session.isRunning` changed to `false` ✓
+- No console errors ✓
+- Observation: active session persists across page loads/test runs; clearing it before a fresh timer test requires navigating away or clearing after page unload. Consider whether this is expected behavior.
+
+### T4 Notes
+- Seeded store with project totalTimeSeconds=120, subPiece elapsedSeconds=120; initial display showed Project Time 2m / Remaining 23m.
+- Started timer, let it run, then clicked Reset.
+- After Reset: timer paused, `ff_active_session` cleared, status "ခဏရပ်ထား (Paused)" ✓
+- Store values updated to 145s (accumulated session time retained); display showed 2m 25s / 22m 35s.
+- No console errors ✓
+- Observation: Reset keeps accumulated store time; it does not restore pre-run values. Behavior matches "reset session to current store state" but contradicts older memory note claiming reset restores original store values. See issue file.
+
+### T5 Notes
+- Seeded active sub-piece with allocatedMinutes=1, elapsedSeconds=58, remaining 2s, isRunning=true.
+- After ~5s, store updated correctly: subPiece status "completed", project status "completed", xp +50, totalTimeSeconds 60, elapsedSeconds 60.
+- **Expected:** `SessionSummary` card should appear with project/sub-piece names, focused duration, XP, motivation message, and Continue button.
+- **Actual:** TimerPanel rendered empty state "အခန်းကဏ္ဍများ မရှိသေးပါ / No sub-pieces to focus on" instead of `SessionSummary`.
+- No console errors.
+- **Verdict:** ❌ FAIL — completion logic works but SessionSummary UI did not display.
+
+### D1 Notes
+- Dashboard loaded with `DailyFocusGoal` card visible ✓
+- Title: "နေ့စဉ် focus ရည်မှန်းချက်" ✓
+- Progress text: "30 / 60 မိနစ်" ✓
+- Percentage: "50% achieved" ✓
+- No console errors ✓
+- Observation: card shows "(Goal reached)" subtitle at 50%, which is inaccurate — goal should only be "reached" at 100%.
+
+### Issue Log
+- **P4 — Empty state:** Feature issue detected (not UI/UX). Details to be filled in after SP2 run.
+- **T5 — Session summary:** Sub-piece completion updates store correctly, but `SessionSummary` card does not render; `TimerPanel` falls back to empty state instead.
+- **D1 — Daily goal:** "Goal reached" text appears at 50% progress; should likely appear only at 100%.
+- **S1 — Settings page:** ScheduleForm `DialogTrigger` renders a `<button>` wrapping the shadcn `Button` (another `<button>`) → nested-button hydration error (2 console errors). Fix: add `asChild` to `DialogTrigger` in `components/schedule/ScheduleForm.tsx`.
+
+### Next Action
+Playwright web-app verification COMPLETE: 28/28 web tests run (all S-tests done). E1/E2 (extension popup + start button) DEFERRED to user manual testing — load `.output/chrome-mv3` in Chrome, open popup, verify render + Start button. Covered by unit tests meanwhile (popup 12 + start 6 + pause/reset 7).
+
+### S12 Notes
+- Add: opened Add Schedule dialog, filled project/day(Wed)/time(14:30)/duration(30) via native setters, Save → store schedules len 1, card rendered ("14:30 · 30 min") ✓.
+- Edit: pencil → edit dialog, duration 30→45, Update → store durationMinutes 45 ✓.
+- Delete: trash → store schedules empty, card removed ✓.
+- Issue #8 reconfirmed: Add Schedule trigger is button>button (nested). No new issues. PASS.
+- Drove hidden file input via DataTransfer (handler uses FileReader, waited 300ms).
+- Valid backup → store replaced with "Imported Project", success "Backup restored" ✓.
+- Malformed JSON → error "Invalid backup file", store unchanged ✓.
+- No new console errors. PASS.
+- Intercepted `URL.createObjectURL` to capture the export blob from the Download button.
+- Payload: `version:1`, `exportedAt` number, `projects` array len 1 (== store), `settings` obj 11 keys ✓.
+- Download button enabled; real file `focusflow-backup-*.json` downloaded. No new console errors. PASS.
+- Seeded 2 logs (reddit.com/r/all=blocked, twitter.com/home=warned) into `ff_focus_store`, reloaded /settings.
+- Both rendered correctly: blocked badge red + "2m ago", warned badge amber + "Just now" ✓.
+- Clear button → store `logs` emptied to 0, empty state "No distractions logged yet" shown ✓.
+- Only 2 pre-existing S1 nested-button console errors; no new errors. PASS.
+
+### Session resource note (2026-06-25)
+- PC has crashed TWICE this session. Keep Playwright load minimal: reuse single browser context (never close/reopen), one test at a time, prefer evaluate() over heavy snapshots, no screenshots/vision. Persist progress + issues to memory after every test.
+
+### S7 Notes
+- Baseline 7 URLs. Typed "example.com/distract" + Add → store 7→8, entry rendered with Remove button, input cleared ✓. Removed test entry → back to 7. No new console errors.
+
+### S8 Notes
+- Baseline 7 defaults, reddit.com present. Remove reddit.com → store 7→6, gone from list ✓.
+- Reset to Defaults → exact 7 default URLs restored (incl. reddit.com) ✓. No new console errors. State clean.
+
+### Verification scope reminder
+- 25/30 done. Remaining: S9, S10, S11, S12, E1, E2.
+- Open issues (in verification-issues-2026-06-25.md): #1 P4 empty state, #6 T5 session summary, #7 D1 goal-reached-at-50%, #8 S1 nested-button hydration, #10 S5 dark/system theme UI broken, #11 forbidden-URL blocking never verified live. Plus observations #2-#5, #9.
+
+### S5 UI issue
+- User manually confirmed: theme selector works (store + html class update) but only LIGHT theme renders correctly; dark/system UI is broken/misaligned. Logged as Issue #10 in verification-issues file. UI rework deferred until after full manual test pass.
+
+### S6 Notes
+- Initial 60, disabled, Edit button present. Edit → input enabled + Confirm button; store stayed 60 (no keystroke save).
+- Set 90 + Confirm → store 90, input disabled again ✓.
+- Clamp: set 5 + Confirm → 15 (UI + store) ✓. Restored to 60.
+
+### S5 Notes
+- Initial theme "system" (selector + store), html resolved to "light".
+- Selected "dark": store theme → "dark", <html> class → "dark" ✓. (next-themes uses class, not data-theme.)
+- Reset back to "system" to leave state clean. No new console errors.
+
+### S4 Notes
+- Initial soundEnabled true (UI + store); clicked label, both flipped to false ✓.
+- No new console errors (2 pre-existing S1 nested-button errors persist).
+
+### S3 Notes
+- Initial notificationsEnabled true (UI + store); clicked label, both flipped to false ✓.
+- No new console errors (2 pre-existing S1 nested-button errors persist).
+
+### S2 Notes
+- Initial strictMode false (UI + store); clicked label, both flipped to true ✓.
+- No new console errors (2 pre-existing S1 nested-button errors persist).
+- Toggle is sr-only checkbox + visible div; direct checkbox click times out (div intercepts), click wrapping label instead. Real users unaffected.
+
+### D4 Notes
+- Button disabled when input empty, enabled after typing "Write docs" ✓.
+- Submit added sub-piece "Write docs" (25 min) to active project (count 1→2), navigated to /timer ✓.
+- 0 console errors. Input + Start button fit card, Play icon + Burmese label render.
+- Dashboard group D1–D4 complete.
+
+### D3 Notes
+- Seeded project xp=380, fortressLevel=2, fortressHealth=60, set as active; reloaded /.
+- Label "အဆင့် 2 (Level 2)" ✓; SVG had base+2 teal towers, emerald health bar, 0 flags ✓ (matches level 2, health>=50).
+- 0 console errors. SVG fits card in 5-col grid, theme colors correct.
+
+### D2 Notes
+- Seeded currentStreak=5, longestStreak=12; reloaded dashboard.
+- Streak card renders "5" and "စံချိန်: 12 ရက် (Best: 12)" ✓; 0 console errors.
+- Minor: label "အစဉ်လိုက်က်" has doubled က် (should be "အစဉ်လိုက်"). Spelling only.
+- Re-confirmed D1 "Goal reached" text shows at 50%.
+- Note: cleared orphaned MCP Chrome (mcp-chrome-73e7532 profile) from prior crash to release browser lock before D2.

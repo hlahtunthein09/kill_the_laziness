@@ -6,6 +6,7 @@ This file loads all project memory files into context for each session.
 - [Workflow Rules](workflow.md) — piece-by-piece process, sizing thresholds, roadmap
 - [Conventions](conventions.md) — language, colors, state, naming, TypeScript rules
 - [Progress](progress.md) — current phase, completed pieces, next action
+- [Verification Issues 2026-06-25](verification-issues-2026-06-25.md) — issues/observations from Playwright MCP verification session
 
 ## Architecture & Research
 - [Architecture Research](architecture-research.md) — real-world extension/app patterns and store slice recommendations
