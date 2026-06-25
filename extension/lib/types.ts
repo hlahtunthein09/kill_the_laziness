@@ -1,3 +1,5 @@
+import type { FocusSessionSchedule } from "@/lib/types";
+
 export interface ExtensionTimerState {
   projectId: string;
   subPieceId?: string;
@@ -7,4 +9,5 @@ export interface ExtensionTimerState {
   subPieceRemaining: number;
   isRunning: boolean;
   savedAt: number;
+  schedules?: FocusSessionSchedule[];
 }

@@ -24,3 +24,5 @@ This file loads all project memory files into context for each session.
 - [Fortress SVG Spec](fortress-svg-spec.md) — Dev-Fortress SVG component specs
 - [Analytics Queries](analytics-queries.md) — data aggregation patterns
 - [Extension Architecture](extension-architecture.md) — extension file structure and messaging
+- [Schedule Spec](schedule-spec.md) — scheduled focus sessions data model and integration plan
+- [Playwright MCP Plan](playwright-mcp-plan.md) — lightweight browser verification plan using Playwright MCP server

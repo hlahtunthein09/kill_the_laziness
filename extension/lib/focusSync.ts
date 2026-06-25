@@ -1,5 +1,6 @@
 import type { Browser } from "webextension-polyfill";
 import type { ExtensionTimerState } from "./types";
+import type { FocusSessionSchedule } from "@/lib/types";
 import { setExtensionSettings } from "./settingsSync";
 
 const SESSION_KEY = "ff_active_session";
@@ -55,6 +56,26 @@ export function readFocusSession(): ExtensionTimerState | null {
   }
 }
 
+function readSchedulesFromStore(): FocusSessionSchedule[] | undefined {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return undefined;
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return undefined;
+
+    const record = parsed as Record<string, unknown>;
+    if (!("state" in record)) return undefined;
+
+    const state = record.state as Record<string, unknown>;
+    if (!("schedules" in state) || !Array.isArray(state.schedules)) return undefined;
+
+    return state.schedules as FocusSessionSchedule[];
+  } catch {
+    return undefined;
+  }
+}
+
 export async function syncFocusSession(): Promise<void> {
   const raw = localStorage.getItem(SESSION_KEY);
 
@@ -67,17 +88,22 @@ export async function syncFocusSession(): Promise<void> {
     return;
   }
 
-  const state = readFocusSession();
-  if (!state) {
+  const session = readFocusSession();
+  if (!session) {
     _lastRawSession = raw;
     return;
   }
 
   try {
     const browser = await getBrowser();
+    const schedules = readSchedulesFromStore();
+    const payload: ExtensionTimerState = {
+      ...session,
+      schedules,
+    };
     await browser.runtime.sendMessage({
       action: "UPDATE_TIMER_STATE",
-      payload: state,
+      payload,
     });
     _lastRawSession = raw;
   } catch {

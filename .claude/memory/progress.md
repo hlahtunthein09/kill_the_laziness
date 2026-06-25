@@ -562,11 +562,68 @@ Workflow updated: live browser verification with Playwright MCP is now mandatory
 - **Tier 4 Piece 3c complete:** `components/settings/SyncPanel.tsx` created — download backup button with Burmese-first label, shadcn `Button`, card-style container, disabled when export empty; `SyncPanel.test.tsx` 3/3 passing; integrated into `app/settings/page.tsx`; TypeScript clean; `npm run build` succeeds; full suite 314/314.
 - **Tier 4 Piece 3d complete:** `SyncPanel.tsx` updated with hidden file input (`ref`), "Restore Backup" upload button (`Upload` icon, `variant="outline"`, Burmese-first label), `FileReader`-based `onFileChange` handler calling `importStore()`, inline success/error status messages, input cleared after selection for re-import; `SyncPanel.test.tsx` extended with 3 upload tests (6/6 total); TypeScript clean; `npm run build` succeeds; full suite 317/317.
 
-## Context switch note
-Tier 4 Piece 3 complete. Tier 4 Piece 4 (Scheduled focus sessions) split into 4a/4b/4c/4d/4e. Piece 4a scope approved: add `FocusSessionSchedule` type + store slice with add/edit/delete/toggle + tests. Next chat should read memory, write skill for 4a, get final go-ahead, then spawn agent.
+## Tier 4 Piece 4: Scheduled Focus Sessions — Revised Split Plan
 
-## Next Action (for next chat)
-Tier 4 Piece 3 complete. Proceed to Tier 4 Piece 4a (Schedule types and store slice) — scope already approved, write skill and wait for go-ahead before spawning agent.
+Previous 4a scope (type + full store slice) too large for current PC load. Re-split into ≤~70 implementation-line pieces.
+
+Research summary (see `.claude/memory/schedule-spec.md`):
+- Type: `FocusSessionSchedule` with `projectId`, optional `subPieceId`, `dayOfWeek`, `startTime`, `durationMinutes`, `enabled`, `createdAt`.
+- Store: new `ScheduleSlice` with add/edit/delete/toggle/getters, wired into `useFocusStore`.
+- UI: `ScheduleCard`, `ScheduleList`, `ScheduleForm` in settings page.
+- Timer: `useScheduleWatcher` hook polls every minute and surfaces a due schedule; `ScheduleToast` notifies user.
+- Extension: sync schedules to extension storage + background alarm notification (optional last pieces).
+
+### Proposed Sub-Pieces
+
+| # | Piece | New files | Modified files | Est. impl lines | Tests |
+|---|---|---|---|---|---|
+| 4a | Type + default constants | 1 test | `lib/types/index.ts`, `lib/constants.ts` | ~25 | type/constant shape |
+| 4b | Store slice add/delete/toggle | 1 slice + 1 test | `lib/store/useFocusStore.ts` | ~55 | CRUD + toggle |
+| 4c | Store slice update + getters | 0 | `lib/store/slices/scheduleSlice.ts` | ~40 | update, getSchedulesForDay, getNextDueSchedule |
+| 4d | `ScheduleCard` component | 1 comp + 1 test | 0 | ~50 | render, toggle, delete |
+| 4e | `ScheduleList` component | 1 comp + 1 test | 0 | ~50 | list, empty state |
+| 4f | `ScheduleForm` add dialog | 1 comp + 1 test | 0 | ~70 | add schedule with project/sub-piece/day/time/duration |
+| 4g-a | `ScheduleForm` edit mode | 0 | `ScheduleForm.tsx`, `ScheduleForm.test.tsx` | ~35 | updateSchedule path |
+| 4g-b | Edit trigger in `ScheduleCard`/`ScheduleList` | 0 | `ScheduleCard.tsx`, `ScheduleList.tsx`, their tests | ~50 | edit button + state |
+| 4g-c | Settings page schedules section | 0 | `app/settings/page.tsx`, `settings-page.test.tsx` | ~25 | settings section |
+| 4h | `useScheduleWatcher` hook | 1 hook + 1 test | 0 | ~60 | polling, dedup, due detection |
+| 4i | `ScheduleToast` component | 1 comp + 1 test | 0 | ~45 | toast renders, action button |
+| 4j | TimerPanel schedule integration | 0 | `components/timer/TimerPanel.tsx` | ~35 | watcher + toast wired |
+| 4k | Extension schedule sync | 1 test | `extension/lib/focusSync.ts`, `extension/lib/types.ts` | ~45 | schedules forwarded to extension |
+| 4l | Extension schedule alarm + notification | 1 lib + 1 test | `extension/entrypoints/background.ts` | ~60 | background alarm, desktop notification |
+
+### Status
+- **Tier 4 Piece 4a complete:** `FocusSessionSchedule` type added to `lib/types/index.ts`, `DEFAULT_SCHEDULE_DURATION_MINUTES = 25` added to `lib/constants.ts`, `lib/__tests__/schedule-constants.test.ts` created (2/2 passing); TypeScript clean.
+- **Tier 4 Piece 4b complete:** `lib/store/slices/scheduleSlice.ts` created with `addSchedule`, `deleteSchedule`, `toggleSchedule`; wired into `useFocusStore.ts`; `lib/store/__tests__/scheduleSlice.test.ts` created (4/4 passing); TypeScript clean.
+- **Tier 4 Piece 4c complete:** `scheduleSlice.ts` extended with `updateSchedule`, `getSchedulesForDay`, `getNextDueSchedule`; `scheduleSlice.test.ts` extended to 10 tests (all passing); TypeScript clean.
+- **Tier 4 Piece 4d complete:** `components/schedule/ScheduleCard.tsx` created with Burmese day labels, project/sub-piece display, enable toggle, delete button; `ScheduleCard.test.tsx` created (3/3 passing); TypeScript clean.
+- **Tier 4 Piece 4e complete:** `components/schedule/ScheduleList.tsx` created — reads schedules/projects from store, sorts by day/time, renders `ScheduleCard`, empty state; `ScheduleList.test.tsx` created (3/3 passing); TypeScript clean.
+- **Tier 4 Piece 4f complete:** `components/schedule/ScheduleForm.tsx` created — dialog form with project/sub-piece/day/time/duration, calls `addSchedule`; `ScheduleForm.test.tsx` created (3/3 passing); TypeScript clean.
+- **Tier 4 Piece 4g-a complete:** `ScheduleForm.tsx` extended with optional `schedule` prop, edit mode calls `updateSchedule`; `ScheduleForm.test.tsx` extended to 5 tests (all passing); TypeScript clean.
+- **Tier 4 Piece 4g-b complete:** `ScheduleCard.tsx` got edit button, `ScheduleForm.tsx` got controlled `open`/`onOpenChange` props, `ScheduleList.tsx` manages edit state and renders controlled edit form; tests added/updated (3 + 4 + 5 = 12 passing); TypeScript clean.
+- **Tier 4 Piece 4g-c complete:** Settings page `/settings` updated with Scheduled Focus section containing `ScheduleForm` + `ScheduleList`; `settings-page.test.tsx` extended to 6 tests (all passing); TypeScript clean; `npm run build` succeeds.
+- **Tier 4 Piece 4h complete:** `hooks/useScheduleWatcher.ts` created — polls every 60s, surfaces due schedule at most once per minute; `useScheduleWatcher.test.ts` created (4/4 passing); TypeScript clean.
+- **Tier 4 Piece 4i complete:** `components/schedule/ScheduleToast.tsx` created — shows Burmese-first `sonner` toast when schedule is due, with Start action to `/timer`; `ScheduleToast.test.tsx` created (3/3 passing); TypeScript clean.
+- **Tier 4 Piece 4j complete:** `TimerPanel.tsx` wired with `useScheduleWatcher` + `ScheduleToast`; `TimerPanel.test.tsx` extended to 9 tests (all passing), including mock fix for `lib/sound`; TypeScript clean.
+- **Tier 4 Piece 4k complete:** `extension/lib/types.ts` updated with optional `schedules?: FocusSessionSchedule[]`; `extension/lib/focusSync.ts` reads schedules from `ff_focus_store` and forwards them in `UPDATE_TIMER_STATE` payload; `focusSync.test.ts` extended to 20 tests (all passing); TypeScript clean; `npm run build:ext` succeeds.
+
+- **Tier 4 Piece 4l complete:** `extension/lib/scheduleAlarm.ts` created with `startScheduleAlarm`, `stopScheduleAlarm`, `onScheduleAlarmTick` (reads timer state, checks enabled schedules against current day/time, sends Burmese-first desktop notification when due, dedups by schedule id + minute); `extension/lib/__tests__/scheduleAlarm.test.ts` created (5 tests all passing); `extension/entrypoints/background.ts` updated with `startScheduleAlarm()` call and `schedule-check` alarm listener; TypeScript clean; `npm run build:ext` succeeds.
+
+**Tier 4 Piece 4 (Scheduled Focus Sessions) — COMPLETE.**
+
+### Verification
+- Full suite: `npm test` — **412/412 tests passing**
+- Web build: `npm run build` — succeeds
+- Extension build: `npm run build:ext` — succeeds
+
+### Fixes applied during verification
+- `hooks/useScheduleWatcher.ts`: made `schedules` access defensive (`schedules?.length`).
+- `components/schedule/__tests__/ScheduleToast.test.tsx`: switched from `vi.mock('sonner')` to `vi.spyOn(toast, 'info')` to avoid module-cache conflicts in full suite.
+- `components/timer/__tests__/TimerPanel.session-summary.test.tsx`: added `schedules`, `getNextDueSchedule`, and mocked `@/lib/sound`.
+- `components/timer/__tests__/TimerPanel.extension-controls.test.tsx`: added `schedules` and `getNextDueSchedule` to mock store.
+
+### Next Action
+Push current changes to GitHub. Then begin Playwright MCP browser verification one tiny test at a time (starting with P1) after user approval.
 
 ## Blockers
 None.

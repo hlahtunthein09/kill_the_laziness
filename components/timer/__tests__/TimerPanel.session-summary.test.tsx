@@ -10,6 +10,12 @@ vi.mock("@/lib/store/useFocusStore", () => ({
   useFocusStore: vi.fn(),
 }));
 
+// Mock sound utilities to avoid useFocusStore.getState() calls
+vi.mock("@/lib/sound", () => ({
+  playCompleteSound: vi.fn(),
+  playMilestoneSound: vi.fn(),
+}));
+
 // Mock useTimer hook
 vi.mock("@/hooks/useTimer", () => ({
   useTimer: vi.fn(() => ({
@@ -78,7 +84,12 @@ describe("TimerPanel - SessionSummary integration", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
     );
 
     // Mock useTimer with subPieceRemaining: 0 (completed state)
@@ -134,7 +145,12 @@ describe("TimerPanel - SessionSummary integration", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
     );
 
     // @ts-expect-error - mock return
@@ -180,7 +196,12 @@ describe("TimerPanel - SessionSummary integration", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
     );
 
     // @ts-expect-error - mock return

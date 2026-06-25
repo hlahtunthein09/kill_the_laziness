@@ -4,6 +4,7 @@ import { TimerPanel } from "../TimerPanel";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import type { Project, SubPiece } from "@/lib/types";
 import { mockPush } from "@/__mocks__/next-navigation";
+import { toast } from "sonner";
 
 // Mock the store
 vi.mock("@/lib/store/useFocusStore", () => ({
@@ -22,7 +23,21 @@ vi.mock("@/hooks/useTimer", () => ({
   })),
 }));
 
+// Mock useScheduleWatcher hook
+vi.mock("@/hooks/useScheduleWatcher", () => ({
+  useScheduleWatcher: vi.fn(() => ({
+    dueSchedule: undefined,
+  })),
+}));
+
+// Mock sound module to avoid useFocusStore.getState() issues
+vi.mock("@/lib/sound", () => ({
+  playCompleteSound: vi.fn(),
+  playMilestoneSound: vi.fn(),
+}));
+
 import { useTimer } from "@/hooks/useTimer";
+import { useScheduleWatcher } from "@/hooks/useScheduleWatcher";
 
 function createMockSubPiece(overrides: Partial<SubPiece> = {}): SubPiece {
   return {
@@ -244,5 +259,60 @@ describe("TimerPanel", () => {
 
     expect(screen.getByText("Test Project")).toBeInTheDocument();
     expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+  });
+
+  it("renders ScheduleToast when a schedule is due", () => {
+    const spyInfo = vi.spyOn(toast, "info").mockImplementation(() => "toast-id");
+
+    const project = createMockProject({
+      id: "proj-1",
+      subPieces: [
+        createMockSubPiece({ id: "sp-1", projectId: "proj-1" }),
+      ],
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1" })
+    );
+
+    // @ts-expect-error - mock return
+    useScheduleWatcher.mockReturnValue({
+      dueSchedule: {
+        id: "due-s1",
+        projectId: "proj-1",
+        subPieceId: "sp-1",
+        dayOfWeek: 1,
+        startTime: "09:00",
+        durationMinutes: 25,
+        enabled: true,
+        createdAt: Date.now(),
+      },
+    });
+
+    render(<TimerPanel />);
+
+    // ScheduleToast internally calls toast.info when dueSchedule is provided
+    expect(spyInfo).toHaveBeenCalled();
+    spyInfo.mockRestore();
+  });
+
+  it("does not render ScheduleToast when no schedule is due", () => {
+    const spyInfo = vi.spyOn(toast, "info").mockImplementation(() => "toast-id");
+
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1" })
+    );
+
+    // @ts-expect-error - mock return
+    useScheduleWatcher.mockReturnValue({ dueSchedule: undefined });
+
+    render(<TimerPanel />);
+
+    expect(spyInfo).not.toHaveBeenCalled();
+    spyInfo.mockRestore();
   });
 });

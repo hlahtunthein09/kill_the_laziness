@@ -2,9 +2,11 @@
 
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { useTimer } from "@/hooks/useTimer";
+import { useScheduleWatcher } from "@/hooks/useScheduleWatcher";
 import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
 import { TimerToast } from "./TimerToast";
+import { ScheduleToast } from "@/components/schedule/ScheduleToast";
 import { FolderOpen, ListTodo } from "lucide-react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { MotivationContext } from "@/lib/motivation";
@@ -24,6 +26,13 @@ export function TimerPanel() {
 
   const firstIncompleteSubPiece = activeProject?.subPieces.find(
     (sp) => sp.status !== "completed"
+  );
+
+  // Schedule watcher: shows toast when a scheduled focus session is due
+  const { dueSchedule } = useScheduleWatcher();
+  const dueProject = projects.find((p) => p.id === dueSchedule?.projectId);
+  const dueSubPiece = dueProject?.subPieces.find(
+    (sp) => sp.id === dueSchedule?.subPieceId
   );
 
   // ALL hooks must be called unconditionally BEFORE any conditional return
@@ -179,6 +188,11 @@ export function TimerPanel() {
           trigger={toastTrigger}
           onShown={handleToastShown}
         />
+        <ScheduleToast
+          dueSchedule={dueSchedule}
+          projectName={dueProject?.name}
+          subPieceName={dueSubPiece?.name}
+        />
         <div className="w-full flex flex-col items-center gap-4">
           <SessionSummary
             projectName={activeProject.name}
@@ -224,6 +238,11 @@ export function TimerPanel() {
         context={motivationContext}
         trigger={toastTrigger}
         onShown={handleToastShown}
+      />
+      <ScheduleToast
+        dueSchedule={dueSchedule}
+        projectName={dueProject?.name}
+        subPieceName={dueSubPiece?.name}
       />
 
       <div className="text-center">

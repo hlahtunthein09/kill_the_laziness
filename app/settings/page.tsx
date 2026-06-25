@@ -8,6 +8,8 @@ import { ThemeSelector } from "@/components/settings/ThemeSelector";
 import { DailyFocusGoalInput } from "@/components/settings/DailyFocusGoalInput";
 import { DistractionLog } from "@/components/distraction/DistractionLog";
 import { SyncPanel } from "@/components/settings/SyncPanel";
+import { ScheduleForm } from "@/components/schedule/ScheduleForm";
+import { ScheduleList } from "@/components/schedule/ScheduleList";
 
 export default function SettingsPage() {
   return (
@@ -66,6 +68,22 @@ export default function SettingsPage() {
         {/* Distraction Log — live component */}
         <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
           <DistractionLog />
+        </div>
+
+        {/* Scheduled Focus Sessions */}
+        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-stone-900">
+                စီစဉ်ထားသော focus အချိန်များ (Scheduled Focus)
+              </h2>
+              <p className="text-sm text-stone-500 mt-1">
+                ပုံမှန်စီစဉ်ထားသော focus အချိန်များကို စီမံခန့်ခွဲပါ
+              </p>
+            </div>
+            <ScheduleForm />
+          </div>
+          <ScheduleList />
         </div>
       </div>
     </div>

@@ -27,4 +27,19 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Theme')).toBeInTheDocument()
     expect(screen.getByText('Distraction Log')).toBeInTheDocument()
   })
+
+  it('renders scheduled focus section', () => {
+    render(<SettingsPage />)
+    expect(screen.getByText('စီစဉ်ထားသော focus အချိန်များ (Scheduled Focus)')).toBeInTheDocument()
+  })
+
+  it('renders schedule form trigger', () => {
+    render(<SettingsPage />)
+    expect(screen.getByText(/Add Schedule/)).toBeInTheDocument()
+  })
+
+  it('renders schedule list empty state', () => {
+    render(<SettingsPage />)
+    expect(screen.getByText('စီစဉ်ထားသော focus အချိန် မရှိသေးပါ')).toBeInTheDocument()
+  })
 })

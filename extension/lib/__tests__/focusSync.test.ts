@@ -84,7 +84,7 @@ describe("focusSync.ts", () => {
     expect(sendMessageMock).toHaveBeenCalledTimes(1);
     expect(sendMessageMock).toHaveBeenCalledWith({
       action: "UPDATE_TIMER_STATE",
-      payload: session,
+      payload: { ...session, schedules: undefined },
     });
   });
 
@@ -109,7 +109,7 @@ describe("focusSync.ts", () => {
     expect(sendMessageMock).toHaveBeenCalledTimes(1);
     expect(sendMessageMock).toHaveBeenCalledWith({
       action: "UPDATE_TIMER_STATE",
-      payload: session,
+      payload: { ...session, schedules: undefined },
     });
   });
 
@@ -160,7 +160,54 @@ describe("focusSync.ts", () => {
     expect(sendMessageMock).toHaveBeenCalledTimes(2);
     expect(sendMessageMock).toHaveBeenLastCalledWith({
       action: "UPDATE_TIMER_STATE",
-      payload: session2,
+      payload: { ...session2, schedules: undefined },
+    });
+  });
+
+  it("forwards schedules to extension", async () => {
+    const schedule = {
+      id: "sched-1",
+      projectId: "proj-1",
+      dayOfWeek: 1,
+      startTime: "09:00",
+      durationMinutes: 25,
+      enabled: true,
+      createdAt: Date.now(),
+    };
+
+    // Set Zustand-persisted store shape in localStorage
+    localStorage.setItem(
+      STORE_KEY,
+      JSON.stringify({
+        state: {
+          schedules: [schedule],
+        },
+        version: 0,
+      })
+    );
+
+    const session: ExtensionTimerState = {
+      projectId: "proj-1",
+      subPieceId: "sub-1",
+      projectElapsed: 120,
+      subPieceRemaining: 300,
+      isRunning: true,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
+    fakeBrowser.runtime.sendMessage = sendMessageMock;
+
+    await syncFocusSession();
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      action: "UPDATE_TIMER_STATE",
+      payload: {
+        ...session,
+        schedules: [schedule],
+      },
     });
   });
 

@@ -65,3 +65,14 @@ export interface TimerState {
   lastTick: number | null;
   savedAt: number | null;
 }
+
+export interface FocusSessionSchedule {
+  id: string;
+  projectId: string;
+  subPieceId?: string;
+  dayOfWeek: number; // 0 (Sun) - 6 (Sat)
+  startTime: string; // "HH:mm" 24-hour
+  durationMinutes: number;
+  enabled: boolean;
+  createdAt: number;
+}

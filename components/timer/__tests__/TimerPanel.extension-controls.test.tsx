@@ -70,6 +70,8 @@ describe("TimerPanel extension controls", () => {
       selector({
         projects: [createMockProject()],
         activeProjectId: "proj-1",
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
       })
     );
 

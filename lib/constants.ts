@@ -90,3 +90,6 @@ export const DEFAULT_APP_SETTINGS = {
   longestStreak: 0,
   lastStreakDate: '',
 };
+
+// ─── Schedule Constants ────────────────────────────────────────────────────────
+export const DEFAULT_SCHEDULE_DURATION_MINUTES = 25;
