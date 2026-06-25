@@ -19,7 +19,7 @@ Rule: log every observation/issue without sizing; user will review and decide wh
 | P1 | Open projects page | ✅ PASS |
 | P2 | Add project dialog | ✅ PASS |
 | P3 | Create project | ✅ PASS |
-| P4 | Empty state | ⚠️ PARTIAL |
+| P4 | Empty state | ✅ RESOLVED (expected behavior) |
 | P5 | Focus project | ✅ PASS |
 | SP1 | Default sub-piece | ✅ PASS |
 | SP2 | Add sub-piece | ✅ PASS |
@@ -47,13 +47,13 @@ Rule: log every observation/issue without sizing; user will review and decide wh
 
 ## Issue / Observation Log
 
-### 1. P4 — Empty state (feature issue)
+### 1. P4 — Empty state (RESOLVED: expected behavior, not a bug)
 - **Found during:** P4 verification
-- **Severity:** unknown (user to review)
-- **Description:** Empty-state behavior does not trigger correctly. The empty-state UI component exists, but clearing the store and navigating to `/projects` does not reliably show the empty-state message.
-- **Details needed:** User mentioned this is a feature issue (not UI/UX). Exact reproduction steps and observed vs expected behavior need to be filled in by user.
-- **Related files:** `components/projects/ProjectList.tsx`, `lib/store/useFocusStore.ts` (hydration slice)
-- **User note:** "P4 က UI UX issue မဟုတ်ဘူး feature issue"
+- **Status:** ✅ RESOLVED — working as designed, no fix needed.
+- **Investigation (user, live):** Cleared localStorage → reloaded `/projects` → project-level empty state did NOT appear. Instead the default project `"နေ့စဥ် Focus နေရာ (Daily Focus)"` was auto-created, sub-piece empty state shown (`အခန်းကဏ္ဍများ မရှိသေးပါ`), Add-project button visible, no console errors.
+- **Root cause:** `components/providers/StoreHydrationProvider.tsx:17` auto-creates the default project after hydration when `projects.length === 0` (Tier 1 Piece 3, intentional). The `ProjectList` empty state is therefore effectively unreachable in normal use.
+- **Decision:** P4 "project empty state" is not a meaningful live test. Repurpose/retire it; the reachable empty state is the **sub-piece** one, which already renders correctly.
+- **Related files:** `components/providers/StoreHydrationProvider.tsx`, `components/projects/ProjectList.tsx`
 
 ### 2. Dashboard greeting renders on `/projects` page
 - **Found during:** SP2 verification

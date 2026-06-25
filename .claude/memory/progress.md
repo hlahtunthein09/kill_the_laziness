@@ -641,7 +641,7 @@ Execution rules: one test at a time, confirm each before next, ≤90 seconds per
 | 1 | P1 | Open projects page | ✅ PASS |
 | 2 | P2 | Add project dialog | ✅ PASS |
 | 3 | P3 | Create project | ✅ PASS |
-| 4 | P4 | Empty state | ⚠️ PARTIAL (feature issue, see Issue Log) |
+| 4 | P4 | Empty state | ✅ RESOLVED (expected behavior — default project auto-created) |
 | 5 | P5 | Focus project | ✅ PASS |
 | 6 | SP1 | Default sub-piece | ✅ PASS |
 | 7 | SP2 | Add sub-piece | ✅ PASS |
@@ -805,3 +805,33 @@ Playwright web-app verification COMPLETE: 28/28 web tests run (all S-tests done)
 - Minor: label "အစဉ်လိုက်က်" has doubled က် (should be "အစဉ်လိုက်"). Spelling only.
 - Re-confirmed D1 "Goal reached" text shows at 50%.
 - Note: cleared orphaned MCP Chrome (mcp-chrome-73e7532 profile) from prior crash to release browser lock before D2.
+
+## ✅ VERIFICATION SESSION COMPLETE — 2026-06-25 (RESTING before fixes)
+
+**State:** All 28 web-app Playwright tests run. E1/E2 (extension popup + start button) DEFERRED to user manual testing (`npm run build:ext` → load `.output/chrome-mv3` in Chrome). Web catalog effectively COMPLETE.
+
+**User decision:** Pausing here to rest the PC. No fixes started yet. Resume the fix pass in a later session, one tiny piece at a time (lightweight agent mode, live browser verify each).
+
+### Issue Ledger (11 logged: 1 resolved, 5 bugs, 1 gap, 4 observations)
+
+**✅ Resolved (1)**
+- #1 P4 empty state — NOT a bug. `StoreHydrationProvider.tsx:17` auto-creates default project "နေ့စဥ် Focus နေရာ (Daily Focus)" when none exist (Tier 1, intentional). Project empty state unreachable by design.
+
+**🐞 Bugs to fix (5)**
+- #6 T5 SessionSummary — store completes correctly but SessionSummary card never renders; TimerPanel falls back to empty state. (`components/timer/TimerPanel.tsx`, `SessionSummary.tsx`, `hooks/useTimer.ts`) — highest impact.
+- #7 D1 "Goal reached" at 50% — shows at 30/60 min; should be ≥100% only. (`components/analytics/DailyFocusGoal.tsx`)
+- #8 Nested `<button>` (S1+S12) — `ScheduleForm` DialogTrigger wraps shadcn Button → hydration error (2 console errors). Fix: add `asChild` to DialogTrigger. (`components/schedule/ScheduleForm.tsx`)
+- #9 D2 streak typo — "အစဉ်လိုက်က်" doubled က်; should be "အစဉ်လိုက်". (`components/analytics/StreakCounter.tsx`)
+- #10 Dark/system theme UI — logic OK (html class flips) but only light styled correctly; dark/system broken. Needs broad dark-variant pass. (global styles + all fixed bg-*/text-* components)
+
+**⚠️ Coverage gap (1)**
+- #11 Forbidden-URL blocking never live-verified — web app only stores URLs; block/redirect/warn lives in extension, only mocked-unit-tested. Needs real Chrome with loaded extension. (`extension/lib/redirect.ts`, `urlChecker.ts`, `warn.content.ts`, `blocked.html`)
+
+**🔍 Observations — need user decision (4)**
+- #2 Dashboard greeting renders on /projects — intentional cross-page or dashboard-only?
+- #3 Timer Start/Pause/Reset labels all in DOM — real visibility toggle or all rendered?
+- #4 Active session auto-resumes on reload — feature or should start paused?
+- #5 Reset keeps accumulated time — reset-to-store vs undo-session semantics?
+
+### Suggested fix order (when resuming)
+Quick wins first: #9 (typo) → #8 (asChild) → #7 (goal wording) → #6 (SessionSummary, most impactful) → #10 (dark theme, biggest) → #11 + observations (need decisions/manual extension).
