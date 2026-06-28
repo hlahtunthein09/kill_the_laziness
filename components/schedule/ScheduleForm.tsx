@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,12 +183,14 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-teal-500 hover:bg-teal-600 text-white">
-          <Plus className="mr-2 h-4 w-4" />
-          {triggerButtonText}
-        </Button>
-      </DialogTrigger>
+      <Button
+        type="button"
+        onClick={() => setInternalOpen(true)}
+        className="bg-teal-500 hover:bg-teal-600 text-white"
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        {triggerButtonText}
+      </Button>
       {dialogContent}
     </Dialog>
   );

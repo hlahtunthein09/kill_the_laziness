@@ -7,7 +7,7 @@ import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
 import { TimerToast } from "./TimerToast";
 import { ScheduleToast } from "@/components/schedule/ScheduleToast";
-import { FolderOpen, ListTodo } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
@@ -20,13 +20,32 @@ import { playCompleteSound, playMilestoneSound } from "@/lib/sound";
 export function TimerPanel() {
   const router = useRouter();
   const activeProjectId = useFocusStore((s) => s.activeProjectId);
+  const activeSubPieceId = useFocusStore((s) => s.activeSubPieceId);
+  const projectOnlyFocus = useFocusStore((s) => s.projectOnlyFocus);
   const projects = useFocusStore((s) => s.projects);
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
-  const firstIncompleteSubPiece = activeProject?.subPieces.find(
-    (sp) => sp.status !== "completed"
-  );
+  // Resolve sub-piece with priority:
+  // 1. projectOnlyFocus: true — no sub-piece (project-only timer)
+  // 2. activeSubPieceId if it points to an incomplete sub-piece under active project
+  // 3. First incomplete sub-piece under active project
+  // 4. No sub-piece (project-only)
+  const resolvedSubPiece = useMemo(() => {
+    if (!activeProject) return undefined;
+
+    // If project-only focus mode is active, never resolve a sub-piece
+    if (projectOnlyFocus) return undefined;
+
+    if (activeSubPieceId) {
+      const explicit = activeProject.subPieces.find(
+        (sp) => sp.id === activeSubPieceId && sp.status !== "completed"
+      );
+      if (explicit) return explicit;
+    }
+
+    return activeProject.subPieces.find((sp) => sp.status !== "completed");
+  }, [activeProject, activeSubPieceId, projectOnlyFocus]);
 
   // Schedule watcher: shows toast when a scheduled focus session is due
   const { dueSchedule } = useScheduleWatcher();
@@ -43,8 +62,8 @@ export function TimerPanel() {
     playCompleteSound();
   }, []);
 
-  const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset } =
-    useTimer(activeProject?.id, firstIncompleteSubPiece?.id, handleComplete);
+  const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset, reinitialize, resetToZero } =
+    useTimer(activeProject?.id, resolvedSubPiece?.id, handleComplete);
 
   // Track previous isRunning to detect transitions (paused -> running)
   const prevIsRunningRef = useRef(isRunning);
@@ -112,7 +131,7 @@ export function TimerPanel() {
   }, [reset]);
 
   useEffect(() => {
-    if (!activeProject || !firstIncompleteSubPiece) return;
+    if (!activeProject || !resolvedSubPiece) return;
 
     window.addEventListener("ff:start", handleExtensionStart);
     window.addEventListener("ff:pause", handleExtensionPause);
@@ -123,7 +142,7 @@ export function TimerPanel() {
       window.removeEventListener("ff:pause", handleExtensionPause);
       window.removeEventListener("ff:reset", handleExtensionReset);
     };
-  }, [activeProject, firstIncompleteSubPiece, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
+  }, [activeProject, resolvedSubPiece, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
 
   // Reset trigger after it has been consumed by TimerToast
   const handleToastShown = () => {
@@ -131,7 +150,7 @@ export function TimerPanel() {
   };
 
   const handleContinue = () => {
-    reset();
+    reinitialize();
     setShowSummary(false);
   };
 
@@ -171,7 +190,7 @@ export function TimerPanel() {
     ? Math.floor(completedSubPiece.elapsedSeconds / 60) * XP_PER_MINUTE + XP_SUB_PIECE_COMPLETE
     : 0;
 
-  // Show summary when a sub-piece just completed — this takes precedence over empty state
+  // Show summary when a sub-piece just completed — this takes precedence over timer UI
   if (showSummary && completedSubPiece) {
     return (
       <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
@@ -205,25 +224,6 @@ export function TimerPanel() {
     );
   }
 
-  // Empty state: no incomplete sub-pieces
-  if (!firstIncompleteSubPiece) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-500">
-          <ListTodo className="h-8 w-8" />
-        </div>
-        <div className="text-center">
-          <p className="text-base font-medium text-stone-700">
-            အခန်းကဏ္ဍများ မရှိသေးပါ
-          </p>
-          <p className="text-sm text-stone-400 mt-1">
-            No sub-pieces to focus on — အခန်းကဏ္ဍအသစ်ထည့်ပြီး စတင်လိုက်ပါ
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
       <TimerToast
@@ -242,7 +242,9 @@ export function TimerPanel() {
           {activeProject.name}
         </h2>
         <p className="text-sm text-stone-500">
-          {firstIncompleteSubPiece.name}
+          {resolvedSubPiece
+            ? resolvedSubPiece.name
+            : "ပရောဂျက် focus (Project Focus)"}
         </p>
       </div>
 
@@ -250,7 +252,8 @@ export function TimerPanel() {
         projectElapsed={projectElapsed}
         subPieceRemaining={subPieceRemaining}
         isRunning={isRunning}
-        allocatedMinutes={firstIncompleteSubPiece.allocatedMinutes}
+        allocatedMinutes={resolvedSubPiece?.allocatedMinutes}
+        subPieceName={resolvedSubPiece?.name}
       />
 
       <TimerControls

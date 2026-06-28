@@ -2,7 +2,7 @@ import { TimerPanel } from "@/components/timer/TimerPanel";
 
 export default function TimerPage() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-bold text-stone-900">
           အချိန်မှတ်တမ်း (Timer)

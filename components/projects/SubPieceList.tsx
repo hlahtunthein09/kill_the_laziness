@@ -6,9 +6,10 @@ import { Flower2 } from "lucide-react";
 
 interface SubPieceListProps {
   subPieces: SubPiece[];
+  projectId?: string;
 }
 
-export function SubPieceList({ subPieces }: SubPieceListProps) {
+export function SubPieceList({ subPieces, projectId }: SubPieceListProps) {
   if (subPieces.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-4 gap-2 text-stone-400">
@@ -20,9 +21,12 @@ export function SubPieceList({ subPieces }: SubPieceListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div
+      className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto [&::-webkit-scrollbar]:hidden"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    >
       {subPieces.map((subPiece) => (
-        <SubPieceCard key={subPiece.id} subPiece={subPiece} />
+        <SubPieceCard key={subPiece.id} subPiece={subPiece} projectId={projectId ?? subPiece.projectId} />
       ))}
     </div>
   );

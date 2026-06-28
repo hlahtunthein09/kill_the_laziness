@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { cn } from "@/lib/utils";
 import type { NatureColor } from "@/lib/types";
@@ -43,6 +44,9 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
   const [targetHours, setTargetHours] = useState<number>(8);
   const [errors, setErrors] = useState<{ name?: string; targetHours?: string }>({});
 
+  const router = useRouter();
+  const setActiveProject = useFocusStore((state) => state.setActiveProject);
+
   const resetForm = () => {
     setName("");
     setDescription("");
@@ -66,7 +70,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
     }
 
     if (targetHours <= 0) {
-      newErrors.targetHours = "လক্ষ্য঑ားအချိန် 0.5 နာရီထက် ပိုရပါမည်";
+      newErrors.targetHours = "လိုအပ်သော အချိန် 0.5 နာရီထက် ပိုရပါမည်";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -74,12 +78,15 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
       return;
     }
 
-    useFocusStore.getState().addProject({
+    const createdProject = useFocusStore.getState().addProject({
       name: name.trim(),
       description: description.trim(),
       color,
       targetTimeSeconds: targetHours * 3600,
     });
+
+    setActiveProject(createdProject.id);
+    router.push("/timer");
 
     handleClose();
   };
@@ -151,7 +158,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
           {/* Target Hours */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="target-hours" className="text-sm font-medium">
-              လক্ষ্য঑ားအချိန် နာရီ (Target Hours)
+              လိုအပ်သော အချိန် နာရီ (Target Hours)
             </label>
             <Input
               id="target-hours"

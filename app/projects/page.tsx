@@ -12,8 +12,8 @@ export default function ProjectsPage() {
             <FolderKanban className="h-6 w-6 text-teal-500" />
             ပရောဂျက်များ (Projects)
           </h1>
-          <p className="mt-1 text-sm text-stone-500">
-            သင့်ပရောဂျက်များကို စီမံခန့်ခွဲပြီး focus အချိန်ကို ခြေရာခွဲပါ
+          <p className="mt-3 text-sm text-stone-500">
+            သင့်ပရောဂျက်များကို စီမံခန့်ခွဲပြီး focus အချိန်ကို စီမံခန့်ခွဲပါ
           </p>
         </div>
         <AddProjectButton

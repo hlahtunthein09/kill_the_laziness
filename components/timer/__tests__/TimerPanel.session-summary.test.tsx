@@ -19,6 +19,7 @@ vi.mock("@/lib/sound", () => ({
 // Mock useTimer hook — captures the onComplete callback so tests can fire it
 let mockOnComplete: (() => void) | undefined;
 const _mockReset = vi.fn();
+const _mockReinitialize = vi.fn();
 
 vi.mock("@/hooks/useTimer", () => ({
   useTimer: vi.fn((projectId, subPieceId, onComplete) => {
@@ -30,6 +31,8 @@ vi.mock("@/hooks/useTimer", () => ({
       start: vi.fn(),
       pause: vi.fn(),
       reset: _mockReset,
+      reinitialize: _mockReinitialize,
+      resetToZero: vi.fn(),
     };
   }),
 }));
@@ -69,10 +72,12 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 
 describe("TimerPanel - SessionSummary integration", () => {
   const mockReset = _mockReset;
+  const mockReinitialize = _mockReinitialize;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockReset.mockClear();
+    mockReinitialize.mockClear();
     mockOnComplete = undefined;
   });
 
@@ -187,6 +192,7 @@ describe("TimerPanel - SessionSummary integration", () => {
 
     fireEvent.click(continueButton);
 
-    expect(mockReset).toHaveBeenCalledTimes(1);
+    expect(mockReinitialize).toHaveBeenCalledTimes(1);
+    expect(mockReset).not.toHaveBeenCalled();
   });
 });

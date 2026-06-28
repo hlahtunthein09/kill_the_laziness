@@ -18,6 +18,7 @@ vi.mock("@/hooks/useTimer", () => ({
     start: vi.fn(),
     pause: vi.fn(),
     reset: vi.fn(),
+    resetToZero: vi.fn(),
   })),
 }));
 
@@ -83,6 +84,7 @@ describe("TimerPanel extension controls", () => {
       start: startMock,
       pause: pauseMock,
       reset: resetMock,
+      resetToZero: vi.fn(),
     });
   });
 

@@ -18,7 +18,7 @@ function createMockSubPiece(overrides: Partial<SubPiece> = {}): SubPiece {
 
 describe('SubPieceList', () => {
   it('shows empty state when no sub-pieces', () => {
-    render(<SubPieceList subPieces={[]} />)
+    render(<SubPieceList subPieces={[]} projectId="proj-1" />)
 
     expect(screen.getByText(/အခန်းကဏ္ဍများ မရှိသေးပါ/i)).toBeInTheDocument()
     expect(screen.getByText(/No sub-pieces yet/i)).toBeInTheDocument()
@@ -30,7 +30,7 @@ describe('SubPieceList', () => {
       createMockSubPiece({ id: 'sp-2', name: 'Write Tests', allocatedMinutes: 45, status: 'running' }),
     ]
 
-    render(<SubPieceList subPieces={subPieces} />)
+    render(<SubPieceList subPieces={subPieces} projectId="proj-1" />)
 
     expect(screen.getByText('Design UI')).toBeInTheDocument()
     expect(screen.getByText('Write Tests')).toBeInTheDocument()
@@ -47,7 +47,7 @@ describe('SubPieceList', () => {
       createMockSubPiece({ id: 'sp-3', name: 'Gamma' }),
     ]
 
-    render(<SubPieceList subPieces={subPieces} />)
+    render(<SubPieceList subPieces={subPieces} projectId="proj-1" />)
 
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()

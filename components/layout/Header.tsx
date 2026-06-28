@@ -8,7 +8,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "flex h-14 items-center justify-between border-b border-border px-4 lg:px-6",
+        "flex h-16 items-center justify-between border-b border-border px-4 lg:px-6",
         "bg-white/80 backdrop-blur-sm"
       )}
     >

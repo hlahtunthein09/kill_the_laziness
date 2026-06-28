@@ -20,6 +20,8 @@ vi.mock("@/hooks/useTimer", () => ({
     start: vi.fn(),
     pause: vi.fn(),
     reset: vi.fn(),
+    reinitialize: vi.fn(),
+    resetToZero: vi.fn(),
   })),
 }));
 
@@ -78,7 +80,7 @@ describe("TimerPanel", () => {
   it("shows empty state when no active project", () => {
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [], activeProjectId: null })
+      selector({ projects: [], activeProjectId: null, activeSubPieceId: null })
     );
 
     render(<TimerPanel />);
@@ -94,7 +96,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [], activeProjectId: null })
+      selector({ projects: [], activeProjectId: null, activeSubPieceId: null })
     );
 
     render(<TimerPanel />);
@@ -108,24 +110,44 @@ describe("TimerPanel", () => {
     expect(mockPush).toHaveBeenCalledWith("/projects");
   });
 
-  it("shows empty state when active project has no incomplete sub-pieces", () => {
+  it("renders timer UI when active project has no incomplete sub-pieces", () => {
     const project = createMockProject({
       subPieces: [createMockSubPiece({ status: "completed" })],
     });
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 120,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+    });
 
     render(<TimerPanel />);
 
-    expect(
-      screen.getByText(/အခန်းကဏ္ဍများ မရှိသေးပါ/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/No sub-pieces to focus on/i)
-    ).toBeInTheDocument();
+    // Project name should be visible
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
+
+    // Placeholder subtitle should be visible
+    expect(screen.getByText(/Project Focus/i)).toBeInTheDocument();
+
+    // Timer controls should be present
+    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+
+    // Discard Session reset button should be present
+    expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
+
+    // Red Reset to Zero button should NOT be present when no sub-piece
+    expect(screen.queryByTestId("timer-reset-to-zero")).not.toBeInTheDocument();
   });
 
   it("renders TimerDisplay and TimerControls when active project has an incomplete sub-piece", () => {
@@ -133,7 +155,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return
@@ -144,6 +166,8 @@ describe("TimerPanel", () => {
       start: vi.fn(),
       pause: vi.fn(),
       reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
     });
 
     render(<TimerPanel />);
@@ -154,8 +178,8 @@ describe("TimerPanel", () => {
 
     // Timer controls should be present
     expect(screen.getByTestId("timer-start")).toBeInTheDocument();
-    expect(screen.getByTestId("timer-pause")).toBeInTheDocument();
-    expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
+
+    // Reset buttons are no longer rendered by TimerControls
 
     // Timer display status badge should be present
     expect(screen.getByText(/Paused/i)).toBeInTheDocument();
@@ -166,7 +190,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return
@@ -177,6 +201,7 @@ describe("TimerPanel", () => {
       start: vi.fn(),
       pause: vi.fn(),
       reset: vi.fn(),
+      resetToZero: vi.fn(),
     });
 
     render(<TimerPanel />);
@@ -202,7 +227,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return
@@ -213,6 +238,7 @@ describe("TimerPanel", () => {
       start: vi.fn(),
       pause: vi.fn(),
       reset: vi.fn(),
+      resetToZero: vi.fn(),
     });
 
     render(<TimerPanel />);
@@ -241,7 +267,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return
@@ -252,6 +278,7 @@ describe("TimerPanel", () => {
       start: vi.fn(),
       pause: vi.fn(),
       reset: vi.fn(),
+      resetToZero: vi.fn(),
     });
 
     // This rerender must not throw a React hooks-order error
@@ -259,6 +286,294 @@ describe("TimerPanel", () => {
 
     expect(screen.getByText("Test Project")).toBeInTheDocument();
     expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+  });
+
+  it("does not crash when transitioning from no active project to active project", () => {
+    const { rerender } = render(<TimerPanel />);
+
+    // Initial state: no active project
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [], activeProjectId: null, activeSubPieceId: null })
+    );
+
+    rerender(<TimerPanel />);
+
+    expect(
+      screen.getByText(/လက်ရှိ ပရောဂျက် မရွေးရသေးပါ/i)
+    ).toBeInTheDocument();
+
+    // Transition: now we have an active project with an incomplete sub-piece
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    // This rerender must not throw a React hooks-order error
+    rerender(<TimerPanel />);
+
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+  });
+
+  it("uses activeSubPieceId when set to an incomplete sub-piece", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "First SubPiece",
+        status: "idle",
+      }),
+      createMockSubPiece({
+        id: "sp-2",
+        name: "Explicitly Selected SubPiece",
+        status: "idle",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: "sp-2" })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Should show the explicitly selected sub-piece, not the first one
+    expect(screen.getByText("Explicitly Selected SubPiece")).toBeInTheDocument();
+    expect(screen.queryByText("First SubPiece")).not.toBeInTheDocument();
+  });
+
+  it("falls back to first incomplete sub-piece when activeSubPieceId is completed", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "Fallback SubPiece",
+        status: "idle",
+      }),
+      createMockSubPiece({
+        id: "sp-2",
+        name: "Completed Selected SubPiece",
+        status: "completed",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // activeSubPieceId points to a completed sub-piece — should fall back
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: "sp-2" })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Should fall back to the first incomplete sub-piece
+    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
+    expect(screen.queryByText("Completed Selected SubPiece")).not.toBeInTheDocument();
+  });
+
+  it("renders project-only timer UI when projectOnlyFocus is true even with incomplete sub-pieces", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "SubPiece That Should Not Show",
+        status: "idle",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: true,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 120,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Project name should be visible
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
+
+    // Project-only subtitle should be visible (not the sub-piece name)
+    expect(screen.getByText(/Project Focus/i)).toBeInTheDocument();
+
+    // Sub-piece name should NOT be visible
+    expect(
+      screen.queryByText("SubPiece That Should Not Show")
+    ).not.toBeInTheDocument();
+
+    // Timer controls should be present
+    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+  });
+
+  it("falls back to first incomplete sub-piece when activeSubPieceId is invalid", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "Fallback SubPiece",
+        status: "idle",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // activeSubPieceId points to a non-existent sub-piece — should fall back
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: "sp-nonexistent" })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Should fall back to the first incomplete sub-piece
+    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
+  });
+
+  it("renders project-only timer UI when projectOnlyFocus is true even with incomplete sub-pieces", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "SubPiece That Should Not Show",
+        status: "idle",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: true,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 120,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Project name should be visible
+    expect(screen.getByText("Test Project")).toBeInTheDocument();
+
+    // Project-only subtitle should be visible (not the sub-piece name)
+    expect(screen.getByText(/Project Focus/i)).toBeInTheDocument();
+
+    // Sub-piece name should NOT be visible
+    expect(
+      screen.queryByText("SubPiece That Should Not Show")
+    ).not.toBeInTheDocument();
+
+    // Timer controls should be present
+    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+  });
+
+  it("falls back to first incomplete sub-piece when projectOnlyFocus is false", () => {
+    const subPieces: SubPiece[] = [
+      createMockSubPiece({
+        id: "sp-1",
+        name: "Fallback SubPiece",
+        status: "idle",
+      }),
+    ];
+
+    const project = createMockProject({ subPieces });
+
+    // activeSubPieceId points to a non-existent sub-piece — should fall back
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: "sp-nonexistent" })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    // Should fall back to the first incomplete sub-piece
+    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
   });
 
   it("renders ScheduleToast when a schedule is due", () => {
@@ -273,7 +588,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return
@@ -304,7 +619,7 @@ describe("TimerPanel", () => {
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1" })
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
     );
 
     // @ts-expect-error - mock return

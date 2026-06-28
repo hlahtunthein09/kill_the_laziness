@@ -46,7 +46,7 @@ export function TimerControls({
         data-testid="timer-reset"
       >
         <RotateCcw className="h-4 w-4" />
-        ပြန်စ (Reset)
+        မူလမှပြန်စမယ် (Discard Session)
       </Button>
     </div>
   );

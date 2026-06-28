@@ -3,21 +3,38 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ProjectForm } from '../ProjectForm'
 import { useFocusStore } from '@/lib/store/useFocusStore'
+import { useRouter } from 'next/navigation'
 
-// Mock the store to avoid localStorage persistence in tests
-vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: {
-    getState: vi.fn(() => ({
-      addProject: vi.fn((project) => ({ id: 'test-id', ...project })),
-    })),
-  },
+const mockPush = vi.fn()
+
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(() => ({ push: mockPush })),
 }))
+
+const mockSetActiveProject = vi.fn()
+const mockAddProject = vi.fn((project) => ({ id: 'new-id', ...project }))
+
+vi.mock('@/lib/store/useFocusStore', () => {
+  const useFocusStore = vi.fn((selector: any) => {
+    if (typeof selector === 'function') {
+      return selector({ setActiveProject: mockSetActiveProject })
+    }
+    return undefined
+  }) as any
+
+  useFocusStore.getState = vi.fn(() => ({
+    addProject: mockAddProject,
+  }))
+
+  return { useFocusStore }
+})
 
 describe('ProjectForm', () => {
   const mockOnOpenChange = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAddProject.mockReturnValue({ id: 'new-id' })
   })
 
   it('renders dialog content when open', () => {
@@ -55,14 +72,6 @@ describe('ProjectForm', () => {
 
   it('submit button calls addProject with correct data', async () => {
     const user = userEvent.setup()
-    const mockAddProject = vi.fn(() => ({ id: 'new-id' }))
-
-    // Override mock for this test
-    const mockedModule = await import('@/lib/store/useFocusStore')
-    // @ts-expect-error - mocking internal
-    mockedModule.useFocusStore.getState = vi.fn(() => ({
-      addProject: mockAddProject,
-    }))
 
     render(<ProjectForm open={true} onOpenChange={mockOnOpenChange} />)
 
@@ -113,6 +122,31 @@ describe('ProjectForm', () => {
     const cancelButton = screen.getByRole('button', { name: /ပယ်ဖျက်ရန်/i })
     await user.click(cancelButton)
 
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('navigates to timer and sets active project after successful save', async () => {
+    const user = userEvent.setup()
+
+    render(<ProjectForm open={true} onOpenChange={mockOnOpenChange} />)
+
+    const nameInput = screen.getByLabelText(/Project Name/i)
+    const hoursInput = screen.getByLabelText(/Target Hours/i)
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Nav Project')
+    await user.clear(hoursInput)
+    await user.type(hoursInput, '3')
+
+    const submitButton = screen.getByRole('button', { name: /သိမ်းဆည်းရန်/i })
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(mockAddProject).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mockSetActiveProject).toHaveBeenCalledWith('new-id')
+    expect(mockPush).toHaveBeenCalledWith('/timer')
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 })

@@ -11,7 +11,7 @@ vi.mock("@/lib/time", () => ({
 }));
 
 describe("TimerDisplay", () => {
-  it("renders Burmese project time label", () => {
+  it("renders Burmese whole-project time label", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
@@ -21,75 +21,28 @@ describe("TimerDisplay", () => {
     );
 
     expect(
-      screen.getByText(/ပရောဂျက် အချိန်/i)
+      screen.getByText(/ပရောဂျက်တစ်ခုလုံး၏ အချိန်/i)
     ).toBeInTheDocument();
   });
 
-  it("renders English remaining label", () => {
-    render(
-      <TimerDisplay
-        projectElapsed={120}
-        subPieceRemaining={900}
-        isRunning={false}
-      />
-    );
-
-    expect(
-      screen.getByText(/Remaining/i)
-    ).toBeInTheDocument();
-  });
-
-  it("renders TimerRing SVG when allocatedMinutes is provided", () => {
+  it("renders sub-piece remaining label with name", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
         subPieceRemaining={900}
         isRunning={false}
         allocatedMinutes={25}
+        subPieceName="Design UI"
       />
     );
 
-    expect(screen.getByTestId("timer-ring")).toBeInTheDocument();
+    const label = screen.getByTestId("remaining-label")
+    expect(label.textContent).toContain("Design UI")
+    expect(label.textContent).toContain("အတွက် လက်ကျန် အချိန်")
+    expect(label.textContent).toContain("Remaining")
   });
 
-  it("passes remaining time correctly to TimerRing", () => {
-    render(
-      <TimerDisplay
-        projectElapsed={120}
-        subPieceRemaining={900}
-        isRunning={false}
-        allocatedMinutes={25}
-      />
-    );
-
-    const ring = screen.getByTestId("timer-ring");
-    // 900 seconds remaining out of 25*60 = 1500 total = 60% remaining
-    // circumference = 2 * PI * ((220 - 12) / 2) = PI * 208 ~= 652.5
-    // offset = circumference * (1 - 0.6) = circumference * 0.4
-    const circles = ring.querySelectorAll("circle");
-    const progressCircle = circles[1]; // second circle is the progress arc
-    const dashoffset = progressCircle.getAttribute("stroke-dashoffset");
-    expect(dashoffset).not.toBe("0");
-    // At 60% remaining, offset should be ~40% of circumference
-    const circumference = 2 * Math.PI * 104; // radius = (220-12)/2 = 104
-    const expectedOffset = circumference * 0.4;
-    expect(parseFloat(dashoffset!)).toBeCloseTo(expectedOffset, 0);
-  });
-
-  it("does not render ring when allocatedMinutes is 0", () => {
-    render(
-      <TimerDisplay
-        projectElapsed={120}
-        subPieceRemaining={900}
-        isRunning={false}
-        allocatedMinutes={0}
-      />
-    );
-
-    expect(screen.queryByTestId("timer-ring")).not.toBeInTheDocument();
-  });
-
-  it("does not render ring when allocatedMinutes is undefined", () => {
+  it("does not render remaining label when allocatedMinutes is undefined", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
@@ -98,7 +51,7 @@ describe("TimerDisplay", () => {
       />
     );
 
-    expect(screen.queryByTestId("timer-ring")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Remaining/i)).not.toBeInTheDocument();
   });
 
   it("shows red text when subPieceRemaining is <= 60s and > 0", () => {

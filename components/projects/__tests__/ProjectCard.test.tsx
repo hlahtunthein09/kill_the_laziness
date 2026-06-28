@@ -3,16 +3,24 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import type { Project } from '@/lib/types'
 
 const setActiveProjectMock = vi.fn()
-const addSubPieceMock = vi.fn()
+const updateProjectMock = vi.fn()
 let mockActiveProjectId: string | null = null
 
+function useFocusStore(selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; updateProject: typeof updateProjectMock }) => unknown) {
+  return selector({
+    activeProjectId: mockActiveProjectId,
+    setActiveProject: setActiveProjectMock,
+    updateProject: updateProjectMock,
+  })
+}
+useFocusStore.getState = () => ({
+  activeProjectId: mockActiveProjectId,
+  setActiveProject: setActiveProjectMock,
+  updateProject: updateProjectMock,
+})
+
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; addSubPiece: typeof addSubPieceMock }) => unknown) =>
-    selector({
-      activeProjectId: mockActiveProjectId,
-      setActiveProject: setActiveProjectMock,
-      addSubPiece: addSubPieceMock,
-    }),
+  useFocusStore,
 }))
 
 // Import after mock is set up
@@ -40,7 +48,7 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 describe('ProjectCard', () => {
   beforeEach(() => {
     setActiveProjectMock.mockClear()
-    addSubPieceMock.mockClear()
+    updateProjectMock.mockClear()
     mockPush.mockClear()
     mockActiveProjectId = null
   })
@@ -96,8 +104,8 @@ describe('ProjectCard', () => {
     render(<ProjectCard project={createMockProject()} />)
 
     // 3661 seconds = 1h 1m (seconds only shown when hours=0)
-    // The time appears in the footer as "စုစုပေါင်း အချိန်: 1h 1m (Total time: 1h 1m)"
-    const footer = screen.getByText(/စုစုပေါင်း အချိန်/i)
+    // The time appears in the footer as "အသုံးပြုပြီးသောအချိန် (Time used): ..."
+    const footer = screen.getByText(/အသုံးပြုပြီးသောအချိန်/i)
     expect(footer).toBeInTheDocument()
     expect(footer.textContent).toMatch(/1h 1m/)
   })
@@ -105,7 +113,7 @@ describe('ProjectCard', () => {
   it('shows status badge', () => {
     render(<ProjectCard project={createMockProject()} />)
 
-    expect(screen.getByText(/အားနေသည်/)).toBeInTheDocument()
+    expect(screen.getByText(/မပြီးပြတ်သေးပါ/)).toBeInTheDocument()
     expect(screen.getByText(/Idle/)).toBeInTheDocument()
   })
 
@@ -121,28 +129,48 @@ describe('ProjectCard', () => {
     expect(oceanContainer.querySelector('.bg-sky-400')).toBeInTheDocument()
   })
 
-  it('clicking focus button on empty project auto-creates a default sub-piece, sets active, and navigates to /timer', () => {
+  it('shows completed green border when project is completed', () => {
+    const { container } = render(
+      <ProjectCard project={createMockProject({ status: 'completed' })} />
+    )
+
+    expect(screen.getByText(/ပြီးစီး/)).toBeInTheDocument()
+    expect(screen.getByText(/Completed/)).toBeInTheDocument()
+    expect(container.querySelector('.border-emerald-500')).toBeInTheDocument()
+  })
+
+  it('active styling takes precedence over completed border', () => {
+    mockActiveProjectId = 'proj-1'
+
+    const { container } = render(
+      <ProjectCard project={createMockProject({ id: 'proj-1', status: 'completed' })} />
+    )
+
+    // Active styling should be present
+    expect(container.querySelector('.ring-2')).toBeInTheDocument()
+    expect(container.querySelector('.ring-teal-500')).toBeInTheDocument()
+    expect(container.querySelector('.border-teal-500')).toBeInTheDocument()
+
+    // Completed border should NOT be present (active takes precedence)
+    const card = container.querySelector('.border-emerald-500')
+    expect(card).not.toBeInTheDocument()
+  })
+
+  it('clicking focus button on project with no sub-pieces sets active and navigates to /timer', () => {
     render(<ProjectCard project={createMockProject({ id: 'proj-empty', subPieces: [] })} />)
 
-    const focusButton = screen.getByRole('button', { name: /focus/i })
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
     expect(focusButton).toBeInTheDocument()
 
     fireEvent.click(focusButton)
 
-    expect(addSubPieceMock).toHaveBeenCalledTimes(1)
-    expect(addSubPieceMock).toHaveBeenCalledWith({
-      projectId: 'proj-empty',
-      name: 'အထွေထွေ focus (General Focus)',
-      allocatedMinutes: 25,
-      order: 0,
-    })
     expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
     expect(setActiveProjectMock).toHaveBeenCalledWith('proj-empty')
     expect(mockPush).toHaveBeenCalledTimes(1)
     expect(mockPush).toHaveBeenCalledWith('/timer')
   })
 
-  it('clicking focus button on project with sub-pieces does NOT call addSubPiece', () => {
+  it('clicking focus button on project with sub-pieces sets active and navigates to /timer', () => {
     render(
       <ProjectCard
         project={createMockProject({
@@ -162,19 +190,18 @@ describe('ProjectCard', () => {
       />
     )
 
-    const focusButton = screen.getByRole('button', { name: /focus/i })
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
     expect(focusButton).toBeInTheDocument()
 
     fireEvent.click(focusButton)
 
-    expect(addSubPieceMock).not.toHaveBeenCalled()
     expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
     expect(setActiveProjectMock).toHaveBeenCalledWith('proj-with-sub')
     expect(mockPush).toHaveBeenCalledTimes(1)
     expect(mockPush).toHaveBeenCalledWith('/timer')
   })
 
-  it('clicking focus button on project with all completed sub-pieces auto-creates a default sub-piece, sets active, and navigates to /timer', () => {
+  it('clicking focus button on project with all completed sub-pieces sets active and navigates to /timer', () => {
     render(
       <ProjectCard
         project={createMockProject({
@@ -194,20 +221,94 @@ describe('ProjectCard', () => {
       />
     )
 
-    const focusButton = screen.getByRole('button', { name: /focus/i })
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
     expect(focusButton).toBeInTheDocument()
 
     fireEvent.click(focusButton)
 
-    expect(addSubPieceMock).toHaveBeenCalledTimes(1)
-    expect(addSubPieceMock).toHaveBeenCalledWith({
-      projectId: 'proj-completed',
-      name: 'အထွေထွေ focus (General Focus)',
-      allocatedMinutes: 25,
-      order: 0,
-    })
     expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
     expect(setActiveProjectMock).toHaveBeenCalledWith('proj-completed')
+    expect(mockPush).toHaveBeenCalledTimes(1)
+    expect(mockPush).toHaveBeenCalledWith('/timer')
+  })
+
+  it('clicking focus button on a completed project opens the confirmation dialog', () => {
+    render(
+      <ProjectCard
+        project={createMockProject({
+          id: 'proj-completed-status',
+          status: 'completed',
+        })}
+      />
+    )
+
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
+    fireEvent.click(focusButton)
+
+    // Dialog should be open with the confirmation title
+    expect(screen.getByText(/ပရောဂျက်ပြီးစီးသွားပါပြီ/)).toBeInTheDocument()
+    expect(screen.getByText(/Project Completed/)).toBeInTheDocument()
+    expect(screen.getByText(/ဒီပရောဂျက်ကို ပြန်စ focus လုပ်ချင်ပါသလား/)).toBeInTheDocument()
+    expect(screen.getByText(/Refocus will start a new session/)).toBeInTheDocument()
+
+    // Should NOT have set active project or navigated yet
+    expect(setActiveProjectMock).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('clicking Cancel in the refocus dialog does not change project status or navigate', () => {
+    render(
+      <ProjectCard
+        project={createMockProject({
+          id: 'proj-cancel-test',
+          status: 'completed',
+        })}
+      />
+    )
+
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
+    fireEvent.click(focusButton)
+
+    // Dialog is open
+    expect(screen.getByText(/ပရောဂျက်ပြီးစီးသွားပါပြီ/)).toBeInTheDocument()
+
+    // Click Cancel
+    const cancelButton = screen.getByRole('button', { name: /Cancel/i })
+    fireEvent.click(cancelButton)
+
+    // Should NOT have called updateProject, setActiveProject, or navigated
+    expect(updateProjectMock).not.toHaveBeenCalled()
+    expect(setActiveProjectMock).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('clicking Confirm in the refocus dialog updates status, sets active project, and navigates', () => {
+    render(
+      <ProjectCard
+        project={createMockProject({
+          id: 'proj-confirm-test',
+          status: 'completed',
+        })}
+      />
+    )
+
+    const focusButton = screen.getByRole('button', { name: /whole project/i })
+    fireEvent.click(focusButton)
+
+    // Dialog is open
+    expect(screen.getByText(/ပရောဂျက်ပြီးစီးသွားပါပြီ/)).toBeInTheDocument()
+
+    // Click Refocus
+    const refocusButton = screen.getByRole('button', { name: /Refocus/i })
+    fireEvent.click(refocusButton)
+
+    // Should have called updateProject with status idle
+    expect(updateProjectMock).toHaveBeenCalledTimes(1)
+    expect(updateProjectMock).toHaveBeenCalledWith('proj-confirm-test', { status: 'idle' })
+
+    // Should have set active project and navigated
+    expect(setActiveProjectMock).toHaveBeenCalledTimes(1)
+    expect(setActiveProjectMock).toHaveBeenCalledWith('proj-confirm-test')
     expect(mockPush).toHaveBeenCalledTimes(1)
     expect(mockPush).toHaveBeenCalledWith('/timer')
   })

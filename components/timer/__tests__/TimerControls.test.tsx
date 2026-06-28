@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { TimerControls } from "../TimerControls";
 
 describe("TimerControls", () => {
-  it("renders Start and Reset when paused", () => {
+  it("renders Start and Discard Session buttons when paused", () => {
     render(
       <TimerControls
         isRunning={false}
@@ -15,11 +15,11 @@ describe("TimerControls", () => {
     );
 
     expect(screen.getByTestId("timer-start")).toBeInTheDocument();
-    expect(screen.queryByTestId("timer-pause")).not.toBeInTheDocument();
     expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
+    expect(screen.queryByTestId("timer-pause")).not.toBeInTheDocument();
   });
 
-  it("renders Pause and Reset when running", () => {
+  it("renders Pause and Discard Session buttons when running", () => {
     render(
       <TimerControls
         isRunning={true}
@@ -29,9 +29,9 @@ describe("TimerControls", () => {
       />
     );
 
-    expect(screen.queryByTestId("timer-start")).not.toBeInTheDocument();
     expect(screen.getByTestId("timer-pause")).toBeInTheDocument();
     expect(screen.getByTestId("timer-reset")).toBeInTheDocument();
+    expect(screen.queryByTestId("timer-start")).not.toBeInTheDocument();
   });
 
   it("calls onStart when Start button is clicked", async () => {
@@ -64,7 +64,7 @@ describe("TimerControls", () => {
     expect(onPause).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onReset when Reset button is clicked", async () => {
+  it("calls onReset when Discard Session button is clicked", async () => {
     const onReset = vi.fn();
     render(
       <TimerControls

@@ -21,7 +21,7 @@ export default function SettingsPage() {
           ဆက်တင်များ (Settings)
         </h1>
         <p className="mt-1 text-sm text-stone-500">
-          သငပြင်အဆင်များကို စီမံခန့်ခွဲပါ
+          ဆက်တင်များကို စိတ်ကြိုက်ပြင်ဆင်ပါ
         </p>
       </div>
 

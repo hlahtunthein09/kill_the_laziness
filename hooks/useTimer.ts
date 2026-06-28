@@ -24,6 +24,8 @@ interface UseTimerReturn {
   start: () => void;
   pause: () => void;
   reset: () => void;
+  resetToZero: () => void;
+  reinitialize: () => void;
 }
 
 function readSession(
@@ -156,6 +158,13 @@ export function useTimer(
   const initialProjectTimeRef = useRef(initialProjectTime);
   const autoCompleteHandledRef = useRef(false);
 
+  // Session baseline refs — track the values at session start so reset can
+  // subtract elapsed deltas from the store and restore to baseline.
+  const sessionStartProjectElapsedRef = useRef(init.projectElapsed);
+  const sessionStartSubPieceRemainingRef = useRef(init.subPieceRemaining);
+  const prevProjectIdRef = useRef(projectId);
+  const prevSubPieceIdRef = useRef(subPieceId);
+
   // Store onComplete in a ref so the RAF loop can access the latest version
   // without adding it as a dependency.
   const onCompleteRef = useRef(onComplete);
@@ -175,6 +184,16 @@ export function useTimer(
   useEffect(() => { projectElapsedRef.current = projectElapsed; }, [projectElapsed]);
   useEffect(() => { subPieceRemainingRef.current = subPieceRemaining; }, [subPieceRemaining]);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+
+  // Update session baseline refs when projectId or subPieceId changes.
+  useEffect(() => {
+    if (projectId !== prevProjectIdRef.current || subPieceId !== prevSubPieceIdRef.current) {
+      sessionStartProjectElapsedRef.current = projectElapsedRef.current;
+      sessionStartSubPieceRemainingRef.current = subPieceRemainingRef.current;
+      prevProjectIdRef.current = projectId;
+      prevSubPieceIdRef.current = subPieceId;
+    }
+  }, [projectId, subPieceId]);
 
   // Auto-complete sub-piece on restore if drift brought it to zero
   useEffect(() => {
@@ -333,12 +352,82 @@ export function useTimer(
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    projectElapsedRef.current = initialProjectTime;
-    subPieceRemainingRef.current = Math.max(0, initialSubPieceRemaining);
-    setProjectElapsed(initialProjectTime);
-    setSubPieceRemaining(Math.max(0, initialSubPieceRemaining));
+
+    if (!projectId) return;
+
+    const projectDelta = projectElapsedRef.current - sessionStartProjectElapsedRef.current;
+    const subPieceDelta = sessionStartSubPieceRemainingRef.current - subPieceRemainingRef.current;
+
+    if (projectDelta > 0) {
+      useFocusStore.getState().decrementProjectTime(projectId, projectDelta);
+    }
+    if (subPieceId && subPieceDelta > 0) {
+      useFocusStore.getState().decrementSubPieceTime(projectId, subPieceId, subPieceDelta);
+    }
+
+    const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
+    const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
+
+    projectElapsedRef.current = baselineProjectElapsed;
+    subPieceRemainingRef.current = baselineSubPieceRemaining;
+    setProjectElapsed(baselineProjectElapsed);
+    setSubPieceRemaining(baselineSubPieceRemaining);
     localStorage.removeItem(SESSION_KEY);
-  }, [initialProjectTime, initialSubPieceRemaining]);
+  }, [projectId, subPieceId]);
+
+  const resetToZero = useCallback(() => {
+    setIsRunning(false);
+    lastTickRef.current = null;
+    accumulatedRef.current = 0;
+    lastPersistRef.current = 0;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    if (!projectId || !subPieceId) return;
+
+    useFocusStore.getState().resetSubPieceTime(projectId, subPieceId);
+
+    const updatedProject = useFocusStore.getState().getProjectById(projectId);
+    const updatedSubPiece = useFocusStore.getState().getSubPieceById(projectId, subPieceId);
+
+    const newProjectElapsed = updatedProject?.totalTimeSeconds ?? 0;
+    const newSubPieceRemaining = updatedSubPiece
+      ? Math.max(0, updatedSubPiece.allocatedMinutes * 60 - updatedSubPiece.elapsedSeconds)
+      : 0;
+
+    projectElapsedRef.current = newProjectElapsed;
+    subPieceRemainingRef.current = newSubPieceRemaining;
+    setProjectElapsed(newProjectElapsed);
+    setSubPieceRemaining(newSubPieceRemaining);
+
+    // Update session baselines so subsequent resets behave correctly
+    sessionStartProjectElapsedRef.current = newProjectElapsed;
+    sessionStartSubPieceRemainingRef.current = newSubPieceRemaining;
+
+    localStorage.removeItem(SESSION_KEY);
+  }, [projectId, subPieceId]);
+
+  const reinitialize = useCallback(() => {
+    setIsRunning(false);
+    lastTickRef.current = null;
+    accumulatedRef.current = 0;
+    lastPersistRef.current = 0;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
+    const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
+
+    projectElapsedRef.current = baselineProjectElapsed;
+    subPieceRemainingRef.current = baselineSubPieceRemaining;
+    setProjectElapsed(baselineProjectElapsed);
+    setSubPieceRemaining(baselineSubPieceRemaining);
+    localStorage.removeItem(SESSION_KEY);
+  }, []);
 
   // When projectId is undefined, return neutral values and no-op handlers.
   // All hooks above are still called unconditionally, keeping hook count stable.
@@ -350,6 +439,8 @@ export function useTimer(
       start: () => {},
       pause: () => {},
       reset: () => {},
+      resetToZero: () => {},
+      reinitialize: () => {},
     };
   }
 
@@ -360,5 +451,7 @@ export function useTimer(
     start,
     pause,
     reset,
+    resetToZero,
+    reinitialize,
   };
 }

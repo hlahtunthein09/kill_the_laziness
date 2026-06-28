@@ -28,7 +28,7 @@ export function AppShell({ children }: AppShellProps) {
         <Header />
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </div>
       </main>

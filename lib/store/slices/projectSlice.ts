@@ -21,6 +21,8 @@ function getFortressHealthFromXp(xp: number): number {
 export interface ProjectSlice {
   projects: Project[];
   activeProjectId: string | null;
+  activeSubPieceId: string | null;
+  projectOnlyFocus: boolean;
 
   addProject: (
     project: Omit<
@@ -38,6 +40,7 @@ export interface ProjectSlice {
   updateProject: (id: string, updates: Partial<Omit<Project, "id" | "subPieces">>) => void;
   deleteProject: (id: string) => void;
   setActiveProject: (id: string | null) => void;
+  setActiveSubPiece: (projectId: string, subPieceId: string | null) => void;
 
   addSubPiece: (subPiece: Omit<SubPiece, "id" | "elapsedSeconds" | "status">) => SubPiece;
   updateSubPiece: (
@@ -51,7 +54,13 @@ export interface ProjectSlice {
 
   incrementProjectTime: (projectId: string, seconds: number) => void;
   incrementSubPieceTime: (projectId: string, subPieceId: string, seconds: number) => void;
+  decrementProjectTime: (projectId: string, seconds: number) => void;
+  decrementSubPieceTime: (projectId: string, subPieceId: string, seconds: number) => void;
   completeSubPiece: (projectId: string, subPieceId: string) => void;
+
+  refocusSubPiece: (projectId: string, subPieceId: string, allocatedMinutes?: number) => void;
+
+  resetSubPieceTime: (projectId: string, subPieceId: string) => void;
 
   getActiveProject: () => Project | undefined;
   getProjectById: (id: string) => Project | undefined;
@@ -64,6 +73,8 @@ export interface ProjectSlice {
 export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> = (set, get) => ({
   projects: [],
   activeProjectId: null,
+  activeSubPieceId: null,
+  projectOnlyFocus: false,
 
   addProject: (project) => {
     const newProject: Project = {
@@ -106,12 +117,26 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   setActiveProject: (id) => {
     set((state) => ({
       activeProjectId: id,
+      activeSubPieceId: null,
+      projectOnlyFocus: true,
       projects: state.projects.map((p) => {
         if (p.id === id) return { ...p, status: "running" as PieceStatus };
         if (p.status === "running") return { ...p, status: "idle" as PieceStatus };
         return p;
       }),
     }));
+  },
+
+  setActiveSubPiece: (projectId, subPieceId) => {
+    if (subPieceId === null) {
+      set({ activeSubPieceId: null, projectOnlyFocus: false });
+      return;
+    }
+    const project = get().projects.find((p) => p.id === projectId);
+    const found = project?.subPieces.find((sp) => sp.id === subPieceId);
+    if (found) {
+      set({ activeSubPieceId: subPieceId, projectOnlyFocus: false });
+    }
   },
 
   addSubPiece: (subPiece) => {
@@ -251,6 +276,44 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
     }));
   },
 
+  decrementProjectTime: (projectId, seconds) => {
+    const xpToSubtract = Math.floor(seconds / 60) * XP_PER_MINUTE;
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const newXp = Math.max(0, p.xp - xpToSubtract);
+        return {
+          ...p,
+          totalTimeSeconds: Math.max(0, p.totalTimeSeconds - seconds),
+          xp: newXp,
+          fortressLevel: getFortressLevelFromXp(newXp),
+          fortressHealth: getFortressHealthFromXp(newXp),
+        };
+      }),
+      settings: {
+        ...state.settings,
+        todayFocusSeconds: Math.max(0, state.settings.todayFocusSeconds - seconds),
+      },
+    }));
+  },
+
+  decrementSubPieceTime: (projectId, subPieceId, seconds) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              subPieces: p.subPieces.map((sp) =>
+                sp.id === subPieceId
+                  ? { ...sp, elapsedSeconds: Math.max(0, sp.elapsedSeconds - seconds) }
+                  : sp
+              ),
+            }
+          : p
+      ),
+    }));
+  },
+
   completeSubPiece: (projectId, subPieceId) => {
     set((state) => ({
       projects: state.projects.map((p) => {
@@ -270,6 +333,68 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
         };
       }),
     }));
+  },
+
+  refocusSubPiece: (projectId, subPieceId, allocatedMinutes) => {
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== projectId) return p;
+        const updatedSubPieces = p.subPieces.map((sp) => {
+          if (sp.id !== subPieceId) return sp;
+          return {
+            ...sp,
+            status: "idle" as PieceStatus,
+            elapsedSeconds: 0,
+            allocatedMinutes:
+              allocatedMinutes !== undefined && allocatedMinutes > 0
+                ? allocatedMinutes
+                : sp.allocatedMinutes,
+          };
+        });
+        const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
+        return {
+          ...p,
+          status: allCompleted ? ("completed" as PieceStatus) : "idle" as PieceStatus,
+          subPieces: updatedSubPieces,
+        };
+      }),
+    }));
+  },
+
+  resetSubPieceTime: (projectId, subPieceId) => {
+    set((state) => {
+      const project = state.projects.find((p) => p.id === projectId);
+      const subPiece = project?.subPieces.find((sp) => sp.id === subPieceId);
+      if (!project || !subPiece) return state;
+
+      const elapsedSeconds = subPiece.elapsedSeconds;
+      const xpToSubtract = Math.floor(elapsedSeconds / 60) * XP_PER_MINUTE;
+      const newXp = Math.max(0, project.xp - xpToSubtract);
+
+      const updatedSubPieces = project.subPieces.map((sp) =>
+        sp.id === subPieceId ? { ...sp, elapsedSeconds: 0, status: "idle" as PieceStatus } : sp
+      );
+      const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
+
+      return {
+        projects: state.projects.map((p) => {
+          if (p.id !== projectId) return p;
+          return {
+            ...p,
+            subPieces: updatedSubPieces,
+            totalTimeSeconds: Math.max(0, p.totalTimeSeconds - elapsedSeconds),
+            xp: newXp,
+            fortressLevel: getFortressLevelFromXp(newXp),
+            fortressHealth: getFortressHealthFromXp(newXp),
+            status: allCompleted ? ("completed" as PieceStatus) : "idle" as PieceStatus,
+          };
+        }),
+        settings: {
+          ...state.settings,
+          todayFocusSeconds: Math.max(0, state.settings.todayFocusSeconds - elapsedSeconds),
+        },
+      };
+    });
   },
 
   getActiveProject: () => {
