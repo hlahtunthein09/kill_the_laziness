@@ -38,27 +38,27 @@ interface ProjectCardProps {
 const COLOR_MAP: Record<string, { dot: string; badge: string; progress: string }> = {
   mint: {
     dot: "bg-teal-400",
-    badge: "bg-teal-100 text-teal-700 border-teal-200",
-    progress: "bg-teal-500",
+    badge: "bg-primary/10 text-primary border-primary/30",
+    progress: "bg-primary",
   },
   ocean: {
     dot: "bg-sky-400",
-    badge: "bg-sky-100 text-sky-700 border-sky-200",
+    badge: "bg-sky-500/10 text-sky-400 border-sky-500/30",
     progress: "bg-sky-500",
   },
   sand: {
     dot: "bg-amber-300",
-    badge: "bg-amber-100 text-amber-700 border-amber-200",
+    badge: "bg-amber-500/10 text-amber-400 border-amber-500/30",
     progress: "bg-amber-500",
   },
   forest: {
     dot: "bg-emerald-400",
-    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
     progress: "bg-emerald-500",
   },
   coral: {
     dot: "bg-rose-400",
-    badge: "bg-rose-100 text-rose-700 border-rose-200",
+    badge: "bg-rose-500/10 text-rose-400 border-rose-500/30",
     progress: "bg-rose-500",
   },
 };
@@ -71,10 +71,10 @@ const STATUS_LABELS: Record<string, { label: string; en: string }> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  idle: "bg-stone-100 text-stone-600 border-stone-200",
-  running: "bg-teal-100 text-teal-700 border-teal-200",
-  paused: "bg-amber-100 text-amber-700 border-amber-200",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  idle: "bg-muted text-muted-foreground border-border",
+  running: "bg-primary/10 text-primary border-primary/30",
+  paused: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
 };
 
 export function ProjectCard({ project }: ProjectCardProps) {
@@ -118,19 +118,19 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   return (
     <Card className={cn(
-      "group bg-card-glow hover:shadow-md transition-shadow duration-200",
-      isActive && "ring-2 ring-teal-500 border-teal-500",
+      "group h-full bg-card-glow border border-border hover:shadow-md transition-shadow duration-200",
+      isActive && "ring-2 ring-primary border-primary",
       !isActive && isCompleted && "border-emerald-500"
     )}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <span className={cn("size-3 rounded-full shrink-0", colorStyle.dot)} />
-          <CardTitle className="text-base font-semibold text-stone-900 truncate">
+          <CardTitle className="text-base font-semibold text-foreground truncate">
             {project.name}
           </CardTitle>
         </div>
         {description && (
-          <CardDescription className="text-xs text-stone-500 line-clamp-2 mt-1">
+          <CardDescription className="text-xs text-muted-foreground line-clamp-2 mt-1">
             {description}
           </CardDescription>
         )}
@@ -142,22 +142,22 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {statusInfo.label} ({statusInfo.en})
           </Badge>
           {isActive && (
-            <Badge className="text-xs font-medium bg-teal-500 text-white">
+            <Badge className="text-xs font-medium bg-primary text-primary-foreground">
               လက်ရှိ focus လုပ်နေသည် (Currently focusing)
             </Badge>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="pb-2">
+      <CardContent className="pb-2 flex-1">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="flex items-center gap-1 text-xs text-stone-500">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Target className="h-3 w-3" />
             {progressPercent}%
           </span>
-          <span className="text-xs text-stone-500">
-            <span className="font-semibold text-teal-600">{formattedTime}</span>
-            <span className="text-stone-400"> / {formattedTarget}</span>
+          <span className="text-xs text-muted-foreground">
+            <span className="font-semibold text-primary">{formattedTime}</span>
+            <span className="text-muted-foreground"> / {formattedTarget}</span>
           </span>
         </div>
         <Progress value={progressPercent} className="w-full">
@@ -171,12 +171,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="pt-2 border-t border-stone-100 flex flex-col gap-2">
-        <div className="flex items-center justify-center gap-1.5 text-xs text-stone-500 w-full">
-          <Clock className="h-3 w-3 text-stone-400" />
+      <CardFooter className="pt-2 border-t border-border flex flex-col gap-2 bg-card mt-auto">
+        <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground w-full bg-card border border-border rounded-md px-3 py-2">
+          <Clock className="h-3 w-3 text-muted-foreground" />
           <span>
             အသုံးပြုပြီးသောအချိန် (Time used):{" "}
-            <span className="font-semibold text-teal-600">{formattedTime}</span>
+            <span className="font-semibold text-primary">{formattedTime}</span>
           </span>
         </div>
         <Button
@@ -184,8 +184,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
           size="sm"
           onClick={handleFocusClick}
           className={cn(
-            "text-xs gap-1 w-full whitespace-normal leading-tight h-auto py-2 hover:bg-teal-100 hover:text-teal-700 hover:border-teal-300",
-            isActive && "border-teal-500 text-teal-700 bg-teal-50"
+            "text-xs gap-1 w-full whitespace-normal leading-tight h-auto py-2 bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]",
+            isActive && "border-primary text-primary bg-card shadow-[0_0_10px_rgba(198,241,53,0.15)]"
           )}
           aria-pressed={isActive}
         >
@@ -193,7 +193,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <span>ပရောဂျက်တစ်ခုလုံးကို focus လုပ်မယ် (Focus whole project)</span>
         </Button>
         <div className="w-full">
-          <AddSubPieceButton projectId={project.id} className="w-full hover:bg-teal-100 hover:text-teal-700 hover:border-teal-300" />
+          <AddSubPieceButton projectId={project.id} className="w-full bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]" />
         </div>
       </CardFooter>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

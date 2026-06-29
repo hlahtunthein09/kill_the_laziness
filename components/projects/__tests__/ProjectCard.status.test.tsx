@@ -40,35 +40,35 @@ describe('ProjectCard status badge colors', () => {
     addSubPieceMock.mockClear()
   })
 
-  it('idle status badge has stone color classes', () => {
+  it('idle status badge has muted color classes', () => {
     const { container } = render(<ProjectCard project={createMockProject({ status: 'idle' })} />)
-    const badge = container.querySelector('.bg-stone-100')
+    const badge = container.querySelector('[class*="bg-muted"]')
     expect(badge).toBeInTheDocument()
-    expect(container.querySelector('.text-stone-600')).toBeInTheDocument()
-    expect(container.querySelector('.border-stone-200')).toBeInTheDocument()
+    expect(container.querySelector('[class*="text-muted-foreground"]')).toBeInTheDocument()
+    expect(container.querySelector('[class*="border-border"]')).toBeInTheDocument()
   })
 
-  it('running status badge has teal color classes', () => {
+  it('running status badge has primary color classes', () => {
     const { container } = render(<ProjectCard project={createMockProject({ status: 'running' })} />)
-    const badge = container.querySelector('.bg-teal-100')
+    const badge = container.querySelector('[class*="bg-primary/10"]')
     expect(badge).toBeInTheDocument()
-    expect(container.querySelector('.text-teal-700')).toBeInTheDocument()
-    expect(container.querySelector('.border-teal-200')).toBeInTheDocument()
+    expect(container.querySelector('[class*="text-primary"]')).toBeInTheDocument()
+    expect(container.querySelector('[class*="border-primary/30"]')).toBeInTheDocument()
   })
 
   it('paused status badge has amber color classes', () => {
     const { container } = render(<ProjectCard project={createMockProject({ status: 'paused' })} />)
-    const badge = container.querySelector('.bg-amber-100')
+    const badge = container.querySelector('[class*="bg-amber-500/10"]')
     expect(badge).toBeInTheDocument()
-    expect(container.querySelector('.text-amber-700')).toBeInTheDocument()
-    expect(container.querySelector('.border-amber-200')).toBeInTheDocument()
+    expect(container.querySelector('[class*="text-amber-400"]')).toBeInTheDocument()
+    expect(container.querySelector('[class*="border-amber-500/30"]')).toBeInTheDocument()
   })
 
   it('completed status badge has emerald color classes', () => {
     const { container } = render(<ProjectCard project={createMockProject({ status: 'completed' })} />)
-    const badge = container.querySelector('.bg-emerald-100')
+    const badge = container.querySelector('[class*="bg-emerald-500/10"]')
     expect(badge).toBeInTheDocument()
-    expect(container.querySelector('.text-emerald-700')).toBeInTheDocument()
-    expect(container.querySelector('.border-emerald-200')).toBeInTheDocument()
+    expect(container.querySelector('[class*="text-emerald-400"]')).toBeInTheDocument()
+    expect(container.querySelector('[class*="border-emerald-500/30"]')).toBeInTheDocument()
   })
 })

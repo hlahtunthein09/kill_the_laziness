@@ -59,10 +59,10 @@ export function SyncPanel() {
     <div>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-stone-900">
+          <h2 className="text-lg font-semibold text-foreground">
             ဆင်စစ်မှု (Backup & Restore)
           </h2>
-          <p className="text-sm text-stone-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             သင့်ဒေတာကို JSON ဖိုင်အဖြစ် ထုတ်ယူပါ
           </p>
         </div>
@@ -78,7 +78,6 @@ export function SyncPanel() {
           <Button
             onClick={() => fileInputRef.current?.click()}
             variant="outline"
-            className="border-sky-500 text-sky-600 hover:bg-sky-50"
           >
             <Upload className="mr-2 h-4 w-4" />
             ဆင့် JSON ပြန်တင်ရန် (Restore Backup)
@@ -86,7 +85,6 @@ export function SyncPanel() {
           <Button
             onClick={handleDownload}
             disabled={isExporting}
-            className="bg-teal-500 hover:bg-teal-600 text-white"
           >
             <Download className="mr-2 h-4 w-4" />
             ဆင့် JSON ဆွဲချ ရန် (Download Backup)
@@ -96,7 +94,7 @@ export function SyncPanel() {
       {status && (
         <p
           className={`mt-3 text-sm ${
-            status.type === "success" ? "text-emerald-600" : "text-red-500"
+            status.type === "success" ? "text-emerald-500" : "text-destructive"
           }`}
           data-testid="status-message"
         >

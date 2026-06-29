@@ -15,14 +15,14 @@ export function ProjectList() {
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-500">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
           <FolderOpen className="h-8 w-8" />
         </div>
         <div className="text-center">
-          <p className="text-base font-medium text-stone-700">
+          <p className="text-base font-medium text-foreground">
             ပရောဂျက်များ မရှိသေးပါ
           </p>
-          <p className="text-sm text-stone-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             No projects yet — ပရောဂျက်အသစ်ထည့်ရန် (Add a new project) နှင့် စတင်လိုက်ပါ
           </p>
         </div>

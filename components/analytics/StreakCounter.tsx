@@ -18,16 +18,16 @@ export function StreakCounter({ className }: { className?: string }) {
   return (
     <Card className={cn("bg-card-glow", className)}>
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-2 text-stone-500">
-          <Flame className="h-4 w-4 text-orange-500" />
+        <CardDescription className="flex items-center gap-2 text-muted-foreground">
+          <Flame className="h-4 w-4 text-primary" />
           အစဉ်လိုက် focus ရက်များ (Streak)
         </CardDescription>
-        <CardTitle className="text-3xl font-bold text-stone-900">
+        <CardTitle className="text-3xl font-bold text-foreground">
           {currentStreak}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-stone-400">
+        <p className="text-xs text-muted-foreground">
           စံချိန်: {longestStreak} ရက် (Best: {longestStreak})
         </p>
       </CardContent>

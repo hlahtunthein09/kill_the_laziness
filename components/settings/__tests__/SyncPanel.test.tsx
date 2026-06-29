@@ -181,4 +181,15 @@ describe("SyncPanel", () => {
       value: originalFileReader,
     });
   });
+
+  it("does not contain hardcoded light-only classes", () => {
+    mockExportStore.mockReturnValue("{}");
+
+    const { container } = render(<SyncPanel />);
+    const html = container.innerHTML;
+
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("text-stone-900");
+    expect(html).not.toContain("border-stone-200");
+  });
 });

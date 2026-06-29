@@ -61,8 +61,8 @@ describe('ProjectCard', () => {
     expect(screen.getByText(/လက်ရှိ focus လုပ်နေသည်/)).toBeInTheDocument()
     expect(screen.getByText(/Currently focusing/)).toBeInTheDocument()
     expect(container.querySelector('.ring-2')).toBeInTheDocument()
-    expect(container.querySelector('.ring-teal-500')).toBeInTheDocument()
-    expect(container.querySelector('.border-teal-500')).toBeInTheDocument()
+    expect(container.querySelector('.ring-primary')).toBeInTheDocument()
+    expect(container.querySelector('.border-primary')).toBeInTheDocument()
   })
 
   it('does not show active badge when project is inactive', () => {
@@ -148,8 +148,8 @@ describe('ProjectCard', () => {
 
     // Active styling should be present
     expect(container.querySelector('.ring-2')).toBeInTheDocument()
-    expect(container.querySelector('.ring-teal-500')).toBeInTheDocument()
-    expect(container.querySelector('.border-teal-500')).toBeInTheDocument()
+    expect(container.querySelector('.ring-primary')).toBeInTheDocument()
+    expect(container.querySelector('.border-primary')).toBeInTheDocument()
 
     // Completed border should NOT be present (active takes precedence)
     const card = container.querySelector('.border-emerald-500')

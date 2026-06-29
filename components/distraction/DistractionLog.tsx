@@ -23,35 +23,37 @@ export function DistractionLog({ className }: { className?: string }) {
   return (
     <Card className={cn("bg-card-glow", className)}>
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-2 text-stone-500">
-          <ShieldAlert className="h-4 w-4 text-red-500" />
+        <CardDescription className="flex items-center gap-2 text-muted-foreground">
+          <ShieldAlert className="h-4 w-4 text-destructive" />
           အာရုံစားသမျှမှတ်တမ်း
         </CardDescription>
-        <CardTitle className="text-lg font-bold text-stone-900">Distraction Log</CardTitle>
+        <CardTitle className="text-lg font-bold text-foreground">Distraction Log</CardTitle>
       </CardHeader>
       <CardContent>
         {logs.length === 0 ? (
-          <p className="text-sm text-stone-500">အခုထိ အာရုံစားမှု မရှိသေးပါ (No distractions logged yet)</p>
+          <p className="text-sm text-muted-foreground">အခုထိ အာရုံစားမှု မရှိသေးပါ (No distractions logged yet)</p>
         ) : (
           <ul className="space-y-2 mb-3">
             {logs.map((log) => (
-              <li key={log.id} className="flex items-center justify-between text-sm">
-                <span className="truncate max-w-[60%] text-stone-700" title={log.url}>
+              <li key={log.id} className="flex items-center justify-between text-sm border-b border-border pb-1 last:border-0">
+                <span className="truncate max-w-[60%] text-foreground" title={log.url}>
                   {log.url}
                 </span>
                 <span className={cn(
-                  "text-xs font-medium",
-                  log.action === "blocked" ? "text-red-500" : "text-amber-500"
+                  "text-xs font-medium px-1.5 py-0.5 rounded",
+                  log.action === "blocked"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                 )}>
                   {log.action === "blocked" ? "တားမြစ်ခဲ့သည် (Blocked)" : "သတိပေးခဲ့သည် (Warned)"}
                 </span>
-                <span className="text-xs text-stone-400 whitespace-nowrap">{timeAgo(log.timestamp)}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(log.timestamp)}</span>
               </li>
             ))}
           </ul>
         )}
         {logs.length > 0 && (
-          <Button variant="outline" size="sm" onClick={clearLogs} className="text-stone-600">
+          <Button variant="outline" size="sm" onClick={clearLogs}>
             <Trash2 className="h-3 w-3 mr-1" />
             မှတ်တမ်းရှင်းလင်းရန် (Clear)
           </Button>

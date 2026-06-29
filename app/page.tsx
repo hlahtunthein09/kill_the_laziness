@@ -39,10 +39,10 @@ export default function Home() {
     <div className="flex min-h-full flex-col gap-6 p-6 lg:p-8 bg-gradient-soft">
       {/* Greeting */}
       <div className="animate-fade-in mb-2">
-        <h1 className="text-2xl font-bold text-stone-900 md:text-3xl">
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl">
           မင်္ဂလာပါ၊ ဒီနေ့လည်း focus လုပ်ကြမယ်
         </h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Ready to build your fortress?
         </p>
       </div>
@@ -52,14 +52,14 @@ export default function Home() {
         {/* Total Projects */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-stone-500">
-              <FolderKanban className="h-4 w-4 text-teal-500" />
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
+              <FolderKanban className="h-4 w-4 text-primary" />
               စုစုပေါင်း ပရောဂျက်များ
             </CardDescription>
-            <CardTitle className="text-3xl font-bold text-stone-900">{totalProjects}</CardTitle>
+            <CardTitle className="text-3xl font-bold text-foreground">{totalProjects}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-stone-400">Total Projects</p>
+            <p className="text-xs text-muted-foreground">Total Projects</p>
           </CardContent>
         </Card>
 
@@ -72,22 +72,22 @@ export default function Home() {
         {/* Current Level */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-stone-500">
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
               <Trophy className="h-4 w-4 text-emerald-500" />
               လက်ရှိ အဆင့်
             </CardDescription>
-            <CardTitle className="text-3xl font-bold text-stone-900">{currentLevel}</CardTitle>
+            <CardTitle className="text-3xl font-bold text-foreground">{currentLevel}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-stone-400">Current Level</p>
+            <p className="text-xs text-muted-foreground">Current Level</p>
           </CardContent>
         </Card>
 
         {/* Fortress */}
         <Card className="bg-card-glow">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-stone-500">
-              <Shield className="h-4 w-4 text-teal-500" />
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
+              <Shield className="h-4 w-4 text-primary" />
               ခံတပ် (Fortress)
             </CardDescription>
           </CardHeader>
@@ -95,20 +95,20 @@ export default function Home() {
             {fortressProject ? (
               <FortressSvg level={fortressProject.fortressLevel} health={fortressProject.fortressHealth} />
             ) : (
-              <p className="text-sm text-stone-500">ပရောဂျက်မရှိသေးပါ</p>
+              <p className="text-sm text-muted-foreground">ပရောဂျက်မရှိသေးပါ</p>
             )}
           </CardContent>
         </Card>
       </div>
 
       {/* Quick Focus */}
-      <Card className="bg-card-glow border-teal-200">
+      <Card className="bg-card-glow">
         <CardHeader className="pb-2">
-          <CardDescription className="flex items-center gap-2 text-stone-500">
-            <Plus className="h-4 w-4 text-teal-500" />
+          <CardDescription className="flex items-center gap-2 text-muted-foreground">
+            <Plus className="h-4 w-4 text-primary" />
             အခု focus လုပ်မယ်
           </CardDescription>
-          <CardTitle className="text-sm font-normal text-stone-400">
+          <CardTitle className="text-sm font-normal text-muted-foreground">
             Quick Focus — jump straight into a 25-min sprint
           </CardTitle>
         </CardHeader>
@@ -118,23 +118,23 @@ export default function Home() {
       </Card>
 
       {/* Quick action */}
-      <Card className="bg-card-glow border-dashed border-2 border-teal-200">
+      <Card className="bg-card-glow border-dashed border-2 border-primary">
         <CardContent className="flex flex-col items-center justify-center gap-4 py-10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Plus className="h-6 w-6" />
           </div>
           <div className="text-center">
-            <p className="text-base font-medium text-stone-700">
+            <p className="text-base font-medium text-foreground">
               ပရောဂျက်အသစ်ထည့်မယ်
             </p>
-            <p className="text-sm text-stone-400">
+            <p className="text-sm text-muted-foreground">
               Add a new project to start building your fortress
             </p>
           </div>
           <AddProjectButton
             variant="default"
             size="default"
-            className="gap-2 bg-teal-500 hover:bg-teal-600 text-white"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             label="ပရောဂျက်အသစ်ထည့်မယ်"
             sublabel="Add New Project"
           />

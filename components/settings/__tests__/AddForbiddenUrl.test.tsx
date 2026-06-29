@@ -120,4 +120,21 @@ describe("AddForbiddenUrl", () => {
       screen.getByText("ဤဝဘ်ဆိုက်ကို ရှိပြီးသားဖြစ်သည် — ထပ်ထည့်မရပါ။")
     ).toBeInTheDocument();
   });
+
+  it("does not contain hardcoded light-only classes", () => {
+    (useFocusStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+          settings: { forbiddenUrls: [] },
+          addForbiddenUrl: mockAddForbiddenUrl,
+        })
+    );
+
+    const { container } = render(<AddForbiddenUrl />);
+    const html = container.innerHTML;
+
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("text-stone-900");
+    expect(html).not.toContain("border-stone-200");
+  });
 });

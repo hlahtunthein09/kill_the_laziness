@@ -100,39 +100,39 @@
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f5f5f4;
-  --card: #1c1917;
-  --card-foreground: #f5f5f4;
-  --popover: #1c1917;
-  --popover-foreground: #f5f5f4;
-  --primary: #2dd4bf;
-  --primary-foreground: #0f172a;
-  --secondary: #38bdf8;
-  --secondary-foreground: #0f172a;
-  --muted: #292524;
-  --muted-foreground: #a8a29e;
-  --accent: #fcd34d;
+  --background: #0B1120;
+  --foreground: #FFFFFF;
+  --card: #1d283a;
+  --card-foreground: #FFFFFF;
+  --popover: #1E293B;
+  --popover-foreground: #FFFFFF;
+  --primary: #c6f137;
+  --primary-foreground: #0B1120;
+  --secondary: #22C55E;
+  --secondary-foreground: #0B1120;
+  --muted: #2A3649;
+  --muted-foreground: #B0B8C4;
+  --accent: #fde68a;
   --accent-foreground: #1c1917;
   --destructive: #fb7185;
-  --border: #292524;
-  --input: #292524;
-  --ring: #2dd4bf;
-  --chart-1: #2dd4bf;
-  --chart-2: #38bdf8;
-  --chart-3: #fcd34d;
+  --border: #2A3649;
+  --input: #2A3649;
+  --ring: #C6F135;
+  --chart-1: #C6F135;
+  --chart-2: #22C55E;
+  --chart-3: #fde68a;
   --chart-4: #34d399;
   --chart-5: #fb7185;
-  --sidebar: #0f172a;
-  --sidebar-foreground: #f5f5f4;
-  --sidebar-primary: #2dd4bf;
-  --sidebar-primary-foreground: #0f172a;
-  --sidebar-accent: #1e3a5f;
-  --sidebar-accent-foreground: #f5f5f4;
-  --sidebar-border: #292524;
-  --sidebar-ring: #2dd4bf;
-  --success: #34d399;
-  --success-foreground: #0f172a;
+  --sidebar: #0B1120;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #C6F135;
+  --sidebar-primary-foreground: #0B1120;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #2A3649;
+  --sidebar-ring: #C6F135;
+  --success: #22C55E;
+  --success-foreground: #0B1120;
 }
 
 /* ------------------------------------------------------------------
@@ -176,8 +176,32 @@
     background: radial-gradient(ellipse at top, #f0fdfa 0%, #f5f5f4 60%);
   }
 
+  .dark .bg-gradient-nature {
+    background: #0B1120;
+  }
+
+  .dark .bg-gradient-mint {
+    background: #0B1120;
+  }
+
+  .dark .bg-gradient-ocean {
+    background: #0B1120;
+  }
+
+  .dark .bg-gradient-sand {
+    background: #0B1120;
+  }
+
+  .dark .bg-gradient-soft {
+    background: #0B1120;
+  }
+
   .bg-card-glow {
     box-shadow: 0 2px 8px -1px rgb(20 184 166 / 0.08), 0 4px 16px -2px rgb(20 184 166 / 0.04);
+  }
+
+  .dark .bg-card-glow {
+    box-shadow: 0 2px 8px -1px rgb(198 241 53 / 0.08), 0 4px 16px -2px rgb(198 241 53 / 0.04);
   }
 }
 

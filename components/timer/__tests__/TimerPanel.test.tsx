@@ -174,7 +174,7 @@ describe("TimerPanel", () => {
 
     // Project name and sub-piece name should be visible
     expect(screen.getByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Test SubPiece", { selector: "p" })).toBeInTheDocument();
 
     // Timer controls should be present
     expect(screen.getByTestId("timer-start")).toBeInTheDocument();
@@ -244,7 +244,7 @@ describe("TimerPanel", () => {
     render(<TimerPanel />);
 
     // Should show the first incomplete sub-piece name
-    expect(screen.getByText("Active SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Active SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
   it("does not crash when transitioning from no active project to active project", () => {
@@ -285,7 +285,7 @@ describe("TimerPanel", () => {
     rerender(<TimerPanel />);
 
     expect(screen.getByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Test SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
   it("does not crash when transitioning from no active project to active project", () => {
@@ -326,7 +326,7 @@ describe("TimerPanel", () => {
     rerender(<TimerPanel />);
 
     expect(screen.getByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("Test SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Test SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
   it("uses activeSubPieceId when set to an incomplete sub-piece", () => {
@@ -364,7 +364,7 @@ describe("TimerPanel", () => {
     render(<TimerPanel />);
 
     // Should show the explicitly selected sub-piece, not the first one
-    expect(screen.getByText("Explicitly Selected SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Explicitly Selected SubPiece", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("First SubPiece")).not.toBeInTheDocument();
   });
 
@@ -404,7 +404,7 @@ describe("TimerPanel", () => {
     render(<TimerPanel />);
 
     // Should fall back to the first incomplete sub-piece
-    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Fallback SubPiece", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("Completed Selected SubPiece")).not.toBeInTheDocument();
   });
 
@@ -489,7 +489,7 @@ describe("TimerPanel", () => {
     render(<TimerPanel />);
 
     // Should fall back to the first incomplete sub-piece
-    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Fallback SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
   it("renders project-only timer UI when projectOnlyFocus is true even with incomplete sub-pieces", () => {
@@ -573,7 +573,7 @@ describe("TimerPanel", () => {
     render(<TimerPanel />);
 
     // Should fall back to the first incomplete sub-piece
-    expect(screen.getByText("Fallback SubPiece")).toBeInTheDocument();
+    expect(screen.getByText("Fallback SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
   it("renders ScheduleToast when a schedule is due", () => {

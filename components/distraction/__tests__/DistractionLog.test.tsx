@@ -41,6 +41,14 @@ describe("DistractionLog", () => {
     expect(screen.getByText("သတိပေးခဲ့သည် (Warned)")).toBeInTheDocument();
   });
 
+  it("does not contain hardcoded light-only classes", () => {
+    const { container } = render(<DistractionLog />);
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/\bbg-white\b/);
+    expect(html).not.toMatch(/\btext-stone-900\b/);
+    expect(html).not.toMatch(/\bborder-stone-200\b/);
+  });
+
   it("calls clearLogs when clear button clicked", () => {
     render(<DistractionLog />);
     const clearBtn = screen.getByRole("button", { name: /Clear/ });

@@ -6,9 +6,9 @@ import { useFocusStore } from "@/lib/store/useFocusStore";
 import { cn } from "@/lib/utils";
 
 const themeOptions = [
-  { value: "light" as const, label: "လင်းရောင်", icon: Sun },
-  { value: "dark" as const, label: "မှောင်ရောင်", icon: Moon },
-  { value: "system" as const, label: "စက်အလိုက်", icon: Monitor },
+  { value: "light" as const, label: "Light", icon: Sun },
+  { value: "dark" as const, label: "Dark", icon: Moon },
+  { value: "system" as const, label: "System", icon: Monitor },
 ];
 
 export function ThemeSelector() {
@@ -26,9 +26,9 @@ export function ThemeSelector() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-stone-900">အပြင်အဆင်</h2>
-      <p className="text-sm text-stone-500 mt-1">Theme</p>
-      <p className="text-sm text-stone-500 mt-2">
+      <h2 className="text-lg font-semibold text-foreground">အပြင်အဆင်</h2>
+      <p className="text-sm text-muted-foreground mt-1">Theme</p>
+      <p className="text-sm text-muted-foreground mt-2">
         အက်ပပြင်အဆင်ကို ပြောင်းလဲရန် ရွေးချယ်ပါ
       </p>
       <div className="mt-4">
@@ -38,9 +38,8 @@ export function ThemeSelector() {
             onChange={(e) => handleChange(e.target.value)}
             aria-label="Theme selector"
             className={cn(
-              "w-full appearance-none rounded-lg border border-stone-200 bg-white px-3 py-2.5 pr-10 text-sm text-stone-900",
-              "focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20",
-              "dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+              "w-full appearance-none rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm text-foreground",
+              "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             )}
           >
             {themeOptions.map((option) => (
@@ -54,7 +53,7 @@ export function ThemeSelector() {
               const Icon =
                 themeOptions.find((o) => o.value === currentTheme)?.icon ??
                 Monitor;
-              return <Icon className="h-4 w-4 text-stone-500" />;
+              return <Icon className="h-4 w-4 text-muted-foreground" />;
             })()}
           </div>
         </div>

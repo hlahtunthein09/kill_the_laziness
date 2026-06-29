@@ -28,30 +28,30 @@ const STATUS_CONFIG: Record<string, { label: string; en: string; icon: React.Rea
   idle: {
     label: "ပြီးစီးခြင်းမရှိသေးပါ",
     en: "Idle",
-    icon: <Circle className="h-3.5 w-3.5 text-stone-400" />,
-    badgeClass: "bg-stone-100 text-stone-600 border-stone-200",
-    dotClass: "bg-stone-400",
+    icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
+    badgeClass: "bg-muted text-muted-foreground border-border",
+    dotClass: "bg-muted-foreground",
   },
   running: {
     label: "လုပ်ဆောင်နေသည်",
     en: "Running",
-    icon: <PlayCircle className="h-3.5 w-3.5 text-teal-500" />,
-    badgeClass: "bg-teal-100 text-teal-700 border-teal-200",
-    dotClass: "bg-teal-500",
+    icon: <PlayCircle className="h-3.5 w-3.5 text-primary" />,
+    badgeClass: "bg-primary/10 text-primary border-primary/30",
+    dotClass: "bg-primary",
   },
   paused: {
     label: "ခဏရပ်ထား",
     en: "Paused",
-    icon: <PauseCircle className="h-3.5 w-3.5 text-amber-500" />,
-    badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
-    dotClass: "bg-amber-500",
+    icon: <PauseCircle className="h-3.5 w-3.5 text-amber-400" />,
+    badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    dotClass: "bg-amber-400",
   },
   completed: {
     label: "ပြီးစီး",
     en: "Completed",
-    icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
-    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    dotClass: "bg-emerald-500",
+    icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
+    badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    dotClass: "bg-emerald-400",
   },
 };
 
@@ -94,18 +94,18 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
   return (
     <>
       <div
-        className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-white/60 border border-stone-100 hover:bg-white/90 transition-colors cursor-pointer"
+        className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-transparent border border-border hover:bg-muted/30 transition-colors cursor-pointer"
         onClick={() => setIsDetailOpen(true)}
         data-testid="subpiece-row"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {status.icon}
-          <span className="text-sm font-medium text-stone-800 truncate">
+          <span className="text-sm font-medium text-foreground truncate">
             {subPiece.name}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="flex items-center gap-1 text-xs text-stone-500">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             {subPiece.allocatedMinutes} မိနစ်
           </span>
@@ -125,7 +125,7 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
                 handleFocus();
               }
             }}
-            className="h-7 px-2 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-100 border-teal-200 shadow-sm hover:shadow cursor-pointer"
+            className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/50 shadow-sm hover:shadow cursor-pointer"
             data-testid="focus-button"
           >
             <Target className="h-3.5 w-3.5 mr-1" />
@@ -197,19 +197,19 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
                 </DialogHeader>
                 <div className="grid gap-4 py-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-stone-500">Allocated</span>
+                    <span className="text-sm text-muted-foreground">Allocated</span>
                     <span className="text-sm font-medium" data-testid="detail-allocated">
                       {subPiece.allocatedMinutes} မိနစ်
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-stone-500">Elapsed</span>
+                    <span className="text-sm text-muted-foreground">Elapsed</span>
                     <span className="text-sm font-medium" data-testid="detail-elapsed">
                       {formatDuration(subPiece.elapsedSeconds)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-stone-500">Status</span>
+                    <span className="text-sm text-muted-foreground">Status</span>
                     <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border", status.badgeClass)} data-testid="detail-status">
                       {status.icon}
                       {status.label} ({status.en})

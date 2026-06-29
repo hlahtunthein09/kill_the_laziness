@@ -25,24 +25,24 @@ export function DailyFocusGoal({ className }: { className?: string }) {
   return (
     <Card className={cn("bg-card-glow", className)}>
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-2 text-stone-500">
-          <Target className="h-4 w-4 text-teal-500" />
+        <CardDescription className="flex items-center gap-2 text-muted-foreground">
+          <Target className="h-4 w-4 text-primary" />
           နေ့စဉ် focus ရည်မှန်းချက်
         </CardDescription>
-        <CardTitle className="text-3xl font-bold text-stone-900">
+        <CardTitle className="text-3xl font-bold text-foreground">
           {todayMinutes} / {goalMinutes}{" "}
-          <span className="text-lg font-normal text-stone-500">မိနစ်</span>
+          <span className="text-lg font-normal text-muted-foreground">မိနစ်</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="w-full bg-stone-200 rounded-full h-2.5 mb-2">
+        <div className="w-full bg-muted rounded-full h-2.5 mb-2">
           <div
-            className="bg-teal-500 h-2.5 rounded-full transition-all duration-300"
+            className="bg-primary h-2.5 rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
             data-testid="progress-fill"
           />
         </div>
-        <p className="text-xs text-stone-400">
+        <p className="text-xs text-muted-foreground">
           {progress}% achieved
           {progress >= 100 && " (Goal reached)"}
         </p>

@@ -101,12 +101,12 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
       </DialogHeader>
       <form onSubmit={handleSubmit} className="grid gap-4 mt-2">
         <div className="grid gap-1.5">
-          <label htmlFor="project" className="text-sm font-medium text-stone-700">ပရောဂျက် (Project)</label>
+          <label htmlFor="project" className="text-sm font-medium text-foreground">ပရောဂျက် (Project)</label>
           <select
             id="project"
             value={projectId}
             onChange={(e) => handleProjectChange(e.target.value)}
-            className="h-8 w-full rounded-lg border border-stone-200 bg-white px-2.5 text-sm outline-none focus-visible:border-teal-500 focus-visible:ring-2 focus-visible:ring-teal-500/20"
+            className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
           >
             <option value="">ပရောဂျက် ရွေးပါ (Select project)</option>
             {projects.map((p) => (
@@ -116,13 +116,13 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
         </div>
 
         <div className="grid gap-1.5">
-          <label htmlFor="subPiece" className="text-sm font-medium text-stone-700">အခန်းကဏ္ဍ (Sub-piece)</label>
+          <label htmlFor="subPiece" className="text-sm font-medium text-foreground">အခန်းကဏ္ဍ (Sub-piece)</label>
           <select
             id="subPiece"
             value={subPieceId}
             onChange={(e) => setSubPieceId(e.target.value)}
             disabled={!projectId}
-            className="h-8 w-full rounded-lg border border-stone-200 bg-white px-2.5 text-sm outline-none focus-visible:border-teal-500 focus-visible:ring-2 focus-visible:ring-teal-500/20 disabled:opacity-50"
+            className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 disabled:opacity-50"
           >
             <option value="">မရွေးပါ (None)</option>
             {incompleteSubPieces.map((sp) => (
@@ -132,12 +132,12 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
         </div>
 
         <div className="grid gap-1.5">
-          <label htmlFor="day" className="text-sm font-medium text-stone-700">နေ့ (Day)</label>
+          <label htmlFor="day" className="text-sm font-medium text-foreground">နေ့ (Day)</label>
           <select
             id="day"
             value={dayOfWeek}
             onChange={(e) => setDayOfWeek(Number(e.target.value))}
-            className="h-8 w-full rounded-lg border border-stone-200 bg-white px-2.5 text-sm outline-none focus-visible:border-teal-500 focus-visible:ring-2 focus-visible:ring-teal-500/20"
+            className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
           >
             {DAY_OPTIONS.map((d) => (
               <option key={d.value} value={d.value}>{d.label}</option>
@@ -146,7 +146,7 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
         </div>
 
         <div className="grid gap-1.5">
-          <label htmlFor="startTime" className="text-sm font-medium text-stone-700">စတင်ချိန် (Start Time)</label>
+          <label htmlFor="startTime" className="text-sm font-medium text-foreground">စတင်ချိန် (Start Time)</label>
           <Input
             id="startTime"
             type="time"
@@ -156,7 +156,7 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
         </div>
 
         <div className="grid gap-1.5">
-          <label htmlFor="duration" className="text-sm font-medium text-stone-700">ကြာချိန် မိနစ် (Duration min)</label>
+          <label htmlFor="duration" className="text-sm font-medium text-foreground">ကြာချိန် မိနစ် (Duration min)</label>
           <Input
             id="duration"
             type="number"
@@ -166,7 +166,7 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
           />
         </div>
 
-        <Button type="submit" className="bg-teal-500 hover:bg-teal-600 text-white mt-2">
+        <Button type="submit" className="mt-2">
           {submitButtonText}
         </Button>
       </form>
@@ -186,7 +186,6 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
       <Button
         type="button"
         onClick={() => setInternalOpen(true)}
-        className="bg-teal-500 hover:bg-teal-600 text-white"
       >
         <Plus className="mr-2 h-4 w-4" />
         {triggerButtonText}

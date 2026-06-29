@@ -22,12 +22,12 @@ export function ScheduleList() {
 
   if (sorted.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center">
-        <CalendarX className="h-8 w-8 text-stone-400" />
-        <p className="text-base font-medium text-stone-700">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
+        <CalendarX className="h-8 w-8 text-muted-foreground" />
+        <p className="text-base font-medium text-foreground">
           စီစဉ်ထားသော focus အချိန် မရှိသေးပါ
         </p>
-        <p className="text-sm text-stone-500">No schedules yet — အသစ်ထည့်ပါ</p>
+        <p className="text-sm text-muted-foreground">No schedules yet — အသစ်ထည့်ပါ</p>
       </div>
     );
   }

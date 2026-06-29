@@ -12,7 +12,7 @@ export function ForbiddenUrlsList() {
   return (
     <div>
       {forbiddenUrls.length === 0 ? (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-muted-foreground">
           တားမြစ်ထားသော ဝဘ်ဆိုက်များ မရှိသေးပါ။ / No forbidden URLs yet.
         </p>
       ) : (
@@ -20,14 +20,14 @@ export function ForbiddenUrlsList() {
           {forbiddenUrls.map((url) => (
             <li
               key={url}
-              className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-4 py-2"
+              className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-2"
             >
-              <span className="text-sm text-stone-700">{url}</span>
+              <span className="text-sm text-foreground">{url}</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => removeForbiddenUrl(url)}
-                className={cn("text-red-500 hover:bg-red-50 hover:text-red-600")}
+                className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive")}
                 aria-label={`Remove ${url}`}
               >
                 ဖယ်ရှား (Remove)

@@ -65,7 +65,7 @@ describe("TimerDisplay", () => {
     );
 
     const remainingTime = screen.getByText("00:45");
-    expect(remainingTime).toHaveClass("text-rose-600");
+    expect(remainingTime).toHaveClass("text-rose-400");
   });
 
   it("shows paused status badge when not running", () => {

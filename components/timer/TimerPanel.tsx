@@ -158,20 +158,20 @@ export function TimerPanel() {
   if (!activeProject) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-500">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
           <FolderOpen className="h-8 w-8" />
         </div>
         <div className="text-center">
-          <p className="text-base font-medium text-stone-700">
+          <p className="text-base font-medium text-foreground">
             လက်ရှိ ပရောဂျက် မရွေးရသေးပါ
           </p>
-          <p className="text-sm text-stone-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             No active project — ပရောဂျက်တစ်ခုရွေးချယ်ပြီး စတင်လိုက်ပါ
           </p>
         </div>
         <Button
           onClick={() => router.push("/projects")}
-          className="mt-2 bg-teal-500 hover:bg-teal-600 text-white"
+          className="mt-2"
         >
           <span className="block">ပရောဂျက်တစ်ခုရွေးချယ်ပါ</span>
           <span className="block text-xs opacity-80">Choose a project</span>
@@ -214,7 +214,6 @@ export function TimerPanel() {
           />
           <Button
             onClick={handleContinue}
-            className="bg-teal-500 hover:bg-teal-600 text-white"
           >
             <span className="block">ဆက်လက်ပါ</span>
             <span className="block text-xs opacity-80">Continue</span>
@@ -238,10 +237,10 @@ export function TimerPanel() {
       />
 
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-stone-900">
+        <h2 className="text-lg font-semibold text-foreground">
           {activeProject.name}
         </h2>
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-muted-foreground">
           {resolvedSubPiece
             ? resolvedSubPiece.name
             : "ပရောဂျက် focus (Project Focus)"}

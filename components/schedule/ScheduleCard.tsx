@@ -30,13 +30,13 @@ export function ScheduleCard({
   onEdit,
 }: ScheduleCardProps) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-stone-900 truncate">{projectName}</p>
-        <p className="text-sm text-stone-500 truncate">
+        <p className="font-semibold text-foreground truncate">{projectName}</p>
+        <p className="text-sm text-muted-foreground truncate">
           {subPieceName ?? "အထွေထွေ focus (General Focus)"}
         </p>
-        <p className="text-sm text-stone-600 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           {DAY_LABELS[schedule.dayOfWeek]} · {schedule.startTime} · {schedule.durationMinutes} min
         </p>
       </div>
@@ -53,12 +53,12 @@ export function ScheduleCard({
           <div
             className={cn(
               "w-10 h-5 rounded-full transition-colors duration-200",
-              schedule.enabled ? "bg-teal-500" : "bg-stone-300"
+              schedule.enabled ? "bg-primary" : "bg-muted"
             )}
           />
           <div
             className={cn(
-              "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+              "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow transition-transform duration-200",
               schedule.enabled ? "translate-x-5" : "translate-x-0"
             )}
           />
@@ -68,7 +68,7 @@ export function ScheduleCard({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 hover:bg-sky-50 hover:text-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             aria-label="Edit schedule"
           >
             <Pencil className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function ScheduleCard({
         <button
           type="button"
           onClick={onDelete}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/20"
           aria-label="Delete schedule"
         >
           <Trash2 className="h-4 w-4" />

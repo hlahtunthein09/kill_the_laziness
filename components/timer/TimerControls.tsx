@@ -21,8 +21,8 @@ export function TimerControls({
       {isRunning ? (
         <Button
           onClick={onPause}
-          variant="secondary"
-          className="gap-1.5"
+          variant="outline"
+          className="gap-1.5 bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]"
           data-testid="timer-pause"
         >
           <Pause className="h-4 w-4" />
@@ -42,7 +42,7 @@ export function TimerControls({
       <Button
         onClick={onReset}
         variant="outline"
-        className="gap-1.5"
+        className="gap-1.5 bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]"
         data-testid="timer-reset"
       >
         <RotateCcw className="h-4 w-4" />

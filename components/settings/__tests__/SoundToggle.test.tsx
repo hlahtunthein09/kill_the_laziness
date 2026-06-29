@@ -76,4 +76,21 @@ describe("SoundToggle", () => {
     expect(mockUpdateSettings).toHaveBeenCalledTimes(1);
     expect(mockUpdateSettings).toHaveBeenCalledWith({ soundEnabled: true });
   });
+
+  it("does not use hardcoded light-only classes for dark mode compatibility", () => {
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        settings: { soundEnabled: true },
+        updateSettings: mockUpdateSettings,
+      })
+    );
+
+    const { container } = render(<SoundToggle />);
+    const html = container.innerHTML;
+
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("bg-stone-300");
+    expect(html).not.toContain("text-stone-900");
+  });
 });

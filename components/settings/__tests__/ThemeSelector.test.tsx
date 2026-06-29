@@ -52,4 +52,26 @@ describe("ThemeSelector", () => {
     expect(mockSetTheme).toHaveBeenCalledTimes(1);
     expect(mockSetTheme).toHaveBeenCalledWith("dark");
   });
+
+  it("uses semantic theme classes for dark mode support", () => {
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        settings: { theme: "light" },
+        updateSettings: mockUpdateSettings,
+      })
+    );
+
+    render(<ThemeSelector />);
+
+    const select = screen.getByLabelText("Theme selector");
+    const className = select.className;
+
+    expect(className).toContain("bg-background");
+    expect(className).toContain("border-input");
+    expect(className).toContain("text-foreground");
+    expect(className).not.toContain("bg-white");
+    expect(className).not.toContain("text-stone-900");
+    expect(className).not.toContain("border-stone-200");
+  });
 });

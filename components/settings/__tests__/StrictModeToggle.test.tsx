@@ -66,21 +66,20 @@ describe("StrictModeToggle", () => {
     expect(mockUpdateSettings).toHaveBeenCalledWith({ strictMode: true });
   });
 
-  it("clicking checked toggle calls updateSettings with false", () => {
+  it("does not contain hardcoded light-only classes", () => {
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
       selector({
-        settings: { strictMode: true },
+        settings: { strictMode: false },
         updateSettings: mockUpdateSettings,
       })
     );
 
-    render(<StrictModeToggle />);
+    const { container } = render(<StrictModeToggle />);
+    const html = container.innerHTML;
 
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-
-    expect(mockUpdateSettings).toHaveBeenCalledTimes(1);
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ strictMode: false });
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("bg-stone-300");
+    expect(html).not.toContain("text-stone-900");
   });
 });

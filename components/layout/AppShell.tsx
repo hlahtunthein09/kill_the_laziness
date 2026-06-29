@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
@@ -10,22 +10,34 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className={cn("flex h-screen w-full overflow-hidden bg-background")}>
-      {/* Sidebar — hidden on mobile, fixed width on desktop */}
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          data-testid="sidebar-backdrop"
+        />
+      )}
+
+      {/* Sidebar */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-border bg-teal-50/80 backdrop-blur-sm md:flex",
-          "w-16 lg:w-64"
+          "flex shrink-0 flex-col border-r border-border bg-sidebar backdrop-blur-sm transition-all duration-200",
+          "fixed inset-y-0 left-0 z-50 md:static",
+          "overflow-hidden",
+          sidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full md:w-16 md:translate-x-0"
         )}
       >
-        <Sidebar />
+        <Sidebar collapsed={!sidebarOpen} />
       </aside>
 
       {/* Main content area */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        {/* Header — visible on all screen sizes */}
-        <Header />
+        <Header onMenuClick={() => setSidebarOpen((prev) => !prev)} />
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-8">

@@ -89,4 +89,22 @@ describe("ForbiddenUrlsList", () => {
 
     expect(mockResetForbiddenUrls).toHaveBeenCalledTimes(1);
   });
+
+  it("does not use hardcoded light-only classes in dark mode", () => {
+    (useFocusStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+          settings: { forbiddenUrls: ["youtube.com/shorts", "tiktok.com"] },
+          removeForbiddenUrl: mockRemoveForbiddenUrl,
+          resetForbiddenUrls: mockResetForbiddenUrls,
+        })
+    );
+
+    const { container } = render(<ForbiddenUrlsList />);
+    const html = container.innerHTML;
+
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("text-stone-900");
+    expect(html).not.toContain("border-stone-200");
+  });
 });

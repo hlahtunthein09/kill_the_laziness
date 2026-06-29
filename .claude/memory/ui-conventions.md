@@ -44,3 +44,26 @@ Current UI patterns for FocusFlow AI components. Follow these to avoid re-readin
 ## Time Display
 - Use `formatDuration` from `lib/time.ts` for all duration formatting.
 - Store durations in seconds internally; format only at display time.
+
+## Dark Theme (Pending User Final Approval)
+Chosen palette based on user-provided slide — simple, distinctive, high contrast, no gradients.
+
+| Role | Hex | Tailwind token |
+|---|---|---|
+| Background | `#0B1120` | `bg-background` |
+| Card / panel | `#1E293B` | `bg-card` |
+| Title text | `#FFFFFF` | `text-foreground` |
+| Body / subtitle text | `#B0B8C4` | `text-muted-foreground` |
+| Primary accent | `#C6F135` | `bg-primary` / `text-primary` |
+| Primary accent text | `#0B1120` | `text-primary-foreground` |
+| Border | `#2A3649` | `border-border` |
+| Muted surface | `#2A3649` | `bg-muted` |
+| Success | `#22C55E` | `bg-emerald-500` |
+| Warning / paused | `#F59E0B` | `bg-amber-500` |
+| Danger / blocked | `#EF4444` | `bg-rose-500` |
+
+Rules:
+- Solid colors only — no gradients in dark mode.
+- White text on dark backgrounds for readability.
+- Cards and panels must never be white in dark mode.
+- Use lime accent sparingly for primary actions and active states.

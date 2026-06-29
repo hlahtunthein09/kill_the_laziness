@@ -104,4 +104,15 @@ describe("DailyFocusGoalInput", () => {
 
     expect(mockUpdateSettings).not.toHaveBeenCalled();
   });
+
+  it("does not use hardcoded light-only classes", () => {
+    mockStore(60);
+
+    const { container } = render(<DailyFocusGoalInput />);
+
+    const html = container.innerHTML;
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("text-stone-900");
+    expect(html).not.toContain("border-stone-200");
+  });
 });

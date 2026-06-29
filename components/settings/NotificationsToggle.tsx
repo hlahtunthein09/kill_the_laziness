@@ -12,11 +12,11 @@ export function NotificationsToggle() {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex-1">
-        <h2 className="text-lg font-semibold text-stone-900">
+        <h2 className="text-lg font-semibold text-foreground">
           အသိပေးချက်များ
         </h2>
-        <p className="text-sm text-stone-500 mt-1">Notifications</p>
-        <p className="text-sm text-stone-500 mt-2">
+        <p className="text-sm text-muted-foreground mt-1">Notifications</p>
+        <p className="text-sm text-muted-foreground mt-2">
           ပိတ်ထားပါက toast နှင့် desktop အသိပေးချက်များ ရောက်မလာတော့ပါ။
         </p>
       </div>
@@ -31,13 +31,13 @@ export function NotificationsToggle() {
         <div
           className={cn(
             "w-11 h-6 rounded-full transition-colors duration-200",
-            "peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-300",
-            isChecked ? "bg-teal-500" : "bg-stone-300"
+            "peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring",
+            isChecked ? "bg-primary" : "bg-muted"
           )}
         />
         <div
           className={cn(
-            "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200",
+            "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-background shadow transition-transform duration-200",
             isChecked ? "translate-x-5" : "translate-x-0"
           )}
         />

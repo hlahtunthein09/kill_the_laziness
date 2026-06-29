@@ -65,4 +65,21 @@ describe("NotificationsToggle", () => {
     expect(mockUpdateSettings).toHaveBeenCalledTimes(1);
     expect(mockUpdateSettings).toHaveBeenCalledWith({ notificationsEnabled: true });
   });
+
+  it("does not use hardcoded light-only classes on the toggle track or knob", () => {
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        settings: { notificationsEnabled: true },
+        updateSettings: mockUpdateSettings,
+      })
+    );
+
+    const { container } = render(<NotificationsToggle />);
+    const html = container.innerHTML;
+
+    expect(html).not.toContain("bg-white");
+    expect(html).not.toContain("bg-stone-300");
+    expect(html).not.toContain("text-stone-900");
+  });
 });
