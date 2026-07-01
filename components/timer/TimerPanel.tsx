@@ -253,6 +253,7 @@ export function TimerPanel() {
         isRunning={isRunning}
         allocatedMinutes={resolvedSubPiece?.allocatedMinutes}
         subPieceName={resolvedSubPiece?.name}
+        targetTimeSeconds={activeProject.targetTimeSeconds}
       />
 
       <TimerControls

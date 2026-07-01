@@ -109,7 +109,7 @@ describe('useTimer', () => {
   }
 
   describe('project-only timer (no subPieceId)', () => {
-    it('starts with project totalTimeSeconds as elapsed', () => {
+    it('starts with projectElapsed at 0 for a fresh session', () => {
       const { project } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id))
 
@@ -117,7 +117,37 @@ describe('useTimer', () => {
       expect(result.current.isRunning).toBe(false)
     })
 
-    it('increments project elapsed when started', async () => {
+    it('starts with projectElapsed at 0 even when store totalTimeSeconds > 0', () => {
+      const { project } = createProjectWithSubPiece()
+      // Seed the store with some elapsed time
+      useFocusStore.getState().incrementProjectTime(project.id, 120)
+
+      const { result } = renderHook(() => useTimer(project.id))
+
+      // projectElapsed should start at 0 (per-session), not from store total
+      expect(result.current.projectElapsed).toBe(0)
+      expect(result.current.isRunning).toBe(false)
+    })
+
+    it('increments project elapsed from 0 when store has prior time', async () => {
+      const { project } = createProjectWithSubPiece()
+      // Seed store with prior time
+      useFocusStore.getState().incrementProjectTime(project.id, 300)
+
+      const { result } = renderHook(() => useTimer(project.id))
+      expect(result.current.projectElapsed).toBe(0)
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(5)
+
+      // projectElapsed counts up from 0 (session), not from store total
+      expect(result.current.projectElapsed).toBe(5)
+      // Store total should be 300 + 5 = 305
+      expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(305)
+    })
+
+    it('increments project elapsed from 0 when started', async () => {
       const { project } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id))
 
@@ -237,7 +267,7 @@ describe('useTimer', () => {
       expect(session.isRunning).toBe(false)
     })
 
-    it('reset restores project elapsed to session baseline and reverts store', async () => {
+    it('reset restores project elapsed to 0 and reverts store', async () => {
       const { project } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id))
 
@@ -249,7 +279,7 @@ describe('useTimer', () => {
 
       act(() => result.current.reset())
       expect(result.current.isRunning).toBe(false)
-      // Reset restores to session baseline (0 for a fresh project)
+      // Reset restores to session baseline (0 for a fresh session)
       expect(result.current.projectElapsed).toBe(0)
       // Store totalTimeSeconds should be reverted to baseline
       expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(0)
@@ -260,8 +290,9 @@ describe('useTimer', () => {
       const { project, subPiece } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
 
-      // Initial: 120 seconds remaining
+      // Initial: 120 seconds remaining, projectElapsed starts at 0
       expect(result.current.subPieceRemaining).toBe(120)
+      expect(result.current.projectElapsed).toBe(0)
 
       act(() => result.current.start())
       await flushRaf()
@@ -285,7 +316,7 @@ describe('useTimer', () => {
       expect(localStorage.getItem('ff_active_session')).toBeNull()
     })
 
-    it('reinitialize restores display to baseline without changing store values', async () => {
+    it('reinitialize restores display to 0 without changing store values', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
 
@@ -301,7 +332,7 @@ describe('useTimer', () => {
       act(() => result.current.reinitialize())
 
       expect(result.current.isRunning).toBe(false)
-      // Display should return to session baseline
+      // Display should return to session baseline (0)
       expect(result.current.projectElapsed).toBe(0)
       expect(result.current.subPieceRemaining).toBe(120)
       // Store values should NOT be reverted (unlike reset)
@@ -310,11 +341,11 @@ describe('useTimer', () => {
       expect(localStorage.getItem('ff_active_session')).toBeNull()
     })
 
-    it('resetToZero zeros elapsed time and restores sub-piece remaining to allocated time', async () => {
+    it('resetToZero zeros elapsed display to 0 and restores sub-piece remaining to allocated time', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
 
-      // Initial state
+      // Initial state: projectElapsed starts at 0
       expect(result.current.projectElapsed).toBe(0)
       expect(result.current.subPieceRemaining).toBe(120)
       expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(0)
@@ -330,11 +361,11 @@ describe('useTimer', () => {
       expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(10)
       expect(useFocusStore.getState().getProjectById(project.id)?.subPieces[0].elapsedSeconds).toBe(10)
 
-      // resetToZero should zero out the elapsed time and restore remaining
+      // resetToZero should zero out the elapsed display and restore remaining
       act(() => result.current.resetToZero())
 
       expect(result.current.isRunning).toBe(false)
-      // projectElapsed should be reduced by the elapsed amount (back to 0)
+      // projectElapsed display should be 0 (session baseline)
       expect(result.current.projectElapsed).toBe(0)
       // subPieceRemaining should return to allocated time (120)
       expect(result.current.subPieceRemaining).toBe(120)
@@ -483,6 +514,29 @@ describe('useTimer', () => {
       expect(screen.getByTestId('projectElapsed').textContent).toBe('16')
       expect(screen.getByTestId('subPieceRemaining').textContent).toBe('104')
       expect(screen.getByTestId('isRunning').textContent).toBe('true')
+    })
+
+    it('restores projectElapsed from saved session value, not store total', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      // Seed store with a large totalTimeSeconds
+      useFocusStore.getState().incrementProjectTime(project.id, 500)
+
+      const savedSession = {
+        projectId: project.id,
+        subPieceId: subPiece.id,
+        projectElapsed: 25,
+        subPieceRemaining: 95,
+        savedAt: 0,
+        isRunning: false,
+      }
+      localStorage.setItem('ff_active_session', JSON.stringify(savedSession))
+
+      render(<TimerTestHarness projectId={project.id} subPieceId={subPiece.id} />)
+
+      // projectElapsed should restore from session (25), not from store total (500)
+      expect(screen.getByTestId('projectElapsed').textContent).toBe('25')
+      expect(screen.getByTestId('subPieceRemaining').textContent).toBe('95')
+      expect(screen.getByTestId('isRunning').textContent).toBe('false')
     })
 
     it('restores paused session without drift', async () => {

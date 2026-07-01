@@ -11,6 +11,77 @@ vi.mock("@/lib/time", () => ({
 }));
 
 describe("TimerDisplay", () => {
+  it("renders target label and progress bar when targetTimeSeconds is provided", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={900}
+        isRunning={true}
+        targetTimeSeconds={3600}
+      />
+    );
+
+    expect(screen.getByTestId("target-label")).toBeInTheDocument();
+    expect(screen.getByTestId("target-label").textContent).toContain("သတ်မှတ်ထားသော အချိန်");
+    expect(screen.getByTestId("target-progress")).toBeInTheDocument();
+    expect(screen.getByTestId("target-progress-fill")).toBeInTheDocument();
+  });
+
+  it("does not render target UI when targetTimeSeconds is undefined", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={900}
+        isRunning={false}
+      />
+    );
+
+    expect(screen.queryByTestId("target-label")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("target-progress")).not.toBeInTheDocument();
+  });
+
+  it("does not render target UI when targetTimeSeconds is 0", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={900}
+        isRunning={false}
+        targetTimeSeconds={0}
+      />
+    );
+
+    expect(screen.queryByTestId("target-label")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("target-progress")).not.toBeInTheDocument();
+  });
+
+  it("progress fill width matches elapsed/target ratio", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={1800}
+        subPieceRemaining={900}
+        isRunning={true}
+        targetTimeSeconds={3600}
+      />
+    );
+
+    const fill = screen.getByTestId("target-progress-fill");
+    expect(fill).toHaveStyle("width: 50%");
+  });
+
+  it("progress clamps at 100% when projectElapsed exceeds targetTimeSeconds", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={7200}
+        subPieceRemaining={900}
+        isRunning={true}
+        targetTimeSeconds={3600}
+      />
+    );
+
+    const fill = screen.getByTestId("target-progress-fill");
+    expect(fill).toHaveStyle("width: 100%");
+  });
+
   it("renders Burmese whole-project time label", () => {
     render(
       <TimerDisplay

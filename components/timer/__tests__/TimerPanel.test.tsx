@@ -576,6 +576,59 @@ describe("TimerPanel", () => {
     expect(screen.getByText("Fallback SubPiece", { selector: "p" })).toBeInTheDocument();
   });
 
+  it("renders target label and progress bar when active project has targetTimeSeconds > 0", () => {
+    const project = createMockProject({ targetTimeSeconds: 3600 });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 120,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    expect(screen.getByTestId("target-label")).toBeInTheDocument();
+    expect(screen.getByTestId("target-progress")).toBeInTheDocument();
+    expect(screen.getByTestId("target-progress-fill")).toBeInTheDocument();
+  });
+
+  it("does not render target label when active project has targetTimeSeconds = 0", () => {
+    const project = createMockProject({ targetTimeSeconds: 0 });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 120,
+      subPieceRemaining: 0,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    expect(screen.queryByTestId("target-label")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("target-progress")).not.toBeInTheDocument();
+  });
+
   it("renders ScheduleToast when a schedule is due", () => {
     const spyInfo = vi.spyOn(toast, "info").mockImplementation(() => "toast-id");
 

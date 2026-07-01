@@ -66,7 +66,7 @@ function computeInit(
   if (!session) {
     return {
       isRunning: false,
-      projectElapsed: initialProjectTime,
+      projectElapsed: 0,
       subPieceRemaining: initialSubPieceRemaining,
       shouldAutoComplete: false,
       autoCompleteSeconds: 0,
@@ -155,7 +155,6 @@ export function useTimer(
   const lastTickRef = useRef<number | null>(null);
   const accumulatedRef = useRef(0);
   const lastPersistRef = useRef(0);
-  const initialProjectTimeRef = useRef(initialProjectTime);
   const autoCompleteHandledRef = useRef(false);
 
   // Session baseline refs — track the values at session start so reset can
@@ -174,12 +173,6 @@ export function useTimer(
   const projectElapsedRef = useRef(init.projectElapsed);
   const subPieceRemainingRef = useRef(init.subPieceRemaining);
   const isRunningRef = useRef(init.isRunning);
-
-  useEffect(() => {
-    if (!isRunning) {
-      initialProjectTimeRef.current = initialProjectTime;
-    }
-  }, [initialProjectTime, isRunning]);
 
   useEffect(() => { projectElapsedRef.current = projectElapsed; }, [projectElapsed]);
   useEffect(() => { subPieceRemainingRef.current = subPieceRemaining; }, [subPieceRemaining]);
@@ -281,10 +274,9 @@ export function useTimer(
           setSubPieceRemainingRef.current(nextSubPieceRemaining);
         }
 
-        // Persist every 5 seconds
-        const totalElapsed = nextProjectElapsed - initialProjectTimeRef.current;
-        if (totalElapsed - lastPersistRef.current >= 5) {
-          lastPersistRef.current = totalElapsed;
+        // Persist every 5 seconds (based on session-elapsed time)
+        if (nextProjectElapsed - lastPersistRef.current >= 5) {
+          lastPersistRef.current = nextProjectElapsed;
           persistSessionRef.current(true, nextProjectElapsed, subPieceRemainingRef.current);
         }
 
@@ -365,6 +357,7 @@ export function useTimer(
       useFocusStore.getState().decrementSubPieceTime(projectId, subPieceId, subPieceDelta);
     }
 
+    // For a fresh session, baseline is 0; reset restores display to 0.
     const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
     const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
 
@@ -389,10 +382,9 @@ export function useTimer(
 
     useFocusStore.getState().resetSubPieceTime(projectId, subPieceId);
 
-    const updatedProject = useFocusStore.getState().getProjectById(projectId);
     const updatedSubPiece = useFocusStore.getState().getSubPieceById(projectId, subPieceId);
 
-    const newProjectElapsed = updatedProject?.totalTimeSeconds ?? 0;
+    const newProjectElapsed = 0;
     const newSubPieceRemaining = updatedSubPiece
       ? Math.max(0, updatedSubPiece.allocatedMinutes * 60 - updatedSubPiece.elapsedSeconds)
       : 0;
@@ -419,6 +411,7 @@ export function useTimer(
       rafRef.current = null;
     }
 
+    // Restore display to the session baseline (0 for a fresh session)
     const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
     const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
 

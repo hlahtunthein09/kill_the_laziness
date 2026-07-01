@@ -1,3 +1,7 @@
+- **Pending (2026-07-01):** Sub-piece timer should count up (increasing elapsed) like project timer, with highlighted target label showing allocated time; deferred to next chat due to context limit.
+- **Timer Piece B label highlight (2026-07-01):** Target label styled with `text-sm font-semibold text-primary`; `TimerDisplay.test.tsx` passing; TypeScript clean.
+- **Timer Piece B label update (2026-07-01):** Target label changed from `ပစ်မှတ်အချိန်` to `သတ်မှတ်ထားသော အချိန်`; `TimerDisplay.test.tsx` updated; 11/11 tests passing; TypeScript clean.
+- **Timer Piece B complete (2026-07-01):** `TimerDisplay.tsx` now accepts optional `targetTimeSeconds` prop, renders target label + progress bar under project time, progress clamps at 100%, uses theme tokens for light/dark modes; `TimerDisplay.test.tsx` extended to 11 tests (all passing); TypeScript clean.
 - **Timer logic review (2026-06-30):** User clarified FocusFlow AI tracks cumulative focus hours (increment), not countdown. Project-level timer currently initializes from `project.totalTimeSeconds` instead of counting up from 0 to `targetTimeSeconds`. Split plan proposed: Piece A (`useTimer` baseline fix), Piece B (`TimerDisplay` target UI), Piece C (`TimerPanel` wiring). Next chat resumes from Piece A after approval.
 - **Session summary (2026-06-29):** Continued dark mode overhaul — project card footer pinned/blended, timer page themed, settings page themed, collapsible sidebar with toggle added, theme selector labels switched to English. Extension builds successfully. Full suite 504/506 passing (2 pre-existing `globals.test.ts` color-format failures). All changes committed and pushed to `fix/session-2026-06-26`.
 - **Pushed to GitHub (2026-06-26):** Session changes အားလုံး `fix/session-2026-06-26` branch အဖြစ် push လုပ်ပြီးပါပြီ။ PR link: https://github.com/hlahtunthein09/kill_the_laziness/pull/new/fix/session-2026-06-26
@@ -8,6 +12,8 @@
 - **Observation #4A complete (2026-06-26):** `useTimer` auto-resume drift ကို ၆၀ မိနစ်ဖြင့် capping လုပ်ပြီး ထပ်ကြာခဲ့ရင် paused အဖြစ် load ဖြစ်စေခြင်း; 24/24 tests passing; TypeScript clean. Next: #10 (UI) or #11 (extension live test) — user said UI fixes deferred until tomorrow.
 - **Observation #3A complete (2026-06-26):** `TimerControls` တွင် `isRunning` အလိုက် Start/Pause button ကို toggle ပြသခြင်း (Reset ကတော့ အမြဲပါသည်); 5/5 tests passing; TypeScript clean.
 - **Observation #2A complete (2026-06-26):** Dashboard greeting ကို Header မှ `app/page.tsx` သို့ ရွှေ့ခြင်း; Header.test.tsx 3/3 + page.test.tsx 5/5 passing; TypeScript clean.
+
+- **Timer Piece C complete (2026-07-01):** `TimerPanel.tsx` now passes `activeProject.targetTimeSeconds` to `TimerDisplay`; `TimerPanel.test.tsx` extended with 2 tests for target label/progress bar presence (when target > 0) and absence (when target = 0); 18/18 tests passing; TypeScript clean.
 
 ## Current Phase
 Piece 4 split into 4a/4b/4c. Workflow and memory structure updated for token-efficient, memory-first development.
