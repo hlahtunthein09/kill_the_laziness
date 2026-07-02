@@ -135,14 +135,14 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
       </div>
 
       {/* Refocus Dialog (for completed sub-pieces) */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} dismissible={false}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              အခန်းကဏ်ဍကို ပြန်စ focus လုပ်မယ် (Refocus Sub-piece)
+              အခန်းကဏ္ဍကို ပြန်စ focus လုပ်မယ် (Refocus Sub-piece)
             </DialogTitle>
             <DialogDescription>
-              ဒီအခန်းကဏ်ဍ ပြီးစီးသွားပါပြီ။ ပြန်စ focus လုပ်ချင်ပါသလား? / This sub-piece is completed. Refocus will reset its progress.
+              ဒီအခန်းကဏ္ဍ ပြီးစီးသွားပါပြီ။ ပြန်စ focus လုပ်ချင်ပါသလား? / This sub-piece is completed. Refocus will reset its progress.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">

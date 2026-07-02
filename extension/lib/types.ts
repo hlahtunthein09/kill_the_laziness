@@ -7,6 +7,7 @@ export interface ExtensionTimerState {
   subPieceName?: string;
   projectElapsed: number;
   subPieceRemaining: number;
+  targetTimeSeconds?: number;
   isRunning: boolean;
   savedAt: number;
   schedules?: FocusSessionSchedule[];

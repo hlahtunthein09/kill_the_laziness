@@ -110,7 +110,7 @@ describe("TimerToast", () => {
     spyInfo.mockRestore();
   });
 
-  it("toasts again when trigger changes to a different value", () => {
+  it("toasts again when the same trigger returns after being cleared", () => {
     const spyInfo = vi.spyOn(toast, "info").mockImplementation(() => "toast-id");
     const context: MotivationContext = {
       elapsedSeconds: 0,
@@ -119,9 +119,13 @@ describe("TimerToast", () => {
       completedToday: 0,
     };
 
-    const { rerender } = render(<TimerToast context={context} trigger="start" />);
+    const { rerender } = render(<TimerToast context={context} trigger="milestone" />);
     expect(spyInfo).toHaveBeenCalledTimes(1);
 
+    // Trigger cleared (onShown resets it in parent)
+    rerender(<TimerToast context={context} trigger={undefined} />);
+
+    // Same trigger fires again — needed for recurring milestones
     rerender(<TimerToast context={context} trigger="milestone" />);
     expect(spyInfo).toHaveBeenCalledTimes(2);
     spyInfo.mockRestore();

@@ -733,35 +733,119 @@ describe('useFocusStore', () => {
       expect(settings.lastStreakDate).toBe(today)
     })
 
-    it('only counts streak once per goal-reaching day', () => {
-      const today = new Date().toISOString().slice(0, 10)
+    it('caps totalTimeSeconds at targetTimeSeconds and marks completed', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Cap Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 600,
+      })
 
+      // Pre-load 580 seconds
+      useFocusStore.getState().incrementProjectTime(project.id, 580)
+      expect(useFocusStore.getState().projects[0].totalTimeSeconds).toBe(580)
+      expect(useFocusStore.getState().projects[0].status).toBe('idle')
+
+      // Try to add 60 seconds — only 20 remain to target
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.totalTimeSeconds).toBe(600)
+      expect(updated.status).toBe('completed')
+    })
+
+    it('does not mark completed when increment does not reach target', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'No Cap Test',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 300)
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.totalTimeSeconds).toBe(300)
+      expect(updated.status).toBe('idle')
+    })
+
+    it('awards XP based on actualSeconds, not requested seconds', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'XP Cap Test',
+        description: '',
+        color: 'forest',
+        targetTimeSeconds: 600,
+      })
+
+      // Pre-load 580 seconds (9 full minutes = 45 XP)
+      useFocusStore.getState().incrementProjectTime(project.id, 580)
+      expect(useFocusStore.getState().projects[0].xp).toBe(9 * XP_PER_MINUTE)
+
+      // Request 60 more — only 20 actual seconds added, 0 additional full minutes
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.totalTimeSeconds).toBe(600)
+      // XP remains at 9 full minutes = 45
+      expect(updated.xp).toBe(9 * XP_PER_MINUTE)
+    })
+
+    it('caps todayFocusSeconds based on actualSeconds', () => {
+      const today = new Date().toISOString().slice(0, 10)
       useFocusStore.setState({
-        settings: {
-          ...DEFAULT_APP_SETTINGS,
-          dailyFocusGoalMinutes: 1,
-          currentStreak: 2,
-          longestStreak: 2,
-          lastStreakDate: '',
-        },
+        settings: { ...DEFAULT_APP_SETTINGS, lastFocusDate: today, todayFocusSeconds: 0 },
       })
 
       const project = useFocusStore.getState().addProject({
-        name: 'Double Count',
+        name: 'Today Focus Cap',
         description: '',
         color: 'coral',
+        targetTimeSeconds: 600,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 580)
+      useFocusStore.getState().incrementProjectTime(project.id, 60)
+
+      // Only 20 actual seconds added, so todayFocusSeconds = 20
+      expect(useFocusStore.getState().settings.todayFocusSeconds).toBe(600)
+    })
+  })
+
+  describe('completeProject', () => {
+    it('sets project status to completed', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Complete Test',
+        description: '',
+        color: 'mint',
         targetTimeSeconds: 3600,
       })
 
-      // First increment reaches goal
-      useFocusStore.getState().incrementProjectTime(project.id, 60)
-      expect(useFocusStore.getState().settings.currentStreak).toBe(1)
-      expect(useFocusStore.getState().settings.lastStreakDate).toBe(today)
+      expect(useFocusStore.getState().projects[0].status).toBe('idle')
 
-      // Second increment on same day should not increment streak again
-      useFocusStore.getState().incrementProjectTime(project.id, 30)
-      expect(useFocusStore.getState().settings.currentStreak).toBe(1)
-      expect(useFocusStore.getState().settings.lastStreakDate).toBe(today)
+      useFocusStore.getState().completeProject(project.id)
+
+      expect(useFocusStore.getState().projects[0].status).toBe('completed')
+    })
+
+    it('does not affect other projects', () => {
+      const p1 = useFocusStore.getState().addProject({
+        name: 'Project 1',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      const p2 = useFocusStore.getState().addProject({
+        name: 'Project 2',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().completeProject(p1.id)
+
+      expect(useFocusStore.getState().projects[0].status).toBe('completed')
+      expect(useFocusStore.getState().projects[1].status).toBe('idle')
     })
   })
 
@@ -1093,9 +1177,10 @@ describe('useFocusStore', () => {
         order: 1,
       })
 
-      // Complete both so project is completed
+      // Complete both sub-pieces, then mark project completed via target
       useFocusStore.getState().completeSubPiece(project.id, sp1.id)
       useFocusStore.getState().completeSubPiece(project.id, sp2.id)
+      useFocusStore.getState().completeProject(project.id)
       expect(useFocusStore.getState().projects[0].status).toBe('completed')
 
       // Refocus one - project should no longer be completed
@@ -1106,7 +1191,7 @@ describe('useFocusStore', () => {
       expect(useFocusStore.getState().projects[0].subPieces[1].status).toBe('completed')
     })
 
-    it('keeps project status as completed when all sub-pieces remain completed', () => {
+    it('sets project status to idle when refocusing a completed sub-piece', () => {
       const project = useFocusStore.getState().addProject({
         name: 'All Completed Test',
         description: '',
@@ -1121,15 +1206,20 @@ describe('useFocusStore', () => {
         order: 0,
       })
 
-      // Complete the only sub-piece
+      const sp2 = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 2',
+        allocatedMinutes: 30,
+        order: 1,
+      })
+
+      // Complete both sub-pieces, then mark project completed via target
       useFocusStore.getState().completeSubPiece(project.id, sp1.id)
+      useFocusStore.getState().completeSubPiece(project.id, sp2.id)
+      useFocusStore.getState().completeProject(project.id)
       expect(useFocusStore.getState().projects[0].status).toBe('completed')
 
-      // Refocus and re-complete it (simulating a scenario where we'd check)
-      // Actually, refocusing will set it to idle, so let's test with 2 sub-pieces
-      // where we refocus one but the other stays completed... wait, that makes it idle.
-      // This test: refocus then complete again - but that's not the point.
-      // Let's verify: when we refocus, status becomes idle (not all completed)
+      // Refocus one - project should no longer be completed
       useFocusStore.getState().refocusSubPiece(project.id, sp1.id)
       expect(useFocusStore.getState().projects[0].status).toBe('idle')
     })
@@ -1175,7 +1265,7 @@ describe('useFocusStore', () => {
         name: 'Other Sub Safe',
         description: '',
         color: 'coral',
-        targetTimeSeconds: 3600,
+        targetTimeSeconds: 7200,
       })
 
       const sp1 = useFocusStore.getState().addSubPiece({
@@ -1289,6 +1379,7 @@ describe('useFocusStore', () => {
       })
 
       useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+      useFocusStore.getState().completeProject(project.id)
       expect(useFocusStore.getState().projects[0].status).toBe('completed')
       expect(useFocusStore.getState().projects[0].subPieces[0].status).toBe('completed')
 
@@ -1410,6 +1501,156 @@ describe('useFocusStore', () => {
       useFocusStore.getState().completeSubPiece(project.id, sp1.id)
 
       expect(useFocusStore.getState().getProjectProgress(project.id)).toBe(50)
+    })
+  })
+
+  describe('sub-piece budget', () => {
+    it('getRemainingBudgetSeconds returns remaining seconds after allocation', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Budget Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 25',
+        allocatedMinutes: 25,
+        order: 0,
+      })
+
+      expect(useFocusStore.getState().getRemainingBudgetSeconds(project.id)).toBe(2100)
+    })
+
+    it('addSubPiece clamps allocatedMinutes to remaining budget', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Clamp Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      // Add 50 minutes worth of sub-pieces (30 + 20)
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 30',
+        allocatedMinutes: 30,
+        order: 0,
+      })
+
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 20',
+        allocatedMinutes: 20,
+        order: 1,
+      })
+
+      // Try to add 25 more minutes — only 10 remain
+      const clamped = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 25',
+        allocatedMinutes: 25,
+        order: 2,
+      })
+
+      expect(clamped.allocatedMinutes).toBe(10)
+
+      // Total allocated should never exceed 60 minutes (3600s)
+      const total = useFocusStore.getState().getTotalAllocatedMinutes(project.id)
+      expect(total).toBe(60)
+    })
+
+    it('addSubPiece stores allocatedMinutes as 0 when budget is fully consumed', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Full Budget Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      // Allocate exactly 60 minutes
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 60',
+        allocatedMinutes: 60,
+        order: 0,
+      })
+
+      expect(useFocusStore.getState().getRemainingBudgetSeconds(project.id)).toBe(0)
+
+      // Try to add another piece
+      const extra = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Extra',
+        allocatedMinutes: 10,
+        order: 1,
+      })
+
+      expect(extra.allocatedMinutes).toBe(0)
+    })
+
+    it('addSubPiece stores unchanged value when within budget', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Within Budget Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 15',
+        allocatedMinutes: 15,
+        order: 0,
+      })
+
+      expect(subPiece.allocatedMinutes).toBe(15)
+    })
+
+    it('updateProject floors targetTimeSeconds at allocated sum', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Floor Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      // Allocate 40 minutes
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 40',
+        allocatedMinutes: 40,
+        order: 0,
+      })
+
+      // Try to lower target to 10 minutes (600s) — should floor at 40 min (2400s)
+      useFocusStore.getState().updateProject(project.id, { targetTimeSeconds: 600 })
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.targetTimeSeconds).toBe(2400)
+    })
+
+    it('updateProject allows raising targetTimeSeconds above allocated sum', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Raise Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 20',
+        allocatedMinutes: 20,
+        order: 0,
+      })
+
+      // Raise target from 3600 to 7200
+      useFocusStore.getState().updateProject(project.id, { targetTimeSeconds: 7200 })
+
+      const updated = useFocusStore.getState().projects[0]
+      expect(updated.targetTimeSeconds).toBe(7200)
     })
   })
 })

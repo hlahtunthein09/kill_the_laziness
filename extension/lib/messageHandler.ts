@@ -36,7 +36,8 @@ export async function handleMessage(
         typeof payload.projectElapsed !== "number" ||
         typeof payload.subPieceRemaining !== "number" ||
         typeof payload.isRunning !== "boolean" ||
-        typeof payload.savedAt !== "number"
+        typeof payload.savedAt !== "number" ||
+        (payload.targetTimeSeconds !== undefined ? typeof payload.targetTimeSeconds !== "number" : false)
       ) {
         return { ok: false, error: "Invalid timer state payload" };
       }

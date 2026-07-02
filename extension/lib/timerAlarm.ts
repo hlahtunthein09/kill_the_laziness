@@ -1,9 +1,10 @@
 import type { Browser } from "webextension-polyfill";
 import { getTimerState, setTimerState, getLastMilestone, setLastMilestone, clearLastMilestone } from "./storage";
-import { sessionCompleteNotification } from "../../lib/notifications";
 import { getMotivation } from "./motivation";
 
 const ALARM_NAME = "focus-timer";
+// Set to 60s for rapid extension testing; restore to 300s (5 min) for daily use.
+const MILESTONE_INTERVAL_SECONDS = 60;
 
 let _browser: Browser | null = null;
 
@@ -51,20 +52,41 @@ export async function onAlarmTick(): Promise<void> {
     updatedSubPieceRemaining = 0;
     updatedIsRunning = false;
 
-    const notif = sessionCompleteNotification;
+    const isProjectComplete =
+      typeof state.targetTimeSeconds === "number" &&
+      state.targetTimeSeconds > 0 &&
+      updatedProjectElapsed >= state.targetTimeSeconds;
+
+    const name = isProjectComplete
+      ? (state.projectName ?? "ပရောဂျက်")
+      : (state.subPieceName ?? "အထွေထွေ focus");
+
+    const title = isProjectComplete
+      ? `${name} အတွက် အချိန်ပြည့်ပါပြီ`
+      : `${name} အတွက် အချိန် ပြည့်ပါပြီ`;
+
+    const message = isProjectComplete
+      ? `${name} target reached. Proud of your focus.`
+      : `${name} is complete. Let's move on to the next one.`;
+
     const browser = await getBrowser();
-    await browser.notifications.create("session-complete", {
-      type: "basic",
-      iconUrl: "/icon/128.png",
-      title: notif.title.my,
-      message: notif.body.my,
-    });
+    const iconUrl = browser.runtime.getURL("/icon/128.png");
+    try {
+      await browser.notifications.create("session-complete", {
+        type: "basic",
+        iconUrl,
+        title,
+        message,
+      });
+    } catch (err) {
+      console.error("[timerAlarm] Failed to show session-complete notification:", err);
+    }
 
     await clearLastMilestone();
     await stopFocusAlarm();
   } else {
-    // Milestone notification logic (every 5 minutes of project elapsed time)
-    const currentMilestone = Math.floor(updatedProjectElapsed / 300);
+    // Milestone notification logic (every N seconds of project elapsed time)
+    const currentMilestone = Math.floor(updatedProjectElapsed / MILESTONE_INTERVAL_SECONDS);
     const lastMilestone = (await getLastMilestone()) ?? 0;
 
     if (currentMilestone >= 1 && currentMilestone > lastMilestone) {
@@ -76,12 +98,17 @@ export async function onAlarmTick(): Promise<void> {
       });
 
       const browser = await getBrowser();
-      await browser.notifications.create("focus-milestone", {
-        type: "basic",
-        iconUrl: "/icon/128.png",
-        title: "FocusFlow AI — ရှေ့ဆက်နေတယ်",
-        message: `${motivation.my} (${motivation.en})`,
-      });
+      const iconUrl = browser.runtime.getURL("/icon/128.png");
+      try {
+        await browser.notifications.create("focus-milestone", {
+          type: "basic",
+          iconUrl,
+          title: "FocusFlow AI — ရှေ့ဆက်နေတယ်",
+          message: `${motivation.my} (${motivation.en})`,
+        });
+      } catch (err) {
+        console.error("[timerAlarm] Failed to show milestone notification:", err);
+      }
 
       await setLastMilestone(currentMilestone);
     }

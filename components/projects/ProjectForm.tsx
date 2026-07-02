@@ -41,7 +41,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<NatureColor>("mint");
-  const [targetHours, setTargetHours] = useState<number>(8);
+  const [targetHours, setTargetHours] = useState<number | "">(8);
   const [errors, setErrors] = useState<{ name?: string; targetHours?: string }>({});
 
   const router = useRouter();
@@ -69,7 +69,9 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
       newErrors.name = "ပရောဂျက်အမည် ထည့်ရန် လိုအပ်ပါသည်";
     }
 
-    if (targetHours <= 0) {
+    const hours = targetHours === "" ? 0 : Number(targetHours);
+
+    if (hours <= 0) {
       newErrors.targetHours = "လိုအပ်သော အချိန် 0.5 နာရီထက် ပိုရပါမည်";
     }
 
@@ -82,7 +84,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
       name: name.trim(),
       description: description.trim(),
       color,
-      targetTimeSeconds: targetHours * 3600,
+      targetTimeSeconds: hours * 3600,
     });
 
     setActiveProject(createdProject.id);
@@ -92,7 +94,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleClose} dismissible={false}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>ပရောဂျက်အသစ် ထည့်ရန် (Add New Project)</DialogTitle>
@@ -163,13 +165,20 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
             <Input
               id="target-hours"
               type="number"
-              min={0.5}
               step={0.5}
               value={targetHours}
               onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                setTargetHours(isNaN(val) ? 0 : val);
+                const raw = e.target.value;
+                if (raw === "") {
+                  setTargetHours("");
+                } else {
+                  const val = parseFloat(raw);
+                  setTargetHours(isNaN(val) ? "" : val);
+                }
                 if (errors.targetHours) setErrors((prev) => ({ ...prev, targetHours: undefined }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "-") e.preventDefault();
               }}
               aria-invalid={!!errors.targetHours}
             />

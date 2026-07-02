@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/time";
 import type { Project } from "@/lib/types";
@@ -15,13 +15,14 @@ import {
 } from "@/components/ui/card";
 import { Progress, ProgressLabel, ProgressTrack, ProgressIndicator, ProgressValue } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Target } from "lucide-react";
+import { Clock, Target, Pencil, Trash2 } from "lucide-react";
 import { AddSubPieceButton } from "./AddSubPieceButton";
 import { SubPieceList } from "./SubPieceList";
 import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { Button } from "@/components/ui/button";
 import { Crosshair } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -89,9 +90,21 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   const activeProjectId = useFocusStore((s) => s.activeProjectId);
   const setActiveProject = useFocusStore((s) => s.setActiveProject);
+  const deleteProject = useFocusStore((s) => s.deleteProject);
   const isActive = project.id === activeProjectId;
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [targetHours, setTargetHours] = useState(() => project.targetTimeSeconds / 3600);
+
+  const allocatedHours = useMemo(() => {
+    return project.subPieces.reduce((sum, sp) => sum + sp.allocatedMinutes, 0) / 60;
+  }, [project.subPieces]);
+
+  useEffect(() => {
+    if (isTargetDialogOpen) setTargetHours(project.targetTimeSeconds / 3600);
+  }, [isTargetDialogOpen, project.targetTimeSeconds]);
 
   const formattedTime = useMemo(() => formatDuration(project.totalTimeSeconds), [project.totalTimeSeconds]);
   const formattedTarget = useMemo(() => formatDuration(project.targetTimeSeconds), [project.targetTimeSeconds]);
@@ -128,6 +141,22 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <CardTitle className="text-base font-semibold text-foreground truncate">
             {project.name}
           </CardTitle>
+          <button
+            type="button"
+            onClick={() => setIsTargetDialogOpen(true)}
+            className="inline-flex items-center justify-center rounded-full p-1 text-primary bg-primary/10 hover:bg-primary/20 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+            aria-label="ပစ်မှတ်အချိန် ပြင်ရန် (Edit target)"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteDialogOpen(true)}
+            className="ml-auto inline-flex items-center justify-center rounded-full p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+            aria-label="ပရောဂျက်ဖျက်ရန် (Delete project)"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
         {description && (
           <CardDescription className="text-xs text-muted-foreground line-clamp-2 mt-1">
@@ -155,9 +184,17 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <Target className="h-3 w-3" />
             {progressPercent}%
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
             <span className="font-semibold text-primary">{formattedTime}</span>
-            <span className="text-muted-foreground"> / {formattedTarget}</span>
+            <span className="text-muted-foreground">/ {formattedTarget}</span>
+            <button
+              type="button"
+              onClick={() => setIsTargetDialogOpen(true)}
+              className="inline-flex items-center justify-center rounded-full p-1 text-primary bg-primary/10 hover:bg-primary/20 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              aria-label="ပစ်မှတ်အချိန် ပြင်ရန် (Edit target)"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
           </span>
         </div>
         <Progress value={progressPercent} className="w-full">
@@ -196,7 +233,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <AddSubPieceButton projectId={project.id} className="w-full bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]" />
         </div>
       </CardFooter>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} dismissible={false}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>ပရောဂျက်ပြီးစီးသွားပါပြီ (Project Completed)</DialogTitle>
@@ -212,6 +249,81 @@ export function ProjectCard({ project }: ProjectCardProps) {
             </Button>
             <Button onClick={handleRefocusConfirm}>
               focus လုပ်မယ် (Refocus)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen} dismissible={false}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ပစ်မှတ်အချိန် ပြင်ရန် (Edit Target)</DialogTitle>
+            <DialogDescription>
+              ပရောဂျက်အတွက် ပစ်မှတ်အချိန်ကို အနည်းဆုံး {allocatedHours} နာရီအထိ ထားရပါမည်။
+              <br />
+              Target must be at least {allocatedHours}h because sub-pieces already use that time.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const hours = Number.isFinite(targetHours) ? targetHours : allocatedHours;
+              const next = Math.max(allocatedHours, Math.round(hours * 10) / 10);
+              useFocusStore.getState().updateProject(project.id, {
+                targetTimeSeconds: Math.round(next * 3600),
+              });
+              setIsTargetDialogOpen(false);
+            }}
+            className="flex flex-col gap-4 py-2"
+          >
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="target-hours" className="text-sm font-medium">
+                ပစ်မှတ်အချိန် (နာရီ) / Target (hours)
+              </label>
+              <Input
+                id="target-hours"
+                type="number"
+                step={0.5}
+                min={allocatedHours}
+                value={targetHours}
+                onChange={(e) => setTargetHours(parseFloat(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Allocated from sub-pieces: {allocatedHours}h
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsTargetDialogOpen(false)}>
+                ပယ်ဖျက်ရန် (Cancel)
+              </Button>
+              <Button type="submit">သိမ်းဆည်းရန် (Save)</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen} dismissible={false}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ပရောဂျက်ဖျက်ရန်သေချာပါသလား? (Delete Project?)</DialogTitle>
+            <DialogDescription>
+              {project.name} နှင့် sub piece အားလုံးကို ဖျက်မှာ သေချာပါသလား။ ဒီဟာကို ပြန်restore မလုပ်နိုင်ပါ။
+              <br />
+              This will permanently delete "{project.name}" and all its sub-pieces.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              မလုပ်ပါ (Cancel)
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteProject(project.id);
+                setIsDeleteDialogOpen(false);
+              }}
+            >
+              ဖျက်မယ် (Delete)
             </Button>
           </DialogFooter>
         </DialogContent>

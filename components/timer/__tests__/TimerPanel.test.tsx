@@ -38,6 +38,13 @@ vi.mock("@/lib/sound", () => ({
   playMilestoneSound: vi.fn(),
 }));
 
+// Mock SubPieceForm to avoid store interactions
+vi.mock("@/components/projects/SubPieceForm", () => ({
+  SubPieceForm: function SubPieceFormMock() {
+    return null;
+  },
+}));
+
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleWatcher } from "@/hooks/useScheduleWatcher";
 

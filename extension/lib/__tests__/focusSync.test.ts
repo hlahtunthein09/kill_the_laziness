@@ -41,12 +41,13 @@ describe("focusSync.ts", () => {
     expect(state).toBeNull();
   });
 
-  it("parses and returns a valid ExtensionTimerState", () => {
+  it("parses and returns a valid ExtensionTimerState with targetTimeSeconds", () => {
     const session: ExtensionTimerState = {
       projectId: "proj-1",
       subPieceId: "sub-1",
       projectElapsed: 120,
       subPieceRemaining: 300,
+      targetTimeSeconds: 3600,
       isRunning: true,
       savedAt: Date.now(),
     };
@@ -54,6 +55,20 @@ describe("focusSync.ts", () => {
 
     const state = readFocusSession();
     expect(state).toEqual(session);
+  });
+
+  it("rejects session with non-number targetTimeSeconds", () => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      projectId: "proj-1",
+      projectElapsed: 120,
+      subPieceRemaining: 300,
+      targetTimeSeconds: "not-a-number",
+      isRunning: true,
+      savedAt: Date.now(),
+    }));
+
+    const state = readFocusSession();
+    expect(state).toBeNull();
   });
 
   it("does not send UPDATE_TIMER_STATE when ff_active_session is absent", async () => {
@@ -96,6 +111,32 @@ describe("focusSync.ts", () => {
       subPieceName: "My Task",
       projectElapsed: 120,
       subPieceRemaining: 300,
+      isRunning: true,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
+    fakeBrowser.runtime.sendMessage = sendMessageMock;
+
+    await syncFocusSession();
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      action: "UPDATE_TIMER_STATE",
+      payload: { ...session, schedules: undefined },
+    });
+  });
+
+  it("forwards targetTimeSeconds in UPDATE_TIMER_STATE payload", async () => {
+    const session: ExtensionTimerState = {
+      projectId: "proj-1",
+      subPieceId: "sub-1",
+      projectName: "My Project",
+      subPieceName: "My Task",
+      projectElapsed: 120,
+      subPieceRemaining: 300,
+      targetTimeSeconds: 3600,
       isRunning: true,
       savedAt: Date.now(),
     };

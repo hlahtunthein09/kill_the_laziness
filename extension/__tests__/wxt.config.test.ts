@@ -40,7 +40,11 @@ describe("WXT extension config", () => {
     );
   });
 
-  it("points srcDir to the extension folder", () => {
-    expect(config.srcDir).toBe("extension");
+  it("declares extension icons", () => {
+    const icons = manifest.icons as Record<string, string>;
+    expect(icons[16]).toBe("/icon/16.png");
+    expect(icons[32]).toBe("/icon/32.png");
+    expect(icons[48]).toBe("/icon/48.png");
+    expect(icons[128]).toBe("/icon/128.png");
   });
 });

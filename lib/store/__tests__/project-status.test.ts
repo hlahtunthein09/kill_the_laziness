@@ -82,7 +82,7 @@ describe('project status', () => {
   })
 
   describe('completeSubPiece', () => {
-    it('marks project completed when all sub-pieces are done', () => {
+    it('does not mark project completed when all sub-pieces are done', () => {
       const project = useFocusStore.getState().addProject({
         name: 'Project',
         description: '',
@@ -108,7 +108,7 @@ describe('project status', () => {
       useFocusStore.getState().completeSubPiece(project.id, sp2.id)
 
       const updatedProject = useFocusStore.getState().projects.find((p) => p.id === project.id)
-      expect(updatedProject?.status).toBe('completed')
+      expect(updatedProject?.status).toBe('idle')
       expect(updatedProject?.subPieces[0].status).toBe('completed')
       expect(updatedProject?.subPieces[1].status).toBe('completed')
     })

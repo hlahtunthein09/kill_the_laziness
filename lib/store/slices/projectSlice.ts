@@ -57,6 +57,7 @@ export interface ProjectSlice {
   decrementProjectTime: (projectId: string, seconds: number) => void;
   decrementSubPieceTime: (projectId: string, subPieceId: string, seconds: number) => void;
   completeSubPiece: (projectId: string, subPieceId: string) => void;
+  completeProject: (projectId: string) => void;
 
   refocusSubPiece: (projectId: string, subPieceId: string, allocatedMinutes?: number) => void;
 
@@ -66,6 +67,7 @@ export interface ProjectSlice {
   getProjectById: (id: string) => Project | undefined;
   getSubPieceById: (projectId: string, subPieceId: string) => SubPiece | undefined;
   getCompletedSubPiecesCount: (projectId: string) => number;
+  getRemainingBudgetSeconds: (projectId: string) => number;
   getTotalAllocatedMinutes: (projectId: string) => number;
   getProjectProgress: (projectId: string) => number;
 }
@@ -100,7 +102,16 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
 
   updateProject: (id, updates) => {
     set((state) => ({
-      projects: state.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+      projects: state.projects.map((p) => {
+        if (p.id !== id) return p;
+        let next = { ...p, ...updates };
+        if (updates.targetTimeSeconds !== undefined) {
+          const allocatedSeconds =
+            p.subPieces.reduce((sum, sp) => sum + sp.allocatedMinutes, 0) * 60;
+          next = { ...next, targetTimeSeconds: Math.max(updates.targetTimeSeconds, allocatedSeconds) };
+        }
+        return next;
+      }),
     }));
   },
 
@@ -140,11 +151,13 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   },
 
   addSubPiece: (subPiece) => {
+    const remainingMinutes = Math.floor(get().getRemainingBudgetSeconds(subPiece.projectId) / 60);
+    const finalMinutes = Math.max(0, Math.min(subPiece.allocatedMinutes, remainingMinutes));
     const newSubPiece: SubPiece = {
       id: generateId(),
       projectId: subPiece.projectId,
       name: subPiece.name,
-      allocatedMinutes: subPiece.allocatedMinutes,
+      allocatedMinutes: finalMinutes,
       elapsedSeconds: 0,
       status: "idle",
       order: subPiece.order,
@@ -214,12 +227,19 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   },
 
   incrementProjectTime: (projectId, seconds) => {
-    const xpToAdd = Math.floor(seconds / 60) * XP_PER_MINUTE;
-    const today = new Date().toISOString().slice(0, 10);
     set((state) => {
+      const project = state.projects.find((p) => p.id === projectId);
+      if (!project) return state;
+
+      const remainingTargetSeconds = Math.max(0, project.targetTimeSeconds - project.totalTimeSeconds);
+      const actualSeconds = Math.min(seconds, remainingTargetSeconds);
+      if (actualSeconds <= 0) return state;
+
+      const xpToAdd = Math.floor(actualSeconds / 60) * XP_PER_MINUTE;
+      const today = new Date().toISOString().slice(0, 10);
       const lastDate = state.settings.lastFocusDate;
       const newTodayFocus =
-        lastDate !== today ? seconds : state.settings.todayFocusSeconds + seconds;
+        lastDate !== today ? actualSeconds : state.settings.todayFocusSeconds + actualSeconds;
 
       // Streak logic
       const goalSeconds = state.settings.dailyFocusGoalMinutes * 60;
@@ -237,16 +257,19 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
         lastStreakDate = today;
       }
 
+      const targetReached = actualSeconds > 0 && actualSeconds === remainingTargetSeconds;
+
       return {
         projects: state.projects.map((p) => {
           if (p.id !== projectId) return p;
           const newXp = p.xp + xpToAdd;
           return {
             ...p,
-            totalTimeSeconds: p.totalTimeSeconds + seconds,
+            totalTimeSeconds: p.totalTimeSeconds + actualSeconds,
             xp: newXp,
             fortressLevel: getFortressLevelFromXp(newXp),
             fortressHealth: getFortressHealthFromXp(newXp),
+            status: targetReached ? ("completed" as PieceStatus) : p.status,
           };
         }),
         settings: {
@@ -318,20 +341,25 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
     set((state) => ({
       projects: state.projects.map((p) => {
         if (p.id !== projectId) return p;
-        const updatedSubPieces = p.subPieces.map((sp) =>
-          sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
-        );
-        const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
         const newXp = p.xp + XP_SUB_PIECE_COMPLETE;
         return {
           ...p,
           xp: newXp,
           fortressLevel: getFortressLevelFromXp(newXp),
           fortressHealth: getFortressHealthFromXp(newXp),
-          status: allCompleted ? ("completed" as PieceStatus) : p.status,
-          subPieces: updatedSubPieces,
+          subPieces: p.subPieces.map((sp) =>
+            sp.id === subPieceId ? { ...sp, status: "completed" as PieceStatus } : sp
+          ),
         };
       }),
+    }));
+  },
+
+  completeProject: (projectId) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId ? { ...p, status: "completed" as PieceStatus } : p
+      ),
     }));
   },
 
@@ -419,6 +447,13 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   getTotalAllocatedMinutes: (projectId) => {
     const project = get().projects.find((p) => p.id === projectId);
     return project?.subPieces.reduce((sum, sp) => sum + sp.allocatedMinutes, 0) ?? 0;
+  },
+
+  getRemainingBudgetSeconds: (projectId) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return 0;
+    const allocatedSeconds = get().getTotalAllocatedMinutes(projectId) * 60;
+    return Math.max(0, project.targetTimeSeconds - allocatedSeconds);
   },
 
   getProjectProgress: (projectId) => {

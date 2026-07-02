@@ -4,13 +4,15 @@ import type { Project } from '@/lib/types'
 
 const setActiveProjectMock = vi.fn()
 const addSubPieceMock = vi.fn()
+const getRemainingBudgetSecondsMock = vi.fn(() => 3600)
 
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; addSubPiece: typeof addSubPieceMock }) => unknown) =>
+  useFocusStore: (selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; addSubPiece: typeof addSubPieceMock; getRemainingBudgetSeconds: typeof getRemainingBudgetSecondsMock }) => unknown) =>
     selector({
       activeProjectId: null,
       setActiveProject: setActiveProjectMock,
       addSubPiece: addSubPieceMock,
+      getRemainingBudgetSeconds: getRemainingBudgetSecondsMock,
     }),
 }))
 
@@ -38,6 +40,7 @@ describe('ProjectCard status badge colors', () => {
   beforeEach(() => {
     setActiveProjectMock.mockClear()
     addSubPieceMock.mockClear()
+    getRemainingBudgetSecondsMock.mockClear()
   })
 
   it('idle status badge has muted color classes', () => {

@@ -175,7 +175,7 @@ export function ScheduleForm({ schedule, open, onOpenChange }: ScheduleFormProps
 
   if (isControlled) {
     return (
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen} dismissible={false}>
         {dialogContent}
       </Dialog>
     );

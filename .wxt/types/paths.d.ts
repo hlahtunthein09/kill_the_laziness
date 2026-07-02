@@ -10,12 +10,11 @@ declare module "wxt/browser" {
     | "/content-scripts/control.js"
     | "/content-scripts/focusSync.js"
     | "/content-scripts/warn.js"
-    | "/file.svg"
-    | "/globe.svg"
-    | "/next.svg"
+    | "/icon/128.png"
+    | "/icon/16.png"
+    | "/icon/32.png"
+    | "/icon/48.png"
     | "/popup.html"
-    | "/vercel.svg"
-    | "/window.svg"
   type HtmlPublicPath = Extract<PublicPath, `${string}.html`>
   export interface WxtRuntime {
     getURL(path: PublicPath): string;

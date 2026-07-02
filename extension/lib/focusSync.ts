@@ -45,7 +45,8 @@ export function readFocusSession(): ExtensionTimerState | null {
       "isRunning" in parsed &&
       typeof (parsed as Record<string, unknown>).isRunning === "boolean" &&
       "savedAt" in parsed &&
-      typeof (parsed as Record<string, unknown>).savedAt === "number"
+      typeof (parsed as Record<string, unknown>).savedAt === "number" &&
+      ("targetTimeSeconds" in parsed ? typeof (parsed as Record<string, unknown>).targetTimeSeconds === "number" : true)
     ) {
       return parsed as ExtensionTimerState;
     }

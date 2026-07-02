@@ -4,19 +4,22 @@ import type { Project } from '@/lib/types'
 
 const setActiveProjectMock = vi.fn()
 const updateProjectMock = vi.fn()
+const getRemainingBudgetSecondsMock = vi.fn(() => 3600)
 let mockActiveProjectId: string | null = null
 
-function useFocusStore(selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; updateProject: typeof updateProjectMock }) => unknown) {
+function useFocusStore(selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; updateProject: typeof updateProjectMock; getRemainingBudgetSeconds: typeof getRemainingBudgetSecondsMock }) => unknown) {
   return selector({
     activeProjectId: mockActiveProjectId,
     setActiveProject: setActiveProjectMock,
     updateProject: updateProjectMock,
+    getRemainingBudgetSeconds: getRemainingBudgetSecondsMock,
   })
 }
 useFocusStore.getState = () => ({
   activeProjectId: mockActiveProjectId,
   setActiveProject: setActiveProjectMock,
   updateProject: updateProjectMock,
+  getRemainingBudgetSeconds: getRemainingBudgetSecondsMock,
 })
 
 vi.mock('@/lib/store/useFocusStore', () => ({
@@ -49,6 +52,8 @@ describe('ProjectCard', () => {
   beforeEach(() => {
     setActiveProjectMock.mockClear()
     updateProjectMock.mockClear()
+    getRemainingBudgetSecondsMock.mockClear()
+    getRemainingBudgetSecondsMock.mockReturnValue(3600)
     mockPush.mockClear()
     mockActiveProjectId = null
   })

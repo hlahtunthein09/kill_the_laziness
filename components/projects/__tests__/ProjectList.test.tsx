@@ -36,7 +36,7 @@ describe('ProjectList', () => {
     ]
 
     // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true }))
+    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true, getRemainingBudgetSeconds: vi.fn(() => 3600) }))
 
     render(<ProjectList />)
 
@@ -72,7 +72,7 @@ describe('ProjectList', () => {
     ]
 
     // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true }))
+    useFocusStore.mockImplementation((selector) => selector({ projects, hasHydrated: true, getRemainingBudgetSeconds: vi.fn(() => 3600) }))
 
     render(<ProjectList />)
 

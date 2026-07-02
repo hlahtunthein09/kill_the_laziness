@@ -4,12 +4,23 @@ import userEvent from '@testing-library/user-event'
 import { AddSubPieceButton } from '../AddSubPieceButton'
 
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: {
-    getState: vi.fn(() => ({
-      getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
-      addSubPiece: vi.fn(),
-    })),
-  },
+  useFocusStore: Object.assign(
+    vi.fn((selector) => {
+      const state = {
+        getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
+        addSubPiece: vi.fn(),
+        getRemainingBudgetSeconds: vi.fn(() => 3600),
+      }
+      return selector ? selector(state) : state
+    }),
+    {
+      getState: vi.fn(() => ({
+        getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
+        addSubPiece: vi.fn(),
+        getRemainingBudgetSeconds: vi.fn(() => 3600),
+      })),
+    }
+  ),
 }))
 
 describe('AddSubPieceButton', () => {

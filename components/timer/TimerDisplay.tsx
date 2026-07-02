@@ -30,6 +30,9 @@ export function TimerDisplay({
   const progressPercent = showTarget
     ? Math.min(100, (projectElapsed / targetTimeSeconds) * 100)
     : 0;
+  const subPieceElapsed = showRemaining
+    ? Math.max(0, allocatedMinutes! * 60 - subPieceRemaining)
+    : 0;
 
   return (
     <div className="flex flex-col items-center gap-6 p-6 rounded-xl bg-card border border-border shadow-sm">
@@ -70,24 +73,22 @@ export function TimerDisplay({
 
       {showRemaining && (
         <div className="flex flex-col items-center gap-3">
-          <span className="text-xs text-muted-foreground" data-testid="remaining-label">
+          <span className="text-xs text-muted-foreground" data-testid="subpiece-elapsed-label">
             {subPieceName ? (
               <>
                 <span className="font-semibold text-primary">{subPieceName}</span>
-                {" "}အတွက် လက်ကျန် အချိန်
+                {" "}အတွက် အသုံးပြုပြီးအချိန်
               </>
             ) : (
-              "လက်ကျန် အချိန်"
+              "အသုံးပြုပြီးအချိန်"
             )}
-            {" "}(Remaining)
+            {" "}(Elapsed)
           </span>
-          <span className={cn(
-            "text-2xl font-semibold tabular-nums px-3 py-0.5 rounded-lg border ring-1",
-            subPieceRemaining <= 60 && subPieceRemaining > 0
-              ? "text-rose-400 border-rose-500/30 bg-rose-500/10 ring-rose-500/20"
-              : "text-foreground border-border bg-muted/50 ring-border"
-          )}>
-            {formatDuration(subPieceRemaining)}
+          <span className="text-2xl font-semibold tabular-nums px-3 py-0.5 rounded-lg border ring-1 text-foreground border-border bg-muted/50 ring-border" data-testid="subpiece-elapsed-value">
+            {formatDuration(subPieceElapsed)}
+          </span>
+          <span className="text-sm font-semibold text-primary" data-testid="subpiece-target-label">
+            သတ်မှတ်ထားသော အချိန်: {formatDuration(allocatedMinutes! * 60)}
           </span>
         </div>
       )}

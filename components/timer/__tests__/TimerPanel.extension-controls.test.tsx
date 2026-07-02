@@ -71,8 +71,11 @@ describe("TimerPanel extension controls", () => {
       selector({
         projects: [createMockProject()],
         activeProjectId: "proj-1",
+        activeSubPieceId: "sp-1",
+        projectOnlyFocus: false,
         schedules: [],
         getNextDueSchedule: vi.fn(() => undefined),
+        getRemainingBudgetSeconds: vi.fn(() => 3600),
       })
     );
 
@@ -85,6 +88,7 @@ describe("TimerPanel extension controls", () => {
       pause: pauseMock,
       reset: resetMock,
       resetToZero: vi.fn(),
+      reinitialize: vi.fn(),
     });
   });
 

@@ -4,12 +4,23 @@ import userEvent from '@testing-library/user-event'
 import { SubPieceForm } from '../SubPieceForm'
 
 vi.mock('@/lib/store/useFocusStore', () => ({
-  useFocusStore: {
-    getState: vi.fn(() => ({
-      getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
-      addSubPiece: vi.fn((subPiece) => ({ id: 'test-subpiece-id', ...subPiece })),
-    })),
-  },
+  useFocusStore: Object.assign(
+    vi.fn((selector) => {
+      const state = {
+        getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
+        addSubPiece: vi.fn((subPiece) => ({ id: 'test-subpiece-id', ...subPiece })),
+        getRemainingBudgetSeconds: vi.fn(() => 3600),
+      }
+      return selector ? selector(state) : state
+    }),
+    {
+      getState: vi.fn(() => ({
+        getProjectById: vi.fn(() => ({ id: 'project-1', subPieces: [] })),
+        addSubPiece: vi.fn((subPiece) => ({ id: 'test-subpiece-id', ...subPiece })),
+        getRemainingBudgetSeconds: vi.fn(() => 3600),
+      })),
+    }
+  ),
 }))
 
 describe('SubPieceForm', () => {
@@ -53,13 +64,18 @@ describe('SubPieceForm', () => {
     const user = userEvent.setup()
     const mockAddSubPiece = vi.fn(() => ({ id: 'new-subpiece-id' }))
     const mockGetProjectById = vi.fn(() => ({ id: projectId, subPieces: [{ id: 'existing' }] }))
+    const mockGetRemainingBudgetSeconds = vi.fn(() => 3600)
 
     const mockedModule = await import('@/lib/store/useFocusStore')
-    // @ts-expect-error - mocking internal
-    mockedModule.useFocusStore.getState = vi.fn(() => ({
+    const newState = {
       getProjectById: mockGetProjectById,
       addSubPiece: mockAddSubPiece,
-    }))
+      getRemainingBudgetSeconds: mockGetRemainingBudgetSeconds,
+    }
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.getState = vi.fn(() => newState)
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.mockImplementation((selector) => (selector ? selector(newState) : newState))
 
     render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)
 
@@ -121,10 +137,93 @@ describe('SubPieceForm', () => {
     await user.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText(/ခဏထားချိန် မိနစ် 1 နှင့် အထက်ဖြစ်ရပါမည်/i)).toBeInTheDocument()
+      expect(screen.getByText(/သတ်မှတ်အချိန် ၁မိနစ်အထက်ဖြစ်ရပါမယ်/i)).toBeInTheDocument()
     })
 
     expect(mockOnOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('rejects negative allocated minutes', async () => {
+    const user = userEvent.setup()
+    render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)
+
+    const minutesInput = screen.getByLabelText(/Allocated Minutes/i) as HTMLInputElement
+
+    await user.clear(minutesInput)
+    await user.type(minutesInput, '-5')
+
+    // The minus key is blocked, so the value should be 5 (valid), not -5
+    expect(minutesInput.value).toBe('5')
+  })
+
+  it('helper line renders remaining minutes', () => {
+    render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)
+
+    expect(screen.getByText(/Project အတွက်ကျန်ရှိသော အချိန်: 60 မိနစ်/i)).toBeInTheDocument()
+  })
+
+  it('over-budget blocks Save and shows error', async () => {
+    const user = userEvent.setup()
+    const mockAddSubPiece = vi.fn(() => ({ id: 'new-subpiece-id' }))
+    const mockGetProjectById = vi.fn(() => ({ id: projectId, subPieces: [] }))
+    const mockGetRemainingBudgetSeconds = vi.fn(() => 3600) // 60 minutes remaining
+
+    const mockedModule = await import('@/lib/store/useFocusStore')
+    const newState = {
+      getProjectById: mockGetProjectById,
+      addSubPiece: mockAddSubPiece,
+      getRemainingBudgetSeconds: mockGetRemainingBudgetSeconds,
+    }
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.getState = vi.fn(() => newState)
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.mockImplementation((selector) => (selector ? selector(newState) : newState))
+
+    render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)
+
+    const nameInput = screen.getByLabelText(/Sub-piece Name/i)
+    const minutesInput = screen.getByLabelText(/Allocated Minutes/i)
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Over Budget Task')
+    await user.clear(minutesInput)
+    await user.type(minutesInput, '90')
+
+    const submitButton = screen.getByRole('button', { name: /သိမ်းဆည်းရန်/i })
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/သတ်မှတ်ထားသောအချိန်ထက်ကျော်လွန်နေပါသည်/i)).toBeInTheDocument()
+    })
+
+    expect(mockAddSubPiece).not.toHaveBeenCalled()
+    expect(mockOnOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('full budget disables Save button', async () => {
+    const user = userEvent.setup()
+    const mockAddSubPiece = vi.fn(() => ({ id: 'new-subpiece-id' }))
+    const mockGetProjectById = vi.fn(() => ({
+      id: projectId,
+      subPieces: [{ id: 'sp1', allocatedMinutes: 60 }],
+    }))
+    const mockGetRemainingBudgetSeconds = vi.fn(() => 0) // 0 minutes remaining
+
+    const mockedModule = await import('@/lib/store/useFocusStore')
+    const newState = {
+      getProjectById: mockGetProjectById,
+      addSubPiece: mockAddSubPiece,
+      getRemainingBudgetSeconds: mockGetRemainingBudgetSeconds,
+    }
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.getState = vi.fn(() => newState)
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.mockImplementation((selector) => (selector ? selector(newState) : newState))
+
+    render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)
+
+    const submitButton = screen.getByRole('button', { name: /သိမ်းဆည်းရန်/i })
+    expect(submitButton).toBeDisabled()
   })
 
   it('cancel button closes the dialog', async () => {

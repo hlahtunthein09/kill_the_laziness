@@ -15,6 +15,7 @@ interface SessionData {
   subPieceRemaining: number;
   savedAt: number;
   isRunning: boolean;
+  targetTimeSeconds?: number;
 }
 
 interface UseTimerReturn {
@@ -60,13 +61,15 @@ function computeInit(
   projectId: string,
   subPieceId: string | undefined,
   initialProjectTime: number,
-  initialSubPieceRemaining: number
+  initialSubPieceRemaining: number,
+  targetTimeSeconds: number
 ): TimerInit {
   const session = readSession(projectId, subPieceId);
   if (!session) {
+    const cappedProjectElapsed = targetTimeSeconds > 0 ? Math.min(initialProjectTime, targetTimeSeconds) : initialProjectTime;
     return {
       isRunning: false,
-      projectElapsed: 0,
+      projectElapsed: cappedProjectElapsed,
       subPieceRemaining: initialSubPieceRemaining,
       shouldAutoComplete: false,
       autoCompleteSeconds: 0,
@@ -94,12 +97,15 @@ function computeInit(
 
   // Cap project elapsed when sub-piece auto-completes on restore
   const effectiveDrift = shouldAutoComplete ? session.subPieceRemaining : drift;
-  const projectElapsed = session.projectElapsed + (session.isRunning ? effectiveDrift : 0);
+  const rawProjectElapsed = session.projectElapsed + (session.isRunning ? effectiveDrift : 0);
+  const projectElapsed = targetTimeSeconds > 0 ? Math.min(rawProjectElapsed, targetTimeSeconds) : rawProjectElapsed;
+  const targetReachedOnRestore = targetTimeSeconds > 0 && rawProjectElapsed >= targetTimeSeconds;
 
   const isRunning =
     session.isRunning &&
     !driftWasCapped &&
     !shouldAutoComplete &&
+    !targetReachedOnRestore &&
     (subPieceId ? subPieceRemaining > 0 : true);
 
   return {
@@ -126,6 +132,7 @@ export function useTimer(
   );
 
   const initialProjectTime = project?.totalTimeSeconds ?? 0;
+  const targetTimeSeconds = project?.targetTimeSeconds ?? 0;
   const initialSubPieceRemaining = subPiece
     ? Math.max(0, subPiece.allocatedMinutes * 60 - subPiece.elapsedSeconds)
     : 0;
@@ -135,7 +142,7 @@ export function useTimer(
   // but we still need a stable init value for the hook count.
   const [init] = useState<TimerInit>(() =>
     projectId
-      ? computeInit(projectId, subPieceId, initialProjectTime, initialSubPieceRemaining)
+      ? computeInit(projectId, subPieceId, initialProjectTime, initialSubPieceRemaining, targetTimeSeconds)
       : {
           isRunning: false,
           projectElapsed: 0,
@@ -173,10 +180,12 @@ export function useTimer(
   const projectElapsedRef = useRef(init.projectElapsed);
   const subPieceRemainingRef = useRef(init.subPieceRemaining);
   const isRunningRef = useRef(init.isRunning);
+  const targetTimeSecondsRef = useRef(targetTimeSeconds);
 
   useEffect(() => { projectElapsedRef.current = projectElapsed; }, [projectElapsed]);
   useEffect(() => { subPieceRemainingRef.current = subPieceRemaining; }, [subPieceRemaining]);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+  useEffect(() => { targetTimeSecondsRef.current = targetTimeSeconds; }, [targetTimeSeconds]);
 
   // Update session baseline refs when projectId or subPieceId changes.
   useEffect(() => {
@@ -213,10 +222,11 @@ export function useTimer(
         subPieceRemaining: spRemaining,
         savedAt: Date.now(),
         isRunning: running,
+        targetTimeSeconds: project?.targetTimeSeconds ?? 0,
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
     },
-    [projectId, subPieceId, project?.name, subPiece?.name]
+    [projectId, subPieceId, project?.name, subPiece?.name, project?.targetTimeSeconds]
   );
 
   // Keep the latest persistSession in a ref so tick can access it without
@@ -261,9 +271,12 @@ export function useTimer(
         accumulatedRef.current -= secondsElapsed * 1000;
 
         const prevSubPieceRemaining = subPieceRemainingRef.current;
-        const nextProjectElapsed = projectElapsedRef.current + secondsElapsed;
+        const remainingToTarget = targetTimeSecondsRef.current > 0 ? Math.max(0, targetTimeSecondsRef.current - projectElapsedRef.current) : Infinity;
+        const appliedSeconds = Math.min(secondsElapsed, remainingToTarget);
+
+        const nextProjectElapsed = projectElapsedRef.current + appliedSeconds;
         const nextSubPieceRemaining = subPieceId
-          ? Math.max(0, prevSubPieceRemaining - secondsElapsed)
+          ? Math.max(0, prevSubPieceRemaining - appliedSeconds)
           : 0;
 
         projectElapsedRef.current = nextProjectElapsed;
@@ -280,11 +293,26 @@ export function useTimer(
           persistSessionRef.current(true, nextProjectElapsed, subPieceRemainingRef.current);
         }
 
-        // Update store each accumulated second
+        // Update store each accumulated second (only applied seconds)
         const state = useFocusStore.getState();
-        state.incrementProjectTime(projectId, secondsElapsed);
+        state.incrementProjectTime(projectId, appliedSeconds);
         if (subPieceId) {
-          state.incrementSubPieceTime(projectId, subPieceId, secondsElapsed);
+          state.incrementSubPieceTime(projectId, subPieceId, appliedSeconds);
+        }
+
+        // Check target reached first (takes precedence over sub-piece completion)
+        const targetReached = targetTimeSecondsRef.current > 0 && (appliedSeconds < secondsElapsed || projectElapsedRef.current >= targetTimeSecondsRef.current);
+        if (targetReached) {
+          setIsRunningRef.current(false);
+          if (rafRef.current !== null) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+          }
+          lastTickRef.current = null;
+          useFocusStore.getState().completeProject(projectId);
+          localStorage.removeItem(SESSION_KEY);
+          onCompleteRef.current?.();
+          return;
         }
 
         // Auto-complete sub-piece when it hits zero
@@ -322,8 +350,9 @@ export function useTimer(
   const start = useCallback(() => {
     if (!projectId) return;
     if (subPieceId && subPieceRemainingRef.current <= 0) return;
+    if (targetTimeSeconds > 0 && projectElapsedRef.current >= targetTimeSeconds) return;
     setIsRunning(true);
-  }, [projectId, subPieceId]);
+  }, [projectId, subPieceId, targetTimeSeconds]);
 
   const pause = useCallback(() => {
     setIsRunning(false);

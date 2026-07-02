@@ -20,8 +20,11 @@ interface SubPieceFormProps {
 }
 
 export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProps) {
+  const remainingBudgetSeconds = useFocusStore((s) => s.getRemainingBudgetSeconds(projectId));
+  const remainingMinutes = Math.floor(remainingBudgetSeconds / 60);
+
   const [name, setName] = useState("");
-  const [allocatedMinutes, setAllocatedMinutes] = useState<number>(25);
+  const [allocatedMinutes, setAllocatedMinutes] = useState<number | "">(25);
   const [errors, setErrors] = useState<{ name?: string; allocatedMinutes?: string }>({});
 
   const resetForm = () => {
@@ -44,8 +47,12 @@ export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProp
       newErrors.name = "အခန်းကဏ္ဍအမည် ထည့်ရန် လိုအပ်ပါသည်";
     }
 
-    if (!allocatedMinutes || allocatedMinutes <= 0 || !Number.isInteger(allocatedMinutes)) {
-      newErrors.allocatedMinutes = "ခဏထားချိန် မိနစ် 1 နှင့် အထက်ဖြစ်ရပါမည်";
+    const minutes = allocatedMinutes === "" ? 0 : Number(allocatedMinutes);
+
+    if (!allocatedMinutes || minutes <= 0 || !Number.isInteger(minutes)) {
+      newErrors.allocatedMinutes = "သတ်မှတ်အချိန် ၁မိနစ်အထက်ဖြစ်ရပါမယ်";
+    } else if (minutes > remainingMinutes) {
+      newErrors.allocatedMinutes = "သတ်မှတ်ထားသောအချိန်ထက်ကျော်လွန်နေပါသည်";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -59,7 +66,7 @@ export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProp
     useFocusStore.getState().addSubPiece({
       projectId,
       name: name.trim(),
-      allocatedMinutes,
+      allocatedMinutes: minutes,
       order,
     });
 
@@ -67,7 +74,7 @@ export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleClose} dismissible={false}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>အခန်းကဏ္ဍအသစ် ထည့်ရန် (Add New Sub-piece)</DialogTitle>
@@ -97,29 +104,40 @@ export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProp
           {/* Allocated Minutes */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="allocated-minutes" className="text-sm font-medium">
-              ခဏထားချိန် မိနစ် (Allocated Minutes)
+              သတ်မှတ်အချိန် မိနစ် (Allocated Minutes)
             </label>
             <Input
               id="allocated-minutes"
               type="number"
               value={allocatedMinutes}
               onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setAllocatedMinutes(isNaN(val) ? 0 : val);
+                const raw = e.target.value;
+                if (raw === "") {
+                  setAllocatedMinutes("");
+                } else {
+                  const val = parseInt(raw, 10);
+                  setAllocatedMinutes(isNaN(val) ? "" : Math.max(0, val));
+                }
                 if (errors.allocatedMinutes) setErrors((prev) => ({ ...prev, allocatedMinutes: undefined }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "-") e.preventDefault();
               }}
               aria-invalid={!!errors.allocatedMinutes}
             />
             {errors.allocatedMinutes && (
               <p className="text-xs text-destructive">{errors.allocatedMinutes}</p>
             )}
+            <p className="text-sm text-muted-foreground">
+              Project အတွက်ကျန်ရှိသော အချိန်: {remainingMinutes} မိနစ်
+            </p>
           </div>
 
           <DialogFooter className="mt-2">
             <Button type="button" variant="outline" onClick={handleClose}>
               ပယ်ဖျက်ရန် (Cancel)
             </Button>
-            <Button type="submit">သိမ်းဆည်းရန် (Save)</Button>
+            <Button type="submit" disabled={remainingMinutes <= 0}>သိမ်းဆည်းရန် (Save)</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -117,32 +117,44 @@ describe('useTimer', () => {
       expect(result.current.isRunning).toBe(false)
     })
 
-    it('starts with projectElapsed at 0 even when store totalTimeSeconds > 0', () => {
+    it('restores projectElapsed from totalTimeSeconds on mount for continuity', () => {
+      const { project } = createProjectWithSubPiece()
+      // Seed the store with 120 seconds of prior time, no active session
+      useFocusStore.getState().incrementProjectTime(project.id, 120)
+
+      const { result } = renderHook(() => useTimer(project.id))
+
+      // projectElapsed should equal the persisted totalTimeSeconds (120)
+      expect(result.current.projectElapsed).toBe(120)
+      expect(result.current.isRunning).toBe(false)
+    })
+
+    it('starts with projectElapsed at store totalTimeSeconds when no active session', () => {
       const { project } = createProjectWithSubPiece()
       // Seed the store with some elapsed time
       useFocusStore.getState().incrementProjectTime(project.id, 120)
 
       const { result } = renderHook(() => useTimer(project.id))
 
-      // projectElapsed should start at 0 (per-session), not from store total
-      expect(result.current.projectElapsed).toBe(0)
+      // projectElapsed should start from store total (continuity), not 0
+      expect(result.current.projectElapsed).toBe(120)
       expect(result.current.isRunning).toBe(false)
     })
 
-    it('increments project elapsed from 0 when store has prior time', async () => {
+    it('increments project elapsed from store total when no active session', async () => {
       const { project } = createProjectWithSubPiece()
       // Seed store with prior time
       useFocusStore.getState().incrementProjectTime(project.id, 300)
 
       const { result } = renderHook(() => useTimer(project.id))
-      expect(result.current.projectElapsed).toBe(0)
+      expect(result.current.projectElapsed).toBe(300)
 
       act(() => result.current.start())
       await flushRaf()
       await advanceTime(5)
 
-      // projectElapsed counts up from 0 (session), not from store total
-      expect(result.current.projectElapsed).toBe(5)
+      // projectElapsed counts up from store total (300 + 5 = 305)
+      expect(result.current.projectElapsed).toBe(305)
       // Store total should be 300 + 5 = 305
       expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(305)
     })
@@ -213,6 +225,22 @@ describe('useTimer', () => {
       expect(session.subPieceId).toBe(subPiece.id)
       expect(session.subPieceName).toBe('Task 1')
       expect(session.isRunning).toBe(false)
+    })
+
+    it('persists session with targetTimeSeconds on pause', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(3)
+
+      act(() => result.current.pause())
+
+      const raw = localStorage.getItem('ff_active_session')
+      expect(raw).toBeTruthy()
+      const session = JSON.parse(raw!)
+      expect(session.targetTimeSeconds).toBe(3600)
     })
 
     it('persists session with project name only when no sub-piece', async () => {
@@ -375,23 +403,112 @@ describe('useTimer', () => {
       expect(localStorage.getItem('ff_active_session')).toBeNull()
     })
 
-    it('reset without elapsed time does not change store values', async () => {
-      const { project, subPiece } = createProjectWithSubPiece()
-      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+    it('stops and calls onComplete when project target is reached (project-only focus)', async () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Target Project',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 10,
+      })
 
-      expect(result.current.projectElapsed).toBe(0)
-      expect(result.current.subPieceRemaining).toBe(120)
-      expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(0)
-      expect(useFocusStore.getState().getProjectById(project.id)?.subPieces[0].elapsedSeconds).toBe(0)
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, undefined, onComplete))
 
-      act(() => result.current.reset())
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(12)
 
       expect(result.current.isRunning).toBe(false)
-      expect(result.current.projectElapsed).toBe(0)
-      expect(result.current.subPieceRemaining).toBe(120)
-      // Store should be unchanged
-      expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(0)
-      expect(useFocusStore.getState().getProjectById(project.id)?.subPieces[0].elapsedSeconds).toBe(0)
+      expect(result.current.projectElapsed).toBe(10)
+      expect(onComplete).toHaveBeenCalledTimes(1)
+
+      // Project should be marked completed in store
+      expect(useFocusStore.getState().getProjectById(project.id)?.status).toBe('completed')
+      // localStorage should be cleared
+      expect(localStorage.getItem('ff_active_session')).toBeNull()
+    })
+
+    it('stops at target even if sub-piece still has remaining time', async () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Target With Sub',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Long Task',
+        allocatedMinutes: 2, // 120 seconds — more than the 10s target we'll set below
+        order: 0,
+      })
+
+      // Directly lower target to 10 seconds so target is reached before sub-piece completes
+      // (bypassing updateProject's floor-at-allocated logic)
+      useFocusStore.setState((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === project.id ? { ...p, targetTimeSeconds: 10 } : p
+        ),
+      }))
+
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id, onComplete))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(12)
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.projectElapsed).toBe(10)
+      expect(result.current.subPieceRemaining).toBe(110) // 120 - 10 = 110
+      expect(onComplete).toHaveBeenCalledTimes(1)
+
+      // Project should be completed, but sub-piece should NOT be completed
+      const updatedProject = useFocusStore.getState().getProjectById(project.id)
+      expect(updatedProject?.status).toBe('completed')
+      expect(updatedProject?.subPieces[0].status).toBe('idle')
+      expect(updatedProject?.subPieces[0].elapsedSeconds).toBe(10)
+    })
+
+    it('start() is no-op when project already at target', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'At Target',
+        description: '',
+        color: 'forest',
+        targetTimeSeconds: 10,
+      })
+
+      // Pre-load project to target
+      useFocusStore.getState().incrementProjectTime(project.id, 10)
+      expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(10)
+
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, undefined, onComplete))
+
+      expect(result.current.projectElapsed).toBe(10)
+
+      act(() => result.current.start())
+      expect(result.current.isRunning).toBe(false)
+      expect(onComplete).not.toHaveBeenCalled()
+    })
+
+    it('start() is no-op when project already exceeds target (edge case)', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Over Target',
+        description: '',
+        color: 'coral',
+        targetTimeSeconds: 10,
+      })
+
+      // Pre-load project past target (should not happen with capped increment, but defensive)
+      // Manually set via updateProject
+      useFocusStore.getState().updateProject(project.id, { totalTimeSeconds: 15 })
+
+      const onComplete = vi.fn()
+      const { result } = renderHook(() => useTimer(project.id, undefined, onComplete))
+
+      act(() => result.current.start())
+      expect(result.current.isRunning).toBe(false)
+      expect(onComplete).not.toHaveBeenCalled()
     })
   })
 
@@ -622,7 +739,19 @@ describe('useTimer', () => {
     })
 
     it('caps drift at MAX_DRIFT_SECONDS and pauses timer when raw drift exceeds cap', async () => {
-      const { project, subPiece } = createProjectWithSubPiece()
+      // Use a project with high target so target-capping doesn't interfere with drift-capping test
+      const project = useFocusStore.getState().addProject({
+        name: 'Drift Cap Project',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 7200,
+      })
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task',
+        allocatedMinutes: 2,
+        order: 0,
+      })
 
       // Session saved 2 hours ago (7200 seconds), running, with 100s remaining
       const savedSession = {

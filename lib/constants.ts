@@ -93,3 +93,7 @@ export const DEFAULT_APP_SETTINGS = {
 
 // ─── Schedule Constants ────────────────────────────────────────────────────────
 export const DEFAULT_SCHEDULE_DURATION_MINUTES = 25;
+
+// ─── Motivation Toast / Notification Milestone Interval ────────────────────────
+// Set to 60s for rapid extension testing; restore to 300s (5 min) for daily use.
+export const MILESTONE_INTERVAL_SECONDS = 60;

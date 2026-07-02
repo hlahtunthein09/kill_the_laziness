@@ -14,7 +14,10 @@ export function TimerToast({ context, trigger, onShown }: TimerToastProps) {
   const lastTriggerRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!trigger) return;
+    if (!trigger) {
+      lastTriggerRef.current = undefined;
+      return;
+    }
     if (lastTriggerRef.current === trigger) return;
 
     lastTriggerRef.current = trigger;

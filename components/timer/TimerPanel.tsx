@@ -7,14 +7,15 @@ import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
 import { TimerToast } from "./TimerToast";
 import { ScheduleToast } from "@/components/schedule/ScheduleToast";
+import { CompletionDialog } from "./CompletionDialog";
+import { SubPieceForm } from "@/components/projects/SubPieceForm";
 import { FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { SessionSummary } from "./SessionSummary";
-import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
+import { MILESTONE_INTERVAL_SECONDS, XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
 import { playCompleteSound, playMilestoneSound } from "@/lib/sound";
 
 export function TimerPanel() {
@@ -56,9 +57,13 @@ export function TimerPanel() {
 
   // ALL hooks must be called unconditionally BEFORE any conditional return
   // to keep React hook count stable across renders.
+  const [projectCompleted, setProjectCompleted] = useState(false);
+  const [isSubPieceFormOpen, setIsSubPieceFormOpen] = useState(false);
+
   const handleComplete = useCallback(() => {
     setToastTrigger("complete");
     setShowSummary(true);
+    setProjectCompleted(true);
     playCompleteSound();
   }, []);
 
@@ -95,10 +100,10 @@ export function TimerPanel() {
     prevIsRunningRef.current = isRunning;
   }, [isRunning]);
 
-  // Detect milestone trigger: every 5 minutes of elapsed time
+  // Detect milestone trigger: every N seconds of elapsed time
   useEffect(() => {
     if (!isRunning) return;
-    const milestone = Math.floor(projectElapsed / 300);
+    const milestone = Math.floor(projectElapsed / MILESTONE_INTERVAL_SECONDS);
     if (milestone > lastMilestoneRef.current && milestone > 0) {
       lastMilestoneRef.current = milestone;
       setToastTrigger("milestone");
@@ -152,7 +157,21 @@ export function TimerPanel() {
   const handleContinue = () => {
     reinitialize();
     setShowSummary(false);
+    setProjectCompleted(false);
   };
+
+  const handleAddSubPiece = useCallback(() => {
+    setShowSummary(false);
+    setIsSubPieceFormOpen(true);
+  }, []);
+
+  const handleContinueProject = useCallback(() => {
+    if (activeProject) {
+      useFocusStore.getState().setActiveProject(activeProject.id);
+    }
+    reinitialize();
+    setShowSummary(false);
+  }, [activeProject, reinitialize]);
 
   // Empty state: no active project
   if (!activeProject) {
@@ -190,6 +209,10 @@ export function TimerPanel() {
     ? Math.floor(completedSubPiece.elapsedSeconds / 60) * XP_PER_MINUTE + XP_SUB_PIECE_COMPLETE
     : 0;
 
+  // Compute project-summary values for project target completion
+  const projectElapsedSeconds = Math.min(projectElapsed, activeProject.targetTimeSeconds);
+  const projectXpGained = Math.floor(projectElapsedSeconds / 60) * XP_PER_MINUTE;
+
   // Show summary when a sub-piece just completed — this takes precedence over timer UI
   if (showSummary && completedSubPiece) {
     return (
@@ -204,21 +227,58 @@ export function TimerPanel() {
           projectName={dueProject?.name}
           subPieceName={dueSubPiece?.name}
         />
-        <div className="w-full flex flex-col items-center gap-4">
-          <SessionSummary
-            projectName={activeProject.name}
-            subPieceName={completedSubPiece.name}
-            elapsedSeconds={completedSubPiece.elapsedSeconds}
-            allocatedMinutes={completedSubPiece.allocatedMinutes}
-            xpGained={xpGained}
-          />
-          <Button
-            onClick={handleContinue}
-          >
-            <span className="block">ဆက်လက်ပါ</span>
-            <span className="block text-xs opacity-80">Continue</span>
-          </Button>
-        </div>
+        <CompletionDialog
+          open={showSummary}
+          onOpenChange={setShowSummary}
+          projectName={activeProject.name}
+          subPieceName={completedSubPiece.name}
+          elapsedSeconds={completedSubPiece.elapsedSeconds}
+          allocatedMinutes={completedSubPiece.allocatedMinutes}
+          xpGained={xpGained}
+          onAddSubPiece={handleAddSubPiece}
+          onContinueProject={handleContinueProject}
+        />
+        <SubPieceForm
+          open={isSubPieceFormOpen}
+          onOpenChange={setIsSubPieceFormOpen}
+          projectId={activeProject.id}
+        />
+      </div>
+    );
+  }
+
+  // Show summary for project target completion (no sub-piece completed)
+  if (showSummary && !completedSubPiece) {
+    return (
+      <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
+        <TimerToast
+          context={motivationContext}
+          trigger={toastTrigger}
+          onShown={handleToastShown}
+        />
+        <ScheduleToast
+          dueSchedule={dueSchedule}
+          projectName={dueProject?.name}
+          subPieceName={dueSubPiece?.name}
+        />
+        <CompletionDialog
+          open={showSummary}
+          onOpenChange={setShowSummary}
+          projectName={activeProject.name}
+          elapsedSeconds={projectElapsedSeconds}
+          allocatedMinutes={Math.round(activeProject.targetTimeSeconds / 60)}
+          xpGained={projectXpGained}
+          mode="project"
+          onContinueProject={() => {
+            reinitialize();
+            setShowSummary(false);
+          }}
+        />
+        <SubPieceForm
+          open={isSubPieceFormOpen}
+          onOpenChange={setIsSubPieceFormOpen}
+          projectId={activeProject.id}
+        />
       </div>
     );
   }
@@ -261,6 +321,12 @@ export function TimerPanel() {
         onStart={start}
         onPause={pause}
         onReset={reset}
+      />
+
+      <SubPieceForm
+        open={isSubPieceFormOpen}
+        onOpenChange={setIsSubPieceFormOpen}
+        projectId={activeProject.id}
       />
     </div>
   );

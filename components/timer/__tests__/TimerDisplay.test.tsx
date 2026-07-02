@@ -22,7 +22,7 @@ describe("TimerDisplay", () => {
     );
 
     expect(screen.getByTestId("target-label")).toBeInTheDocument();
-    expect(screen.getByTestId("target-label").textContent).toContain("သတ်မှတ်ထားသော အချိန်");
+    expect(screen.getByTestId("target-label").textContent).toContain("Project အတွက်အချိန်");
     expect(screen.getByTestId("target-progress")).toBeInTheDocument();
     expect(screen.getByTestId("target-progress-fill")).toBeInTheDocument();
   });
@@ -96,24 +96,24 @@ describe("TimerDisplay", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders sub-piece remaining label with name", () => {
+  it("renders sub-piece elapsed label with name", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
-        subPieceRemaining={900}
+        subPieceRemaining={1300}
         isRunning={false}
         allocatedMinutes={25}
         subPieceName="Design UI"
       />
     );
 
-    const label = screen.getByTestId("remaining-label")
+    const label = screen.getByTestId("subpiece-elapsed-label")
     expect(label.textContent).toContain("Design UI")
-    expect(label.textContent).toContain("အတွက် လက်ကျန် အချိန်")
-    expect(label.textContent).toContain("Remaining")
+    expect(label.textContent).toContain("အတွက် အသုံးပြုပြီးအချိန်")
+    expect(label.textContent).toContain("Elapsed")
   });
 
-  it("does not render remaining label when allocatedMinutes is undefined", () => {
+  it("does not render sub-piece section when allocatedMinutes is undefined", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
@@ -122,21 +122,65 @@ describe("TimerDisplay", () => {
       />
     );
 
-    expect(screen.queryByText(/Remaining/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("subpiece-elapsed-label")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("subpiece-target-label")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("subpiece-elapsed-value")).not.toBeInTheDocument();
   });
 
-  it("shows red text when subPieceRemaining is <= 60s and > 0", () => {
+  it("computes elapsed as allocated*60 - remaining", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
-        subPieceRemaining={45}
+        subPieceRemaining={1300}
         isRunning={true}
         allocatedMinutes={25}
       />
     );
 
-    const remainingTime = screen.getByText("00:45");
-    expect(remainingTime).toHaveClass("text-rose-400");
+    const elapsedValue = screen.getByTestId("subpiece-elapsed-value");
+    expect(elapsedValue.textContent).toBe("03:20");
+  });
+
+  it("shows target label with allocated time", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={1300}
+        isRunning={true}
+        allocatedMinutes={25}
+      />
+    );
+
+    const targetLabel = screen.getByTestId("subpiece-target-label");
+    expect(targetLabel.textContent).toContain("သတ်မှတ်ထားသော အချိန်");
+    expect(targetLabel.textContent).toContain("25:00");
+  });
+
+  it("clamps elapsed at 0 when remaining exceeds allocated", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={2000}
+        isRunning={true}
+        allocatedMinutes={25}
+      />
+    );
+
+    const elapsedValue = screen.getByTestId("subpiece-elapsed-value");
+    expect(elapsedValue.textContent).toBe("00:00");
+  });
+
+  it("does not render old remaining-label testid", () => {
+    render(
+      <TimerDisplay
+        projectElapsed={120}
+        subPieceRemaining={900}
+        isRunning={true}
+        allocatedMinutes={25}
+      />
+    );
+
+    expect(screen.queryByTestId("remaining-label")).not.toBeInTheDocument();
   });
 
   it("shows paused status badge when not running", () => {

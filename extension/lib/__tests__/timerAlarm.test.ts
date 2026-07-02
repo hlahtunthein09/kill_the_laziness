@@ -14,6 +14,7 @@ describe("timerAlarm.ts", () => {
     setBrowserInstance(fakeBrowser);
     setAlarmBrowserInstance(fakeBrowser);
     fakeBrowser.reset();
+    fakeBrowser.runtime.getURL = (path: string) => `chrome-extension://test${path}`;
   });
 
   describe("startFocusAlarm", () => {
@@ -87,6 +88,8 @@ describe("timerAlarm.ts", () => {
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         subPieceId: "sub-1",
+        projectName: "My Project",
+        subPieceName: "My Task",
         projectElapsed: 100,
         subPieceRemaining: 30, // only 30 seconds left
         isRunning: true,
@@ -108,8 +111,9 @@ describe("timerAlarm.ts", () => {
       const notifId = Object.keys(notifications)[0];
       const notif = notifications[notifId];
       expect(notif.type).toBe("basic");
-      expect(notif.title).toBe("အလုပ်ပြီးစီး!");
-      expect(notif.message).toBe("သင့်စိတ်အားထန်မှုအတွက်ဂုဏ်ယူပါတယ်။");
+      expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
+      expect(notif.title).toBe("My Task အတွက် အချိန် ပြည့်ပါပြီ");
+      expect(notif.message).toBe("My Task is complete. Let's move on to the next one.");
 
       // Verify alarm was cleared
       const alarm = await fakeBrowser.alarms.get("focus-timer");
@@ -118,6 +122,76 @@ describe("timerAlarm.ts", () => {
       // Verify lastMilestone was cleared
       const lastMilestone = await getLastMilestone();
       expect(lastMilestone).toBeNull();
+    });
+
+    it("sends project-target notification when subPieceRemaining reaches zero and project target is met", async () => {
+      const now = Date.now();
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        subPieceId: "sub-1",
+        projectName: "My Project",
+        subPieceName: "My Task",
+        projectElapsed: 3500, // 3500 seconds elapsed
+        subPieceRemaining: 30, // only 30 seconds left
+        targetTimeSeconds: 3600, // target is 3600 seconds
+        isRunning: true,
+        savedAt: now - 45000, // 45 seconds ago — will push projectElapsed to 3545, still under target
+      };
+      await seedTimerState(state);
+
+      await onAlarmTick();
+
+      const updated = await getTimerState();
+      expect(updated).not.toBeNull();
+      expect(updated!.subPieceRemaining).toBe(0);
+      expect(updated!.isRunning).toBe(false);
+
+      // Notification should be sub-piece completion (target not yet reached)
+      const notifications = await fakeBrowser.notifications.getAll();
+      expect(Object.keys(notifications)).toHaveLength(1);
+
+      const notifId = Object.keys(notifications)[0];
+      const notif = notifications[notifId];
+      expect(notif.title).toBe("My Task အတွက် အချိန် ပြည့်ပါပြီ");
+      expect(notif.message).toBe("My Task is complete. Let's move on to the next one.");
+    });
+
+    it("sends project-target notification when project target is reached", async () => {
+      const now = Date.now();
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        subPieceId: "sub-1",
+        projectName: "My Project",
+        subPieceName: "My Task",
+        projectElapsed: 3580, // 3580 seconds elapsed
+        subPieceRemaining: 30, // only 30 seconds left
+        targetTimeSeconds: 3600, // target is 3600 seconds
+        isRunning: true,
+        savedAt: now - 45000, // 45 seconds ago — will push projectElapsed to 3625 >= 3600
+      };
+      await seedTimerState(state);
+
+      await onAlarmTick();
+
+      const updated = await getTimerState();
+      expect(updated).not.toBeNull();
+      expect(updated!.subPieceRemaining).toBe(0);
+      expect(updated!.isRunning).toBe(false);
+
+      // Notification should be project completion (target reached)
+      const notifications = await fakeBrowser.notifications.getAll();
+      expect(Object.keys(notifications)).toHaveLength(1);
+
+      const notifId = Object.keys(notifications)[0];
+      const notif = notifications[notifId];
+      expect(notif.type).toBe("basic");
+      expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
+      expect(notif.title).toBe("My Project အတွက် အချိန်ပြည့်ပါပြီ");
+      expect(notif.message).toBe("My Project target reached. Proud of your focus.");
+
+      // Verify alarm was cleared
+      const alarm = await fakeBrowser.alarms.get("focus-timer");
+      expect(alarm).toBeUndefined();
     });
 
     it("does not send notification when sub-piece still has time remaining", async () => {
@@ -144,15 +218,15 @@ describe("timerAlarm.ts", () => {
 
     // --- Milestone notification tests ---
 
-    it("sends milestone notification when project elapsed crosses 5 minutes", async () => {
+    it("sends milestone notification when project elapsed crosses 1 minute", async () => {
       const now = Date.now();
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         subPieceId: "sub-1",
-        projectElapsed: 290, // 4m50s — just under 5 min
+        projectElapsed: 50, // just under 1 min
         subPieceRemaining: 600,
         isRunning: true,
-        savedAt: now - 20000, // 20 seconds ago — will push over 300s
+        savedAt: now - 20000, // 20 seconds ago — will push over 60s
       };
       await seedTimerState(state);
 
@@ -164,6 +238,7 @@ describe("timerAlarm.ts", () => {
       const notifId = Object.keys(notifications)[0];
       const notif = notifications[notifId];
       expect(notif.type).toBe("basic");
+      expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
       expect(notif.title).toBe("FocusFlow AI — ရှေ့ဆက်နေတယ်");
       expect(notif.message).toContain("(");
 
@@ -177,7 +252,7 @@ describe("timerAlarm.ts", () => {
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         subPieceId: "sub-1",
-        projectElapsed: 310, // already past 5 min
+        projectElapsed: 70, // already past 1 min
         subPieceRemaining: 600,
         isRunning: true,
         savedAt: now - 20000, // 20 seconds ago
@@ -195,15 +270,15 @@ describe("timerAlarm.ts", () => {
       expect(lastMilestone).toBe(1);
     });
 
-    it("does not send milestone notification when elapsed is under 5 minutes", async () => {
+    it("does not send milestone notification when elapsed is under 1 minute", async () => {
       const now = Date.now();
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         subPieceId: "sub-1",
-        projectElapsed: 120, // 2 minutes
+        projectElapsed: 20, // 20 seconds
         subPieceRemaining: 600,
         isRunning: true,
-        savedAt: now - 30000, // 30 seconds ago
+        savedAt: now - 20000, // 20 seconds ago — total 40s, under 60s
       };
       await seedTimerState(state);
 
@@ -216,15 +291,41 @@ describe("timerAlarm.ts", () => {
       expect(lastMilestone).toBeNull();
     });
 
-    it("sends milestone notification for 10 minutes when lastMilestone was 5", async () => {
+    it("catches notification errors without throwing", async () => {
       const now = Date.now();
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         subPieceId: "sub-1",
-        projectElapsed: 590, // 9m50s — just under 10 min
+        projectElapsed: 100,
+        subPieceRemaining: 30,
+        isRunning: true,
+        savedAt: now - 45000,
+      };
+      await seedTimerState(state);
+
+      const originalCreate = fakeBrowser.notifications.create;
+      fakeBrowser.notifications.create = async () => {
+        throw new Error("Notification permission denied");
+      };
+
+      await expect(onAlarmTick()).resolves.not.toThrow();
+
+      const updated = await getTimerState();
+      expect(updated!.subPieceRemaining).toBe(0);
+      expect(updated!.isRunning).toBe(false);
+
+      fakeBrowser.notifications.create = originalCreate;
+    });
+
+    it("sends milestone notification for 2 minutes when lastMilestone was 1", async () => {
+      const now = Date.now();
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        subPieceId: "sub-1",
+        projectElapsed: 110, // just under 2 min
         subPieceRemaining: 600,
         isRunning: true,
-        savedAt: now - 20000, // 20 seconds ago — will push over 600s
+        savedAt: now - 20000, // 20 seconds ago — will push over 120s
       };
       await seedTimerState(state);
       await fakeBrowser.storage.local.set({ ff_extension_last_milestone: 1 });

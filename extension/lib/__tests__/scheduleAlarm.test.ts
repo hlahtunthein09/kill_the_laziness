@@ -20,6 +20,7 @@ describe("scheduleAlarm.ts", () => {
     setScheduleAlarmBrowserInstance(fakeBrowser);
     _resetLastNotifiedRef();
     fakeBrowser.reset();
+    fakeBrowser.runtime.getURL = (path: string) => `chrome-extension://test${path}`;
   });
 
   describe("startScheduleAlarm / stopScheduleAlarm", () => {
@@ -92,6 +93,7 @@ describe("scheduleAlarm.ts", () => {
       const notifId = Object.keys(notifications)[0];
       const notif = notifications[notifId];
       expect(notif.type).toBe("basic");
+      expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
       expect(notif.title).toContain("စီစဉ်ထားသော");
       expect(notif.message).toContain("My Project");
     });
@@ -127,6 +129,42 @@ describe("scheduleAlarm.ts", () => {
 
       const notifications = await fakeBrowser.notifications.getAll();
       expect(Object.keys(notifications)).toHaveLength(1);
+    });
+
+    it("catches notification errors without throwing", async () => {
+      const now = new Date("2026-06-25T09:00:00"); // Thursday = day 4
+      vi.setSystemTime(now);
+
+      const state: ExtensionTimerState = {
+        projectId: "p1",
+        projectName: "My Project",
+        subPieceName: "My Sub",
+        projectElapsed: 0,
+        subPieceRemaining: 600,
+        isRunning: false,
+        savedAt: Date.now(),
+        schedules: [
+          {
+            id: "s1",
+            projectId: "p1",
+            dayOfWeek: 4,
+            startTime: "09:00",
+            durationMinutes: 25,
+            enabled: true,
+            createdAt: Date.now(),
+          },
+        ],
+      };
+      await seedTimerState(state);
+
+      const originalCreate = fakeBrowser.notifications.create;
+      fakeBrowser.notifications.create = async () => {
+        throw new Error("Notification permission denied");
+      };
+
+      await expect(onScheduleAlarmTick()).resolves.not.toThrow();
+
+      fakeBrowser.notifications.create = originalCreate;
     });
   });
 });
