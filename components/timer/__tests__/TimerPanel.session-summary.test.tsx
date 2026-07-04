@@ -39,6 +39,8 @@ vi.mock("@/components/projects/SubPieceForm", () => ({
 let mockOnComplete: (() => void) | undefined;
 const _mockReset = vi.fn();
 const _mockReinitialize = vi.fn();
+const _mockRestart = vi.fn();
+const _mockStart = vi.fn();
 
 vi.mock("@/hooks/useTimer", () => ({
   useTimer: vi.fn((projectId, subPieceId, onComplete) => {
@@ -47,11 +49,12 @@ vi.mock("@/hooks/useTimer", () => ({
       isRunning: false,
       projectElapsed: 0,
       subPieceRemaining: 0,
-      start: vi.fn(),
+      start: _mockStart,
       pause: vi.fn(),
       reset: _mockReset,
       reinitialize: _mockReinitialize,
       resetToZero: vi.fn(),
+      restart: _mockRestart,
     };
   }),
 }));
@@ -92,11 +95,15 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 describe("TimerPanel - CompletionDialog integration", () => {
   const mockReset = _mockReset;
   const mockReinitialize = _mockReinitialize;
+  const mockRestart = _mockRestart;
+  const mockStart = _mockStart;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockReset.mockClear();
     mockReinitialize.mockClear();
+    mockRestart.mockClear();
+    mockStart.mockClear();
     mockOnComplete = undefined;
   });
 
@@ -243,11 +250,12 @@ describe("TimerPanel - CompletionDialog integration", () => {
         isRunning: false,
         projectElapsed: projectElapsed,
         subPieceRemaining: 0,
-        start: vi.fn(),
+        start: _mockStart,
         pause: vi.fn(),
         reset: _mockReset,
         reinitialize: _mockReinitialize,
         resetToZero: vi.fn(),
+        restart: _mockRestart,
       };
     });
 
@@ -273,7 +281,7 @@ describe("TimerPanel - CompletionDialog integration", () => {
     expect(screen.getByText(new RegExp(`XP gained: \\\+${expectedXp}`))).toBeInTheDocument();
   });
 
-  it("clicking continue button on project target summary keeps project focus", () => {
+  it("clicking continue button on project target summary keeps project focus and resumes the timer", () => {
     const setActiveProject = vi.fn();
     const project = createMockProject({
       subPieces: [
@@ -317,6 +325,10 @@ describe("TimerPanel - CompletionDialog integration", () => {
 
     expect(setActiveProject).toHaveBeenCalledTimes(1);
     expect(setActiveProject).toHaveBeenCalledWith("proj-1");
+
+    // The timer must be reinitialized and started so the user isn't left frozen
+    expect(mockRestart).toHaveBeenCalledTimes(1);
+    expect(mockStart).toHaveBeenCalledTimes(1);
 
     // Restore original getState
     useFocusStore.getState = originalGetState;
@@ -384,9 +396,8 @@ describe("TimerPanel - CompletionDialog integration", () => {
     useFocusStore.getState = originalGetState;
   });
 
-  it("clicking 'Continue focusing' refocuses the completed sub-piece and sets it active", () => {
-    const refocusSubPiece = vi.fn();
-    const setActiveSubPiece = vi.fn();
+  it("clicking 'Continue focusing' switches to project-only focus and resumes the timer", () => {
+    const setActiveProject = vi.fn();
     const completedSubPiece = createMockSubPiece({
       id: "sp-1",
       name: "Completed SubPiece",
@@ -413,8 +424,7 @@ describe("TimerPanel - CompletionDialog integration", () => {
     // Mock getState for store actions
     const originalGetState = useFocusStore.getState;
     useFocusStore.getState = vi.fn(() => ({
-      refocusSubPiece,
-      setActiveSubPiece,
+      setActiveProject,
     })) as unknown as typeof useFocusStore.getState;
 
     render(<TimerPanel />);
@@ -429,10 +439,12 @@ describe("TimerPanel - CompletionDialog integration", () => {
     const continueButton = screen.getByText(/Test Project ကို ဆက်လက်ပြီး focus လုပ်မယ်/);
     fireEvent.click(continueButton);
 
-    expect(refocusSubPiece).toHaveBeenCalledTimes(1);
-    expect(refocusSubPiece).toHaveBeenCalledWith("proj-1", "sp-1", 10);
-    expect(setActiveSubPiece).toHaveBeenCalledTimes(1);
-    expect(setActiveSubPiece).toHaveBeenCalledWith("proj-1", "sp-1");
+    expect(setActiveProject).toHaveBeenCalledTimes(1);
+    expect(setActiveProject).toHaveBeenCalledWith("proj-1");
+
+    // The timer must be reinitialized and started so the user isn't left frozen
+    expect(mockRestart).toHaveBeenCalledTimes(1);
+    expect(mockStart).toHaveBeenCalledTimes(1);
 
     // Restore original getState
     useFocusStore.getState = originalGetState;
