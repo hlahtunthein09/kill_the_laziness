@@ -92,3 +92,17 @@ Built using a piece-by-piece, user-confirmed workflow. Each feature (project/sub
 - Dark mode and pastel nature theme
 - Scheduled focus sessions
 - JSON backup/restore sync
+
+## Screenshots
+
+| Dashboard | Projects |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Projects](docs/screenshots/projects.png) |
+
+| Timer | Settings |
+|---|---|
+| ![Timer](docs/screenshots/timer.png) | ![Settings](docs/screenshots/settings.png) |
+
+| Extension |
+|---|
+| ![Extension](docs/screenshots/extension.png) |
