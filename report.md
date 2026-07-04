@@ -22,19 +22,19 @@ Built using a piece-by-piece, user-confirmed workflow. Each feature (project/sub
 
 ### Skill
 
-- path: .claude/skills/frontend-layout-skill.md
+- path: .claude/skills/frontend-layout/SKILL.md
 - what: Master skill for the Next.js app shell — AppShell, Sidebar, Header, dashboard layout, theme/dark-mode wiring, and global providers. Defines Burmese-first labels, the pastel nature palette, hydration safety, and reusable page patterns.
 
-- path: .claude/skills/projects-timer-skill.md
+- path: .claude/skills/projects-timer/SKILL.md
 - what: Master skill for project/sub-piece CRUD, the timer engine (`useTimer`), timer UI components (`TimerPanel`, `TimerDisplay`, `TimerControls`, `TimerToast`), and focus-session completion/refocus flows. Covers store actions, budget enforcement, drift correction, and extension bridge events.
 
-- path: .claude/skills/extension-notifications-skill.md
+- path: .claude/skills/extension-notifications/SKILL.md
 - what: Master skill for the WXT Manifest V3 extension — background service worker, timer engine, native OS notifications, content scripts, popup UI, anti-distraction tab monitoring/redirect, and warn-mode overlay. Defines the off-screen notification architecture and permission-checked notification patterns.
 
-- path: .claude/skills/settings-gamification-skill.md
+- path: .claude/skills/settings-gamification/SKILL.md
 - what: Master skill for the settings page/toggles, daily focus goal, streak counter, XP/fortress gamification, distraction log, JSON import/export sync, and scheduled focus sessions. Covers motivation message tiers and notification copy conventions.
 
-- path: .claude/skills/core-data-workflow-skill.md
+- path: .claude/skills/core-data-workflow/SKILL.md
 - what: Master skill for domain types, Zustand store architecture, agent workflow rules, cross-cutting refactors, and generic coding conventions. Serves as the meta skill for maintaining consistency across the codebase.
 
 ### Agent
