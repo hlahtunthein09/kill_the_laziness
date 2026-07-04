@@ -82,6 +82,7 @@ export function TimerPanel() {
   >(undefined);
   const [showSummary, setShowSummary] = useState(false);
   const [showRestartDialog, setShowRestartDialog] = useState(false);
+  const [resumeAfterSummary, setResumeAfterSummary] = useState(false);
 
   // Track last milestone (every 5 minutes = 300s)
   const lastMilestoneRef = useRef(0);
@@ -213,6 +214,16 @@ export function TimerPanel() {
     prevActiveSubPieceIdRef.current = activeSubPieceId;
   }, [activeSubPieceId, restart]);
 
+  // After closing the completion summary and updating the active focus,
+  // reinitialize the timer to the new baseline and immediately start it so
+  // the user isn't left on a frozen paused screen.
+  useEffect(() => {
+    if (!resumeAfterSummary) return;
+    setResumeAfterSummary(false);
+    restart();
+    start();
+  }, [resumeAfterSummary, restart, start]);
+
   // Reset trigger after it has been consumed by TimerToast
   const handleToastShown = () => {
     setToastTrigger(undefined);
@@ -229,22 +240,11 @@ export function TimerPanel() {
       return;
     }
 
-    const completed = activeProject.subPieces.find(
-      (sp) => sp.status === "completed"
-    );
-
-    if (completed) {
-      // Reset the completed sub-piece so the user can keep focusing on it.
-      useFocusStore
-        .getState()
-        .refocusSubPiece(activeProject.id, completed.id, completed.allocatedMinutes);
-      useFocusStore.getState().setActiveSubPiece(activeProject.id, completed.id);
-    } else {
-      // Project-only focus mode — keep running against the project target.
-      useFocusStore.getState().setActiveProject(activeProject.id);
-    }
+    // Continue at the project level only — no sub-piece countdown.
+    useFocusStore.getState().setActiveProject(activeProject.id);
 
     setShowSummary(false);
+    setResumeAfterSummary(true);
   }, [activeProject]);
 
   const handleBackToProjects = useCallback(() => {

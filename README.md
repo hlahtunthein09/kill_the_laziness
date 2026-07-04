@@ -24,6 +24,20 @@ For a full Burmese-language user guide, see [`docs/USER_GUIDE_MYANMAR.md`](docs/
 - **Backup & Restore** — export/import store state as JSON
 - **Scheduled Focus Sessions** — recurring focus reminders with browser notifications
 
+## Screenshots
+
+| Dashboard | Projects |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Projects](docs/screenshots/projects.png) |
+
+| Timer | Settings |
+|---|---|
+| ![Timer](docs/screenshots/timer.png) | ![Settings](docs/screenshots/settings.png) |
+
+| Extension |
+|---|
+| ![Extension](docs/screenshots/extension.png) |
+
 ## Tech Stack
 
 - **Framework:** Next.js 16 App Router, React 19, TypeScript 5
