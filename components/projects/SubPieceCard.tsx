@@ -16,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { formatDuration } from "@/lib/time";
+import { ProjectCompletedDialog } from "./ProjectCompletedDialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Clock, CheckCircle2, PauseCircle, PlayCircle, Circle, Target } from "lucide-react";
 
@@ -59,11 +60,16 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
   const router = useRouter();
   const setActiveProject = useFocusStore((state) => state.setActiveProject);
   const setActiveSubPiece = useFocusStore((state) => state.setActiveSubPiece);
+  const project = useFocusStore((state) => state.getProjectById(projectId));
   const status = STATUS_CONFIG[subPiece.status] ?? STATUS_CONFIG.idle;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isProjectCompletedDialogOpen, setIsProjectCompletedDialogOpen] = useState(false);
   const [newAllocatedMinutes, setNewAllocatedMinutes] = useState(subPiece.allocatedMinutes);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const isTargetReached =
+    project && project.targetTimeSeconds > 0 && project.totalTimeSeconds >= project.targetTimeSeconds;
 
   const handleFocus = () => {
     setActiveProject(projectId);
@@ -79,16 +85,47 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
     setIsDialogOpen(false);
   };
 
+  const handleProjectRestart = () => {
+    useFocusStore.getState().restartProject(projectId);
+    useFocusStore.getState().refocusSubPiece(projectId, subPiece.id, newAllocatedMinutes);
+    setActiveProject(projectId);
+    setActiveSubPiece(projectId, subPiece.id);
+    router.push("/timer");
+    setIsProjectCompletedDialogOpen(false);
+  };
+
+  const handleProjectExtend = (additionalMinutes: number) => {
+    if (!project) return;
+    useFocusStore.getState().updateProject(projectId, {
+      targetTimeSeconds: project.targetTimeSeconds + additionalMinutes * 60,
+    });
+    handleRefocus();
+    setIsProjectCompletedDialogOpen(false);
+  };
+
   const isCompleted = subPiece.status === "completed";
 
   const handleDetailFocus = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isCompleted) {
+    if (isTargetReached) {
+      setIsProjectCompletedDialogOpen(true);
+    } else if (isCompleted) {
       setIsDialogOpen(true);
     } else {
       handleFocus();
     }
     setIsDetailOpen(false);
+  };
+
+  const handleInlineFocusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isTargetReached) {
+      setIsProjectCompletedDialogOpen(true);
+    } else if (isCompleted) {
+      setIsDialogOpen(true);
+    } else {
+      handleFocus();
+    }
   };
 
   return (
@@ -117,14 +154,7 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isCompleted) {
-                setIsDialogOpen(true);
-              } else {
-                handleFocus();
-              }
-            }}
+            onClick={handleInlineFocusClick}
             className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/50 shadow-sm hover:shadow cursor-pointer"
             data-testid="focus-button"
           >
@@ -175,6 +205,16 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProjectCompletedDialog
+        open={isProjectCompletedDialogOpen}
+        onOpenChange={setIsProjectCompletedDialogOpen}
+        projectName={project?.name ?? ""}
+        totalTimeSeconds={project?.totalTimeSeconds ?? 0}
+        targetTimeSeconds={project?.targetTimeSeconds ?? 0}
+        onRestart={handleProjectRestart}
+        onExtend={handleProjectExtend}
+      />
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>

@@ -5,12 +5,23 @@ import type { SubPiece } from '@/lib/types'
 const setActiveProjectMock = vi.fn()
 const setActiveSubPieceMock = vi.fn()
 const refocusSubPieceMock = vi.fn()
+const restartProjectMock = vi.fn()
+const updateProjectMock = vi.fn()
+const getProjectByIdMock = vi.fn((id: string) => ({
+  id,
+  name: 'Mock Project',
+  targetTimeSeconds: 3600,
+  totalTimeSeconds: 0,
+}))
 const mockPush = vi.fn()
 
 const mockStoreState = {
   setActiveProject: setActiveProjectMock,
   setActiveSubPiece: setActiveSubPieceMock,
   refocusSubPiece: refocusSubPieceMock,
+  restartProject: restartProjectMock,
+  updateProject: updateProjectMock,
+  getProjectById: getProjectByIdMock,
 }
 
 vi.mock('@/lib/store/useFocusStore', () => ({
@@ -43,6 +54,12 @@ function createMockSubPiece(overrides: Partial<SubPiece> = {}): SubPiece {
 describe('SubPieceCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getProjectByIdMock.mockReturnValue({
+      id: 'proj-1',
+      name: 'Mock Project',
+      targetTimeSeconds: 3600,
+      totalTimeSeconds: 0,
+    })
   })
 
   it('renders sub-piece name and allocated time', () => {

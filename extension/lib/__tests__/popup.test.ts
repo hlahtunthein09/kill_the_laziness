@@ -3,25 +3,43 @@ import { fakeBrowser } from "@webext-core/fake-browser";
 import {
   renderPopup,
   initPopup,
+  setupStartButton,
+  setupOpenAppButton,
+  renderNotificationStatus,
   setPopupBrowserInstance,
   TIMER_STATE_KEY,
   FOCUSFLOW_URL,
 } from "../popup";
 import type { ExtensionTimerState } from "../types";
 
+interface FakeNotificationsWithPermission {
+  getPermissionLevel(): Promise<string>;
+  create(id: string, options: Record<string, unknown>): Promise<string>;
+}
+
+function getFakeNotifications(): FakeNotificationsWithPermission {
+  return fakeBrowser.notifications as unknown as FakeNotificationsWithPermission;
+}
+
 const popupHtml = `
 <!DOCTYPE html>
 <html>
 <body>
-  <div id="popup-content"></div>
+  <div id="popup-content">
+    <div id="notification-status" class="notification-status-row"></div>
+    <span id="status-dot"></span>
+    <span id="status-label">---</span>
+    <div id="project-name">---</div>
+    <div id="subpiece-name">---</div>
+    <div id="elapsed-time">0m</div>
+    <div id="remaining-time">0m</div>
+    <button id="start-btn" style="display: none;"></button>
+    <button id="pause-btn" style="display: none;"></button>
+    <button id="reset-btn" style="display: none;"></button>
+  </div>
   <div id="empty-state" style="display: none;"></div>
-  <span id="status-dot"></span>
-  <span id="status-label">---</span>
-  <div id="project-name">---</div>
-  <div id="subpiece-name">---</div>
-  <div id="elapsed-time">0m</div>
-  <div id="remaining-time">0m</div>
   <button id="open-app-btn"></button>
+  <button id="test-notif-btn"></button>
 </body>
 </html>
 `;
@@ -31,6 +49,11 @@ describe("popup.ts", () => {
     fakeBrowser.reset();
     setPopupBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
     document.body.innerHTML = popupHtml;
+    getFakeNotifications().getPermissionLevel = vi.fn().mockResolvedValue("granted");
+    getFakeNotifications().create = vi.fn().mockResolvedValue("test-notif");
+    (fakeBrowser.runtime as unknown as { getURL: (path: string) => string }).getURL = vi.fn(
+      (path: string) => `chrome-extension://test${path}`
+    );
   });
 
   describe("renderPopup", () => {
@@ -218,23 +241,150 @@ describe("popup.ts", () => {
     });
   });
 
+  describe("notification status", () => {
+    it("renders granted permission with green dot and On label", async () => {
+      getFakeNotifications().getPermissionLevel = vi.fn().mockResolvedValue("granted");
+
+      await renderNotificationStatus(fakeBrowser as unknown as typeof import("wxt/browser").browser);
+
+      const status = document.getElementById("notification-status");
+      expect(status!.querySelector(".status-dot")!.className).toContain("on");
+      expect(status!.textContent).toContain("အသိပေးချက်ဖွင့်ထား (On)");
+    });
+
+    it("renders denied permission with red dot, Off label, and settings link", async () => {
+      getFakeNotifications().getPermissionLevel = vi.fn().mockResolvedValue("denied");
+      const createTabMock = vi.fn().mockResolvedValue({});
+      fakeBrowser.tabs.create = createTabMock;
+
+      await renderNotificationStatus(fakeBrowser as unknown as typeof import("wxt/browser").browser);
+
+      const status = document.getElementById("notification-status");
+      expect(status!.querySelector(".status-dot")!.className).toContain("off");
+      expect(status!.textContent).toContain("အသိပေးချက်ပိတ်ထား (Off)");
+
+      const link = document.getElementById("notif-settings-link");
+      expect(link).not.toBeNull();
+      expect(link!.textContent).toContain("ဖွင့်ရန် (Open settings)");
+
+      link!.click();
+      expect(createTabMock).toHaveBeenCalledTimes(1);
+      expect(createTabMock).toHaveBeenCalledWith({ url: "chrome://settings/content/notifications" });
+    });
+
+    it("renders pending status with amber dot for unknown permission levels", async () => {
+      getFakeNotifications().getPermissionLevel = vi.fn().mockResolvedValue("prompt");
+
+      await renderNotificationStatus(fakeBrowser as unknown as typeof import("wxt/browser").browser);
+
+      const status = document.getElementById("notification-status");
+      expect(status!.querySelector(".status-dot")!.className).toContain("pending");
+      expect(status!.textContent).toContain("ခွင့်ပြုချက်မရသေးပါ (Pending)");
+    });
+  });
+
+  describe("start button", () => {
+    it("shows the button when state exists and isRunning is false", () => {
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        projectName: "Test Project",
+        subPieceId: "sub-1",
+        subPieceName: "Test Task",
+        projectElapsed: 120,
+        subPieceRemaining: 300,
+        isRunning: false,
+        savedAt: Date.now(),
+      };
+
+      setupStartButton(state);
+
+      const btn = document.getElementById("start-btn") as HTMLButtonElement;
+      expect(btn.style.display).toBe("block");
+      expect(btn.textContent).toContain("စတင်");
+    });
+
+    it("sends START_TIMER when clicked and shows temporary feedback", () => {
+      vi.useFakeTimers();
+      const sendMessageMock = vi.fn().mockResolvedValue({});
+      fakeBrowser.runtime.sendMessage = sendMessageMock;
+
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        projectName: "Test Project",
+        subPieceId: "sub-1",
+        subPieceName: "Test Task",
+        projectElapsed: 300,
+        subPieceRemaining: 600,
+        isRunning: false,
+        savedAt: Date.now(),
+      };
+
+      setupStartButton(state);
+      const btn = document.getElementById("start-btn") as HTMLButtonElement;
+      btn.click();
+
+      expect(btn.textContent).toContain("စတင်နေပါပြီ");
+      expect(btn.textContent).toContain("Starting");
+      expect(btn.disabled).toBe(true);
+
+      expect(sendMessageMock).toHaveBeenCalledTimes(1);
+      const sent = sendMessageMock.mock.calls[0][0] as {
+        action: string;
+        payload: ExtensionTimerState;
+      };
+      expect(sent.action).toBe("START_TIMER");
+      expect(sent.payload.isRunning).toBe(true);
+
+      vi.advanceTimersByTime(1000);
+      expect(btn.textContent).toContain("စတင်");
+      expect(btn.disabled).toBe(false);
+
+      vi.useRealTimers();
+    });
+  });
+
   describe("open app button", () => {
     it("calls browser.tabs.create with FocusFlow URL on click", () => {
       const createMock = vi.fn().mockResolvedValue({});
       fakeBrowser.tabs.create = createMock;
 
-      // Import and run the module-level setup by simulating the event
+      setupOpenAppButton();
+
       const btn = document.getElementById("open-app-btn");
       if (!btn) throw new Error("Button not found");
-
-      btn.addEventListener("click", () => {
-        fakeBrowser.tabs.create({ url: FOCUSFLOW_URL });
-      });
 
       btn.click();
 
       expect(createMock).toHaveBeenCalledTimes(1);
       expect(createMock).toHaveBeenCalledWith({ url: FOCUSFLOW_URL });
+    });
+  });
+
+  describe("notification diagnostics", () => {
+    it("calls browser.notifications.create when test button is clicked", async () => {
+      await initPopup();
+
+      document.getElementById("test-notif-btn")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(getFakeNotifications().create).toHaveBeenCalledTimes(1);
+      expect(getFakeNotifications().create).toHaveBeenCalledWith("test-notif", {
+        type: "basic",
+        iconUrl: "chrome-extension://test/icon/128.png",
+        title: "FocusFlow AI — စမ်းသပ်ခြင်း",
+        message: "အသိပေးချက်လုပ်ဆောင်နေသည် (Test notification working)",
+      });
+    });
+
+    it("does not create notification when test button is absent", async () => {
+      document.body.innerHTML = popupHtml.replace(
+        /<button id="test-notif-btn".*?<\/button>/,
+        ""
+      );
+
+      await initPopup();
+
+      expect(getFakeNotifications().create).not.toHaveBeenCalled();
     });
   });
 });

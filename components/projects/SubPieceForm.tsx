@@ -17,9 +17,10 @@ interface SubPieceFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  onSubPieceAdded?: (subPieceId: string) => void;
 }
 
-export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProps) {
+export function SubPieceForm({ open, onOpenChange, projectId, onSubPieceAdded }: SubPieceFormProps) {
   const remainingBudgetSeconds = useFocusStore((s) => s.getRemainingBudgetSeconds(projectId));
   const remainingMinutes = Math.floor(remainingBudgetSeconds / 60);
 
@@ -63,12 +64,14 @@ export function SubPieceForm({ open, onOpenChange, projectId }: SubPieceFormProp
     const project = useFocusStore.getState().getProjectById(projectId);
     const order = project?.subPieces.length ?? 0;
 
-    useFocusStore.getState().addSubPiece({
+    const newSubPiece = useFocusStore.getState().addSubPiece({
       projectId,
       name: name.trim(),
       allocatedMinutes: minutes,
       order,
     });
+
+    onSubPieceAdded?.(newSubPiece.id);
 
     handleClose();
   };

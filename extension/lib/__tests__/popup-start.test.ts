@@ -56,7 +56,16 @@ describe("popup-start.ts", () => {
       btn!.click();
 
       expect(sendMessageMock).toHaveBeenCalledTimes(1);
-      expect(sendMessageMock).toHaveBeenCalledWith({ action: "START_TIMER" });
+      const sent = sendMessageMock.mock.calls[0][0] as {
+        action: string;
+        payload: ExtensionTimerState;
+      };
+      expect(sent.action).toBe("START_TIMER");
+      expect(sent.payload.projectId).toBe(state.projectId);
+      expect(sent.payload.isRunning).toBe(true);
+      expect(sent.payload.projectElapsed).toBe(state.projectElapsed);
+      expect(sent.payload.subPieceRemaining).toBe(state.subPieceRemaining);
+      expect(sent.payload.savedAt).toBeGreaterThanOrEqual(state.savedAt);
     });
 
     it("hides the button when no session exists", () => {

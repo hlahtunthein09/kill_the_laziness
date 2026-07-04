@@ -1,13 +1,10 @@
 import type { Browser } from "webextension-polyfill";
-import type { ExtensionTimerState } from "./types";
 import type { FocusSessionSchedule } from "@/lib/types";
 import { setExtensionSettings } from "./settingsSync";
 
-const SESSION_KEY = "ff_active_session";
 const STORE_KEY = "ff_focus_store";
 
 let _browser: Browser | null = null;
-let _lastRawSession: string | null = null;
 
 export function setFocusSyncBrowserInstance(browser: Browser): void {
   _browser = browser;
@@ -20,41 +17,6 @@ async function getBrowser(): Promise<Browser> {
     _browser = browser;
   }
   return _browser!;
-}
-
-export function resetFocusSync(): void {
-  _lastRawSession = null;
-}
-
-export function readFocusSession(): ExtensionTimerState | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as unknown;
-
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "projectId" in parsed &&
-      typeof (parsed as Record<string, unknown>).projectId === "string" &&
-      "projectElapsed" in parsed &&
-      typeof (parsed as Record<string, unknown>).projectElapsed === "number" &&
-      "subPieceRemaining" in parsed &&
-      typeof (parsed as Record<string, unknown>).subPieceRemaining === "number" &&
-      "isRunning" in parsed &&
-      typeof (parsed as Record<string, unknown>).isRunning === "boolean" &&
-      "savedAt" in parsed &&
-      typeof (parsed as Record<string, unknown>).savedAt === "number" &&
-      ("targetTimeSeconds" in parsed ? typeof (parsed as Record<string, unknown>).targetTimeSeconds === "number" : true)
-    ) {
-      return parsed as ExtensionTimerState;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 function readSchedulesFromStore(): FocusSessionSchedule[] | undefined {
@@ -77,39 +39,12 @@ function readSchedulesFromStore(): FocusSessionSchedule[] | undefined {
   }
 }
 
+// Timer state is now owned by the extension service worker (timerEngine.ts).
+// The web app sends commands (START/PAUSE/RESET_TIMER) and reads state via
+// GET_TIMER_STATE / STATE_UPDATED broadcasts. We no longer forward the web
+// app's localStorage session here to avoid fighting with the engine.
 export async function syncFocusSession(): Promise<void> {
-  const raw = localStorage.getItem(SESSION_KEY);
-
-  if (!raw) {
-    _lastRawSession = null;
-    return;
-  }
-
-  if (raw === _lastRawSession) {
-    return;
-  }
-
-  const session = readFocusSession();
-  if (!session) {
-    _lastRawSession = raw;
-    return;
-  }
-
-  try {
-    const browser = await getBrowser();
-    const schedules = readSchedulesFromStore();
-    const payload: ExtensionTimerState = {
-      ...session,
-      schedules,
-    };
-    await browser.runtime.sendMessage({
-      action: "UPDATE_TIMER_STATE",
-      payload,
-    });
-    _lastRawSession = raw;
-  } catch {
-    // Silently catch errors (e.g., extension context invalidated)
-  }
+  // Deprecated: extension owns active session state.
 }
 
 export async function syncExtensionSettings(): Promise<void> {
@@ -138,10 +73,8 @@ export async function syncExtensionSettings(): Promise<void> {
 }
 
 export function startFocusSyncPolling(intervalMs = 5000): void {
-  syncFocusSession();
   syncExtensionSettings();
   setInterval(() => {
-    syncFocusSession();
     syncExtensionSettings();
   }, intervalMs);
 }

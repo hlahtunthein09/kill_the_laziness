@@ -95,26 +95,42 @@ describe("CompletionDialog", () => {
       expect(screen.getByText(/XP gained: \+30/)).toBeInTheDocument();
     });
 
-    it("renders single 'continue' button that calls onContinueProject", () => {
+    it("renders continue and back-to-projects buttons", () => {
       const onContinueProject = vi.fn();
-      render(<CompletionDialog {...projectModeProps} onContinueProject={onContinueProject} />);
+      const onBackToProjects = vi.fn();
+      render(
+        <CompletionDialog
+          {...projectModeProps}
+          onContinueProject={onContinueProject}
+          onBackToProjects={onBackToProjects}
+        />
+      );
 
-      // Single Burmese continue button
-      const continueButton = screen.getByText("ဆက်လက်ပါ");
+      const continueButton = screen.getByText("Continue focusing");
       expect(continueButton).toBeInTheDocument();
+
+      const backButton = screen.getByText("Back to projects");
+      expect(backButton).toBeInTheDocument();
 
       // Sub-piece mode button should NOT be present
       expect(screen.queryByText(/အခန်းကဏ္ဍအသစ်ထည့်ရန်/)).not.toBeInTheDocument();
 
       fireEvent.click(continueButton);
       expect(onContinueProject).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(backButton);
+      expect(onBackToProjects).toHaveBeenCalledTimes(1);
     });
 
     it("falls back to closing dialog when onContinueProject is not provided", () => {
       const onOpenChange = vi.fn();
-      render(<CompletionDialog {...projectModeProps} onOpenChange={onOpenChange} onContinueProject={undefined} />);
+      render(<CompletionDialog
+        {...projectModeProps}
+        onOpenChange={onOpenChange}
+        onContinueProject={undefined}
+      />);
 
-      const continueButton = screen.getByText("ဆက်လက်ပါ");
+      const continueButton = screen.getByText("Continue focusing");
       fireEvent.click(continueButton);
 
       expect(onOpenChange).toHaveBeenCalledWith(false);

@@ -14,7 +14,7 @@
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: #f0fdfa;
       color: #1c1917;
-      width: 320px;
+      width: 360px;
       min-height: 200px;
     }
     .container {
@@ -51,6 +51,21 @@
       color: #78716c;
       margin: 0;
     }
+    .notification-status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #ccfbf1;
+    }
+    .notification-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #1c1917;
+    }
     .status-row {
       display: flex;
       align-items: center;
@@ -63,6 +78,16 @@
       border-radius: 50%;
       background: #d6d3d1;
       flex-shrink: 0;
+    }
+    .status-dot.on {
+      background: #34d399;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
+    }
+    .status-dot.off {
+      background: #ef4444;
+    }
+    .status-dot.pending {
+      background: #f59e0b;
     }
     .status-dot.running {
       background: #34d399;
@@ -162,6 +187,10 @@
     .btn-primary:active {
       background: #0f766e;
     }
+    .btn-primary:disabled {
+      background: #99f6e4;
+      cursor: default;
+    }
     .btn-secondary {
       background: #0ea5e9;
       color: #fff;
@@ -185,6 +214,20 @@
     .btn-outline:active {
       background: #ccfbf1;
     }
+    .link-btn {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: #0ea5e9;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .link-btn:hover {
+      color: #0284c7;
+    }
     .footer {
       margin-top: 12px;
       padding-top: 10px;
@@ -197,7 +240,7 @@
       margin: 0;
     }
   </style>
-  <script type="module" crossorigin src="/chunks/popup-C33kfAM6.js"></script>
+  <script type="module" crossorigin src="/chunks/popup-DIPKq6fI.js"></script>
   <link rel="modulepreload" crossorigin href="/chunks/_virtual_wxt-html-plugins-Dezn_h7o.js">
 </head>
 <body>
@@ -211,6 +254,8 @@
     </div>
 
     <div id="popup-content">
+      <div id="notification-status" class="notification-status-row"></div>
+
       <div class="status-row">
         <span id="status-dot" class="status-dot"></span>
         <span id="status-label" class="status-label">---</span>
@@ -238,7 +283,7 @@
       </div>
 
       <button id="start-btn" class="btn btn-primary" type="button" style="display: none;">
-        စတင်ရန် (Start)
+        စတင် (Start)
       </button>
       <button id="pause-btn" class="btn btn-secondary" type="button" style="display: none;">
         ခဏရပ်ရန် (Pause)
@@ -254,11 +299,14 @@
       <p class="empty-state-sub">FocusFlow ဝဘ်အက်ပ်မှာ အစပြုပါ</p>
     </div>
 
-    <button id="open-app-btn" class="btn btn-primary" type="button">
+    <button id="open-app-btn" class="btn btn-outline" type="button" style="margin-top: 0.75rem;">
       FocusFlow ဖွင့်ရန် (Open App)
     </button>
 
     <div class="footer">
+      <button id="test-notif-btn" class="btn btn-outline" type="button">
+        အသိပေးချက်စမ်းသပ် (Test Notification)
+      </button>
       <p class="footer-text">FocusFlow AI — Kill The Laziness</p>
     </div>
   </div>

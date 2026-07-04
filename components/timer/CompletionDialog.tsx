@@ -25,6 +25,7 @@ interface CompletionDialogProps {
   mode?: CompletionMode;
   onAddSubPiece?: () => void;
   onContinueProject?: () => void;
+  onBackToProjects?: () => void;
 }
 
 export function CompletionDialog({
@@ -38,6 +39,7 @@ export function CompletionDialog({
   mode = "sub-piece",
   onAddSubPiece,
   onContinueProject,
+  onBackToProjects,
 }: CompletionDialogProps) {
   const isProjectMode = mode === "project";
 
@@ -81,18 +83,29 @@ export function CompletionDialog({
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-col bg-card border-0">
           {isProjectMode ? (
-            <Button
-              className="w-full h-auto whitespace-normal px-4 py-2"
-              onClick={() => {
-                if (onContinueProject) {
-                  onContinueProject();
-                } else {
-                  onOpenChange(false);
-                }
-              }}
-            >
-              ဆက်လက်ပါ
-            </Button>
+            <>
+              {onBackToProjects && (
+                <Button
+                  variant="outline"
+                  className="w-full h-auto whitespace-normal px-4 py-2"
+                  onClick={onBackToProjects}
+                >
+                  Back to projects
+                </Button>
+              )}
+              <Button
+                className="w-full h-auto whitespace-normal px-4 py-2"
+                onClick={() => {
+                  if (onContinueProject) {
+                    onContinueProject();
+                  } else {
+                    onOpenChange(false);
+                  }
+                }}
+              >
+                Continue focusing
+              </Button>
+            </>
           ) : (
             <>
               <Button

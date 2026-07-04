@@ -13,6 +13,7 @@ function TimerTestHarness({ projectId, subPieceId }: { projectId: string; subPie
       <span data-testid="projectElapsed">{timer.projectElapsed}</span>
       <span data-testid="subPieceRemaining">{timer.subPieceRemaining}</span>
       <span data-testid="isRunning">{timer.isRunning ? 'true' : 'false'}</span>
+      <span data-testid="targetReached">{timer.targetReached ? 'true' : 'false'}</span>
       <button data-testid="start" onClick={timer.start}>Start</button>
       <button data-testid="pause" onClick={timer.pause}>Pause</button>
       <button data-testid="reset" onClick={timer.reset}>Reset</button>
@@ -403,7 +404,7 @@ describe('useTimer', () => {
       expect(localStorage.getItem('ff_active_session')).toBeNull()
     })
 
-    it('stops and calls onComplete when project target is reached (project-only focus)', async () => {
+    it('pauses automatically when project target is reached (project-only focus)', async () => {
       const project = useFocusStore.getState().addProject({
         name: 'Target Project',
         description: '',
@@ -418,17 +419,18 @@ describe('useTimer', () => {
       await flushRaf()
       await advanceTime(12)
 
+      // Target is now a hard cap — timer pauses at the target
       expect(result.current.isRunning).toBe(false)
       expect(result.current.projectElapsed).toBe(10)
+      expect(result.current.targetReached).toBe(true)
       expect(onComplete).toHaveBeenCalledTimes(1)
 
       // Project should be marked completed in store
       expect(useFocusStore.getState().getProjectById(project.id)?.status).toBe('completed')
-      // localStorage should be cleared
-      expect(localStorage.getItem('ff_active_session')).toBeNull()
+      expect(useFocusStore.getState().getProjectById(project.id)?.totalTimeSeconds).toBe(10)
     })
 
-    it('stops at target even if sub-piece still has remaining time', async () => {
+    it('pauses at target without completing sub-piece when target is reached first', async () => {
       const project = useFocusStore.getState().addProject({
         name: 'Target With Sub',
         description: '',
@@ -460,6 +462,7 @@ describe('useTimer', () => {
       expect(result.current.isRunning).toBe(false)
       expect(result.current.projectElapsed).toBe(10)
       expect(result.current.subPieceRemaining).toBe(110) // 120 - 10 = 110
+      expect(result.current.targetReached).toBe(true)
       expect(onComplete).toHaveBeenCalledTimes(1)
 
       // Project should be completed, but sub-piece should NOT be completed
@@ -469,7 +472,7 @@ describe('useTimer', () => {
       expect(updatedProject?.subPieces[0].elapsedSeconds).toBe(10)
     })
 
-    it('start() is no-op when project already at target', () => {
+    it('starts and continues counting when project is already at target', async () => {
       const project = useFocusStore.getState().addProject({
         name: 'At Target',
         description: '',
@@ -487,11 +490,16 @@ describe('useTimer', () => {
       expect(result.current.projectElapsed).toBe(10)
 
       act(() => result.current.start())
-      expect(result.current.isRunning).toBe(false)
+      await flushRaf()
+      await advanceTime(3)
+
+      // Timer should keep running past the target
+      expect(result.current.isRunning).toBe(true)
+      expect(result.current.projectElapsed).toBe(13)
       expect(onComplete).not.toHaveBeenCalled()
     })
 
-    it('start() is no-op when project already exceeds target (edge case)', () => {
+    it('starts and continues counting when project already exceeds target', async () => {
       const project = useFocusStore.getState().addProject({
         name: 'Over Target',
         description: '',
@@ -499,16 +507,46 @@ describe('useTimer', () => {
         targetTimeSeconds: 10,
       })
 
-      // Pre-load project past target (should not happen with capped increment, but defensive)
-      // Manually set via updateProject
-      useFocusStore.getState().updateProject(project.id, { totalTimeSeconds: 15 })
+      // Pre-load project past target
+      useFocusStore.getState().incrementProjectTime(project.id, 15)
 
       const onComplete = vi.fn()
       const { result } = renderHook(() => useTimer(project.id, undefined, onComplete))
 
+      expect(result.current.projectElapsed).toBe(10)
+
       act(() => result.current.start())
-      expect(result.current.isRunning).toBe(false)
+      await flushRaf()
+      await advanceTime(2)
+
+      expect(result.current.isRunning).toBe(true)
+      expect(result.current.projectElapsed).toBe(12)
       expect(onComplete).not.toHaveBeenCalled()
+    })
+
+    it('reset clears the target-reached state', async () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Reset Target',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 10,
+      })
+
+      const { result } = renderHook(() => useTimer(project.id))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(12)
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.projectElapsed).toBe(10)
+      expect(result.current.targetReached).toBe(true)
+
+      act(() => result.current.reset())
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.projectElapsed).toBe(0)
+      expect(result.current.targetReached).toBe(false)
     })
   })
 
@@ -781,6 +819,33 @@ describe('useTimer', () => {
       expect(updatedProject?.subPieces[0].status).toBe('idle')
     })
 
+    it('caps restored elapsed at target and starts paused when session drift would exceed target', async () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Target Restore',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 10,
+      })
+
+      const savedSession = {
+        projectId: project.id,
+        subPieceId: undefined,
+        projectElapsed: 8,
+        subPieceRemaining: 0,
+        savedAt: 0,
+        isRunning: true,
+      }
+      localStorage.setItem('ff_active_session', JSON.stringify(savedSession))
+      // 5 seconds of drift would push elapsed to 13, past the target
+      now = 5000
+
+      render(<TimerTestHarness projectId={project.id} />)
+
+      expect(screen.getByTestId('projectElapsed').textContent).toBe('10')
+      expect(screen.getByTestId('isRunning').textContent).toBe('false')
+      expect(screen.getByTestId('targetReached').textContent).toBe('true')
+    })
+
     it('ignores corrupt localStorage data', () => {
       localStorage.setItem('ff_active_session', 'not-json{{')
 
@@ -789,6 +854,171 @@ describe('useTimer', () => {
 
       expect(screen.getByTestId('projectElapsed').textContent).toBe('0')
       expect(screen.getByTestId('isRunning').textContent).toBe('false')
+    })
+  })
+
+  describe('extension command bridge', () => {
+    let commandListener: ((e: Event) => void) | null = null
+    let requestListener: ((e: Event) => void) | null = null
+
+    beforeEach(() => {
+      commandListener = null
+      requestListener = null
+    })
+
+    function listenForCommands(onCommand: (action: string, payload?: unknown) => void) {
+      commandListener = (e: Event) => {
+        const detail = (e as CustomEvent).detail as { action?: string; payload?: unknown }
+        if (!detail?.action) return
+        onCommand(detail.action, detail.payload)
+      }
+      window.addEventListener('ff:command', commandListener)
+    }
+
+    function autoRespondToGetTimerState(response: unknown) {
+      requestListener = (e: Event) => {
+        const detail = (e as CustomEvent).detail as
+          | { requestId?: string; action?: string; payload?: unknown }
+          | undefined
+        if (detail?.action === 'GET_TIMER_STATE') {
+          window.dispatchEvent(
+            new CustomEvent('ff:response', {
+              detail: { requestId: detail.requestId, response },
+              bubbles: true,
+            })
+          )
+        }
+      }
+      window.addEventListener('ff:request', requestListener)
+    }
+
+    afterEach(() => {
+      if (commandListener) window.removeEventListener('ff:command', commandListener)
+      if (requestListener) window.removeEventListener('ff:request', requestListener)
+    })
+
+    it('start() sends START_TIMER with payload via ff:command', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      let captured: { action: string; payload?: unknown } | null = null
+
+      listenForCommands((action, payload) => {
+        captured = { action, payload }
+      })
+      autoRespondToGetTimerState(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      await waitFor(() => expect(requestListener).not.toBeNull())
+
+      act(() => result.current.start())
+
+      expect(captured).not.toBeNull()
+      expect(captured!.action).toBe('START_TIMER')
+      const msg = captured!.payload as Record<string, unknown>
+      expect(msg.projectId).toBe(project.id)
+      expect(msg.subPieceId).toBe(subPiece.id)
+      expect(msg.projectName).toBe('Test Project')
+      expect(msg.subPieceName).toBe('Task 1')
+      expect(msg.isRunning).toBe(true)
+      expect(msg.projectElapsed).toBe(0)
+      expect(msg.subPieceRemaining).toBe(120)
+      expect(msg.targetTimeSeconds).toBe(3600)
+      expect(msg.allocatedMinutes).toBe(2)
+      expect(typeof msg.savedAt).toBe('number')
+    })
+
+    it('pause() sends PAUSE_TIMER via ff:command', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      let captured: { action: string; payload?: unknown } | null = null
+
+      listenForCommands((action, payload) => {
+        if (action === 'PAUSE_TIMER') captured = { action, payload }
+      })
+      autoRespondToGetTimerState(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      await waitFor(() => expect(requestListener).not.toBeNull())
+
+      act(() => result.current.start())
+      await flushRaf()
+      captured = null
+
+      act(() => result.current.pause())
+
+      expect(captured).toEqual({ action: 'PAUSE_TIMER', payload: undefined })
+    })
+
+    it('reset() sends RESET_TIMER via ff:command', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      let captured: { action: string; payload?: unknown } | null = null
+
+      listenForCommands((action, payload) => {
+        if (action === 'RESET_TIMER') captured = { action, payload }
+      })
+      autoRespondToGetTimerState(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      await waitFor(() => expect(requestListener).not.toBeNull())
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(5)
+      captured = null
+
+      act(() => result.current.reset())
+
+      expect(captured).toEqual({ action: 'RESET_TIMER', payload: undefined })
+    })
+
+    it('seeds display from GET_TIMER_STATE response on mount', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const extensionState = {
+        projectId: project.id,
+        subPieceId: subPiece.id,
+        projectElapsed: 100,
+        subPieceRemaining: 80,
+        isRunning: false,
+        savedAt: Date.now(),
+      }
+      autoRespondToGetTimerState(extensionState)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      await waitFor(() => expect(result.current.projectElapsed).toBe(100))
+      expect(result.current.subPieceRemaining).toBe(80)
+    })
+
+    it('applies drift cap when GET_TIMER_STATE returns a running session', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const extensionState = {
+        projectId: project.id,
+        subPieceId: subPiece.id,
+        projectElapsed: 10,
+        subPieceRemaining: 100,
+        isRunning: true,
+        savedAt: 0,
+      }
+      autoRespondToGetTimerState(extensionState)
+      now = 5000
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      await waitFor(() => expect(result.current.projectElapsed).toBe(15))
+      expect(result.current.subPieceRemaining).toBe(95)
+      expect(result.current.isRunning).toBe(true)
+    })
+
+    it('silently skips commands when CustomEvent dispatch is unavailable', () => {
+      const originalDispatchEvent = window.dispatchEvent
+      vi.stubGlobal('dispatchEvent', undefined)
+
+      const { project, subPiece } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      expect(() => act(() => result.current.start())).not.toThrow()
+      expect(() => act(() => result.current.pause())).not.toThrow()
+      expect(() => act(() => result.current.reset())).not.toThrow()
+
+      window.dispatchEvent = originalDispatchEvent
     })
   })
 

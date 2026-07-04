@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fakeBrowser } from "@webext-core/fake-browser";
-import { setBrowserInstance, getTimerState } from "../storage";
+import { setBrowserInstance } from "../storage";
 import {
   setScheduleAlarmBrowserInstance,
   startScheduleAlarm,
@@ -10,17 +10,34 @@ import {
 } from "../scheduleAlarm";
 import type { ExtensionTimerState } from "../types";
 
+interface FakeNotificationsWithPermission {
+  getPermissionLevel(): Promise<string>;
+}
+
+function setNotificationPermissionLevel(level: string): void {
+  (
+    fakeBrowser.notifications as unknown as FakeNotificationsWithPermission
+  ).getPermissionLevel = vi.fn().mockResolvedValue(level);
+}
+
 async function seedTimerState(state: ExtensionTimerState): Promise<void> {
   await fakeBrowser.storage.local.set({ ff_extension_timer: state });
 }
 
+function getCreateMock() {
+  return fakeBrowser.notifications.create as ReturnType<typeof vi.fn>;
+}
+
 describe("scheduleAlarm.ts", () => {
   beforeEach(() => {
+    fakeBrowser.reset();
     setBrowserInstance(fakeBrowser);
     setScheduleAlarmBrowserInstance(fakeBrowser);
     _resetLastNotifiedRef();
-    fakeBrowser.reset();
     fakeBrowser.runtime.getURL = (path: string) => `chrome-extension://test${path}`;
+    fakeBrowser.notifications.create = vi.fn().mockResolvedValue("notification-id");
+    setNotificationPermissionLevel("granted");
+    vi.clearAllMocks();
   });
 
   describe("startScheduleAlarm / stopScheduleAlarm", () => {
@@ -55,11 +72,11 @@ describe("scheduleAlarm.ts", () => {
 
       await onScheduleAlarmTick();
 
-      const notifications = await fakeBrowser.notifications.getAll();
-      expect(Object.keys(notifications)).toHaveLength(0);
+      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
     });
 
     it("notifies when a schedule is due", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
       const now = new Date("2026-06-25T09:00:00"); // Thursday = day 4
       vi.setSystemTime(now);
 
@@ -87,15 +104,17 @@ describe("scheduleAlarm.ts", () => {
 
       await onScheduleAlarmTick();
 
-      const notifications = await fakeBrowser.notifications.getAll();
-      expect(Object.keys(notifications)).toHaveLength(1);
+      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
+      const [id, options] = getCreateMock().mock.calls[0];
+      expect(id.startsWith("schedule-due-")).toBe(true);
+      expect(options).toMatchObject({
+        type: "basic",
+        iconUrl: "chrome-extension://test/icon/128.png",
+        title: "FocusFlow AI — စီစဉ်ထားသော focus အချိန် ရောက်ပါပြီ",
+        message: "စတင်ကြည့်ရအောင်! — Let's get started! · My Project · 09:00",
+      });
 
-      const notifId = Object.keys(notifications)[0];
-      const notif = notifications[notifId];
-      expect(notif.type).toBe("basic");
-      expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
-      expect(notif.title).toContain("စီစဉ်ထားသော");
-      expect(notif.message).toContain("My Project");
+      randomSpy.mockRestore();
     });
 
     it("dedups notifications within the same minute", async () => {
@@ -127,11 +146,11 @@ describe("scheduleAlarm.ts", () => {
       await onScheduleAlarmTick();
       await onScheduleAlarmTick();
 
-      const notifications = await fakeBrowser.notifications.getAll();
-      expect(Object.keys(notifications)).toHaveLength(1);
+      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
     });
 
-    it("catches notification errors without throwing", async () => {
+    it("resolves without creating a notification when permission is denied", async () => {
+      setNotificationPermissionLevel("denied");
       const now = new Date("2026-06-25T09:00:00"); // Thursday = day 4
       vi.setSystemTime(now);
 
@@ -157,14 +176,42 @@ describe("scheduleAlarm.ts", () => {
       };
       await seedTimerState(state);
 
-      const originalCreate = fakeBrowser.notifications.create;
-      fakeBrowser.notifications.create = async () => {
-        throw new Error("Notification permission denied");
-      };
-
       await expect(onScheduleAlarmTick()).resolves.not.toThrow();
+      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
+    });
 
-      fakeBrowser.notifications.create = originalCreate;
+    it("uses fallback project name when projectName is missing", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const now = new Date("2026-06-25T09:00:00"); // Thursday = day 4
+      vi.setSystemTime(now);
+
+      const state: ExtensionTimerState = {
+        projectId: "p1",
+        projectElapsed: 0,
+        subPieceRemaining: 600,
+        isRunning: false,
+        savedAt: Date.now(),
+        schedules: [
+          {
+            id: "s1",
+            projectId: "p1",
+            dayOfWeek: 4,
+            startTime: "09:00",
+            durationMinutes: 25,
+            enabled: true,
+            createdAt: Date.now(),
+          },
+        ],
+      };
+      await seedTimerState(state);
+
+      await onScheduleAlarmTick();
+
+      const [, options] = getCreateMock().mock.calls[0];
+      expect(options.message).toContain("ပရောဂျက်");
+      expect(options.message).toContain("09:00");
+
+      randomSpy.mockRestore();
     });
   });
 });

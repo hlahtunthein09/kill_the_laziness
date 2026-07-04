@@ -1,6 +1,9 @@
 import { browser } from "wxt/browser";
 import { handleMessage } from "../lib/messageHandler";
-import { onAlarmTick } from "../lib/timerAlarm";
+import {
+  tick as timerEngineTick,
+  restoreOnStartup,
+} from "../lib/timerEngine";
 import {
   startScheduleAlarm,
   onScheduleAlarmTick,
@@ -22,17 +25,27 @@ export default defineBackground(() => {
     console.error("Failed to start schedule alarm:", err);
   });
 
+  restoreOnStartup().catch((err: unknown) => {
+    console.error("Failed to restore timer session on startup:", err);
+  });
+
   browser.runtime.onMessage.addListener((message: unknown) => {
+    const action = (message as { action?: string }).action;
+    console.log("[background] received message:", action);
     return handleMessage(message as Parameters<typeof handleMessage>[0]);
   });
 
   browser.alarms.onAlarm.addListener((alarm: AlarmEvent) => {
     if (alarm.name === "focus-timer") {
-      onAlarmTick();
+      timerEngineTick().catch((err: unknown) => {
+        console.error("Focus timer tick error:", err);
+      });
     } else if (alarm.name === "schedule-check") {
       onScheduleAlarmTick().catch((err: unknown) => {
         console.error("Schedule alarm error:", err);
       });
+    } else if (alarm.name === "ff-keep-alive") {
+      console.log("[background] ff-keep-alive alarm fired");
     }
   });
 

@@ -58,6 +58,7 @@ export interface ProjectSlice {
   decrementSubPieceTime: (projectId: string, subPieceId: string, seconds: number) => void;
   completeSubPiece: (projectId: string, subPieceId: string) => void;
   completeProject: (projectId: string) => void;
+  restartProject: (projectId: string) => void;
 
   refocusSubPiece: (projectId: string, subPieceId: string, allocatedMinutes?: number) => void;
 
@@ -231,8 +232,7 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
       const project = state.projects.find((p) => p.id === projectId);
       if (!project) return state;
 
-      const remainingTargetSeconds = Math.max(0, project.targetTimeSeconds - project.totalTimeSeconds);
-      const actualSeconds = Math.min(seconds, remainingTargetSeconds);
+      const actualSeconds = Math.max(0, seconds);
       if (actualSeconds <= 0) return state;
 
       const xpToAdd = Math.floor(actualSeconds / 60) * XP_PER_MINUTE;
@@ -257,7 +257,9 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
         lastStreakDate = today;
       }
 
-      const targetReached = actualSeconds > 0 && actualSeconds === remainingTargetSeconds;
+      const targetReached =
+        project.targetTimeSeconds > 0 &&
+        project.totalTimeSeconds + actualSeconds >= project.targetTimeSeconds;
 
       return {
         projects: state.projects.map((p) => {
@@ -269,7 +271,7 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
             xp: newXp,
             fortressLevel: getFortressLevelFromXp(newXp),
             fortressHealth: getFortressHealthFromXp(newXp),
-            status: targetReached ? ("completed" as PieceStatus) : p.status,
+            status: targetReached || p.status === "completed" ? ("completed" as PieceStatus) : p.status,
           };
         }),
         settings: {
@@ -359,6 +361,25 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
     set((state) => ({
       projects: state.projects.map((p) =>
         p.id === projectId ? { ...p, status: "completed" as PieceStatus } : p
+      ),
+    }));
+  },
+
+  restartProject: (projectId) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              totalTimeSeconds: 0,
+              status: "idle" as PieceStatus,
+              subPieces: p.subPieces.map((sp) => ({
+                ...sp,
+                elapsedSeconds: 0,
+                status: "idle" as PieceStatus,
+              })),
+            }
+          : p
       ),
     }));
   },

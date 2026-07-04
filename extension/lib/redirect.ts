@@ -7,6 +7,7 @@
 
 import type { Browser } from "webextension-polyfill";
 import { isForbiddenUrl, DEFAULT_FORBIDDEN_PATTERNS } from "./urlChecker";
+import { notifyDistractionBlocked } from "./notifications";
 
 const SETTINGS_KEY = "ff_extension_settings";
 const BLOCKED_HTML_PATH = "blocked.html";
@@ -70,8 +71,11 @@ export async function handleTabUpdate(
   const patterns = await getForbiddenPatterns();
   if (!isForbiddenUrl(changeInfo.url, patterns)) return;
 
-  const blockedUrl = (await getBrowser()).runtime.getURL(BLOCKED_HTML_PATH);
-  await (await getBrowser()).tabs.update(tabId, { url: blockedUrl });
+  const browser = await getBrowser();
+  const blockedUrl = browser.runtime.getURL(BLOCKED_HTML_PATH);
+  await browser.tabs.update(tabId, { url: blockedUrl });
+
+  await notifyDistractionBlocked(browser, changeInfo.url);
 }
 
 /**

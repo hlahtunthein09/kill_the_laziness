@@ -25,9 +25,17 @@ export function TimerToast({ context, trigger, onShown }: TimerToastProps) {
     const motivation = getMotivation(context);
 
     if (trigger === "complete") {
-      toast.success(motivation.my, { description: motivation.en });
+      toast.success(motivation.my, {
+        id: "timer-toast",
+        description: motivation.en,
+        duration: 6000,
+      });
     } else {
-      toast.info(motivation.my, { description: motivation.en });
+      toast.info(motivation.my, {
+        id: "timer-toast",
+        description: motivation.en,
+        duration: 4000,
+      });
     }
 
     onShown?.();

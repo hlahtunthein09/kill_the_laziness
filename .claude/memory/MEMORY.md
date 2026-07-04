@@ -18,6 +18,9 @@ This file loads all project memory files into context for each session.
 - [Store Schema](store-schema.md) — current Zustand `useFocusStore` shape, slices, and actions
 - [Sync Protocol](sync-protocol.md) — web app ↔ extension timer sync protocol
 
+## Resume Points
+- [Native Notification Tiers Resume](native-notification-tiers-resume.md) — current state and next action for the motivational native notification work
+
 ## Future Specs (to be filled as pieces progress)
 - [Timer Behavior](timer-behavior.md) — timer modes and edge cases
 - [Notification Spec](notification-spec.md) — motivational message tiers
