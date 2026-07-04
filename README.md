@@ -134,10 +134,58 @@ npm run build:ext    # Build extension to .output/chrome-mv3
 
 ## Loading the Extension
 
-1. Run `npm run build:ext`
-2. Open Chrome/Edge → `chrome://extensions`
-3. Enable **Developer mode**
-4. Click **Load unpacked** and select `.output/chrome-mv3`
+> **This project includes a Manifest V3 browser extension.**
+> The extension is required for anti-distraction blocking, native OS notifications, and off-screen timer sync. It is not published to the Chrome Web Store, so you must load it manually in developer mode.
+
+### Prerequisites
+
+- Chrome, Edge, or any Chromium-based browser
+- Node.js & npm installed
+- Extension build output generated via `npm run build:ext`
+
+### Step-by-step
+
+1. **Build the extension**
+
+   ```bash
+   npm run build:ext
+   ```
+
+   This produces the unpacked extension at `.output/chrome-mv3/`.
+
+2. **Open the extensions page**
+
+   Navigate to `chrome://extensions` (or `edge://extensions`).
+
+3. **Enable Developer mode**
+
+   Toggle **Developer mode** on (top-right corner).
+
+4. **Load the unpacked extension**
+
+   Click **Load unpacked** → select the `.output/chrome-mv3` folder.
+
+5. **Verify it is active**
+
+   The extension should appear in the toolbar with the FocusFlow icon. Click it to see the popup and current timer status.
+
+### Updating after code changes
+
+Whenever you change extension code, rebuild and reload:
+
+```bash
+npm run build:ext
+```
+
+Then open `chrome://extensions`, find **FocusFlow AI**, and click the **reload icon** (↻) to load the latest build.
+
+### Web app origin
+
+The extension currently matches the dev origin:
+
+- `http://localhost:3000/*`
+
+Make sure the Next.js dev server is running on that port for the web app and extension to sync timer state and settings.
 
 ## UI Language
 
