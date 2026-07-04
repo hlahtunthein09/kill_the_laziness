@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusStore } from "@/lib/store/useFocusStore";
+import type { ExtensionTimerState } from "@/extension/lib/types";
 
 const SESSION_KEY = "ff_active_session";
 const MAX_DRIFT_SECONDS = 60 * 60; // 60 minutes
@@ -22,11 +23,13 @@ interface UseTimerReturn {
   isRunning: boolean;
   projectElapsed: number;
   subPieceRemaining: number;
+  targetReached: boolean;
   start: () => void;
   pause: () => void;
   reset: () => void;
   resetToZero: () => void;
   reinitialize: () => void;
+  restart: () => void;
 }
 
 function readSession(
@@ -55,6 +58,7 @@ interface TimerInit {
   subPieceRemaining: number;
   shouldAutoComplete: boolean;
   autoCompleteSeconds: number;
+  targetReached: boolean;
 }
 
 function computeInit(
@@ -66,13 +70,15 @@ function computeInit(
 ): TimerInit {
   const session = readSession(projectId, subPieceId);
   if (!session) {
-    const cappedProjectElapsed = targetTimeSeconds > 0 ? Math.min(initialProjectTime, targetTimeSeconds) : initialProjectTime;
+    const targetReached =
+      targetTimeSeconds > 0 && initialProjectTime >= targetTimeSeconds;
     return {
       isRunning: false,
-      projectElapsed: cappedProjectElapsed,
+      projectElapsed: targetReached ? targetTimeSeconds : initialProjectTime,
       subPieceRemaining: initialSubPieceRemaining,
       shouldAutoComplete: false,
       autoCompleteSeconds: 0,
+      targetReached,
     };
   }
 
@@ -97,15 +103,17 @@ function computeInit(
 
   // Cap project elapsed when sub-piece auto-completes on restore
   const effectiveDrift = shouldAutoComplete ? session.subPieceRemaining : drift;
-  const rawProjectElapsed = session.projectElapsed + (session.isRunning ? effectiveDrift : 0);
-  const projectElapsed = targetTimeSeconds > 0 ? Math.min(rawProjectElapsed, targetTimeSeconds) : rawProjectElapsed;
-  const targetReachedOnRestore = targetTimeSeconds > 0 && rawProjectElapsed >= targetTimeSeconds;
+  const projectElapsedRaw =
+    session.projectElapsed + (session.isRunning ? effectiveDrift : 0);
+  const targetReached =
+    targetTimeSeconds > 0 && projectElapsedRaw >= targetTimeSeconds;
+  const projectElapsed = targetReached ? targetTimeSeconds : projectElapsedRaw;
 
   const isRunning =
     session.isRunning &&
     !driftWasCapped &&
     !shouldAutoComplete &&
-    !targetReachedOnRestore &&
+    !targetReached &&
     (subPieceId ? subPieceRemaining > 0 : true);
 
   return {
@@ -114,6 +122,7 @@ function computeInit(
     subPieceRemaining: subPieceId ? subPieceRemaining : initialSubPieceRemaining,
     shouldAutoComplete,
     autoCompleteSeconds,
+    targetReached,
   };
 }
 
@@ -149,6 +158,7 @@ export function useTimer(
           subPieceRemaining: 0,
           shouldAutoComplete: false,
           autoCompleteSeconds: 0,
+          targetReached: false,
         }
   );
 
@@ -157,12 +167,15 @@ export function useTimer(
   const [subPieceRemaining, setSubPieceRemaining] = useState(
     init.subPieceRemaining
   );
+  const [targetReached, setTargetReached] = useState(init.targetReached);
 
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   const accumulatedRef = useRef(0);
   const lastPersistRef = useRef(0);
   const autoCompleteHandledRef = useRef(false);
+  const projectTargetShownRef = useRef(false);
+  const targetReachedRef = useRef(init.targetReached);
 
   // Session baseline refs — track the values at session start so reset can
   // subtract elapsed deltas from the store and restore to baseline.
@@ -186,6 +199,12 @@ export function useTimer(
   useEffect(() => { subPieceRemainingRef.current = subPieceRemaining; }, [subPieceRemaining]);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
   useEffect(() => { targetTimeSecondsRef.current = targetTimeSeconds; }, [targetTimeSeconds]);
+  useEffect(() => { targetReachedRef.current = targetReached; }, [targetReached]);
+
+  // Reset the target-crossed notification when the project or target changes.
+  useEffect(() => {
+    projectTargetShownRef.current = false;
+  }, [projectId, targetTimeSeconds]);
 
   // Update session baseline refs when projectId or subPieceId changes.
   useEffect(() => {
@@ -236,14 +255,139 @@ export function useTimer(
     persistSessionRef.current = persistSession;
   }, [persistSession]);
 
+  function buildExtensionState(
+    running: boolean,
+    projElapsed: number,
+    spRemaining: number
+  ): ExtensionTimerState {
+    return {
+      projectId: projectId!,
+      subPieceId,
+      projectName: project?.name,
+      subPieceName: subPiece?.name,
+      projectElapsed: projElapsed,
+      subPieceRemaining: spRemaining,
+      targetTimeSeconds: project?.targetTimeSeconds ?? 0,
+      allocatedMinutes: subPiece?.allocatedMinutes,
+      isRunning: running,
+      savedAt: Date.now(),
+    };
+  }
+
+  async function sendExtensionRequest(action: string, payload?: unknown): Promise<unknown> {
+    if (typeof window === "undefined") return undefined;
+
+    return new Promise((resolve) => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail as
+          | { requestId?: string; response?: unknown }
+          | undefined;
+        if (detail?.requestId === requestId) {
+          window.removeEventListener("ff:response", handler);
+          resolve(detail.response);
+        }
+      };
+
+      window.addEventListener("ff:response", handler);
+      window.dispatchEvent(
+        new CustomEvent("ff:request", {
+          detail: { requestId, action, payload },
+          bubbles: true,
+        })
+      );
+
+      // Clean up if the extension never responds.
+      setTimeout(() => {
+        window.removeEventListener("ff:response", handler);
+        resolve(undefined);
+      }, 1000);
+    });
+  }
+
+  async function sendTimerCommand(
+    action: "START_TIMER" | "PAUSE_TIMER" | "RESET_TIMER",
+    state?: ExtensionTimerState
+  ) {
+    try {
+      if (typeof window === "undefined") return;
+      const detail = state !== undefined ? { action, payload: state } : { action };
+      window.dispatchEvent(new CustomEvent("ff:command", { detail, bubbles: true }));
+    } catch {
+      // extension not installed or context invalid
+    }
+  }
+
   // Keep the latest setters in refs so the RAF loop can call them without
   // creating stale closures.
   const setProjectElapsedRef = useRef(setProjectElapsed);
   const setSubPieceRemainingRef = useRef(setSubPieceRemaining);
   const setIsRunningRef = useRef(setIsRunning);
+  const setTargetReachedRef = useRef(setTargetReached);
   useEffect(() => { setProjectElapsedRef.current = setProjectElapsed; }, []);
   useEffect(() => { setSubPieceRemainingRef.current = setSubPieceRemaining; }, []);
   useEffect(() => { setIsRunningRef.current = setIsRunning; }, []);
+  useEffect(() => { setTargetReachedRef.current = setTargetReached; }, []);
+
+  // Seed local display from the extension's authoritative state on mount.
+  useEffect(() => {
+    if (!projectId) return;
+
+    async function seedFromExtension() {
+      try {
+        const response = await sendExtensionRequest("GET_TIMER_STATE");
+        if (!response || typeof response !== "object") return;
+
+        const state = response as Partial<ExtensionTimerState>;
+        if (
+          typeof state.projectId !== "string" ||
+          state.projectId !== projectId ||
+          state.subPieceId !== subPieceId ||
+          typeof state.projectElapsed !== "number" ||
+          typeof state.subPieceRemaining !== "number" ||
+          typeof state.isRunning !== "boolean" ||
+          typeof state.savedAt !== "number"
+        ) {
+          return;
+        }
+
+        const rawDrift = state.isRunning
+          ? Math.floor((Date.now() - state.savedAt) / 1000)
+          : 0;
+        const drift = state.isRunning ? Math.min(MAX_DRIFT_SECONDS, rawDrift) : 0;
+        const driftWasCapped = state.isRunning && rawDrift > MAX_DRIFT_SECONDS;
+
+        let nextProjectElapsed = state.projectElapsed + drift;
+        let nextSubPieceRemaining = subPieceId
+          ? Math.max(0, state.subPieceRemaining - drift)
+          : 0;
+
+        const targetReachedOnSeed =
+          targetTimeSeconds > 0 && nextProjectElapsed >= targetTimeSeconds;
+        if (targetReachedOnSeed) {
+          nextProjectElapsed = targetTimeSeconds;
+        }
+
+        let nextIsRunning = state.isRunning && !driftWasCapped && !targetReachedOnSeed;
+        if (subPieceId && nextSubPieceRemaining === 0) {
+          nextIsRunning = false;
+        }
+
+        projectElapsedRef.current = nextProjectElapsed;
+        setProjectElapsed(nextProjectElapsed);
+        subPieceRemainingRef.current = nextSubPieceRemaining;
+        setSubPieceRemaining(nextSubPieceRemaining);
+        isRunningRef.current = nextIsRunning;
+        setIsRunning(nextIsRunning);
+        targetReachedRef.current = targetReachedOnSeed;
+        setTargetReached(targetReachedOnSeed);
+      } catch {
+        // extension not installed or context invalid
+      }
+    }
+
+    void seedFromExtension();
+  }, [projectId, subPieceId, targetTimeSeconds, setProjectElapsed, setSubPieceRemaining, setIsRunning]);
 
   // RAF loop effect. tick is defined as a regular function inside the effect
   // so it can reference itself without ESLint "accessed before declaration" errors,
@@ -268,16 +412,18 @@ export function useTimer(
       // Process whole seconds
       const secondsElapsed = Math.floor(accumulatedRef.current / 1000);
       if (secondsElapsed > 0) {
-        accumulatedRef.current -= secondsElapsed * 1000;
-
         const prevSubPieceRemaining = subPieceRemainingRef.current;
-        const remainingToTarget = targetTimeSecondsRef.current > 0 ? Math.max(0, targetTimeSecondsRef.current - projectElapsedRef.current) : Infinity;
-        const appliedSeconds = Math.min(secondsElapsed, remainingToTarget);
+        const prevProjectElapsed = projectElapsedRef.current;
 
-        const nextProjectElapsed = projectElapsedRef.current + appliedSeconds;
+        const maxApplied = subPieceId ? prevSubPieceRemaining : secondsElapsed;
+        const appliedSeconds = Math.min(secondsElapsed, maxApplied);
+
+        const nextProjectElapsed = prevProjectElapsed + appliedSeconds;
         const nextSubPieceRemaining = subPieceId
           ? Math.max(0, prevSubPieceRemaining - appliedSeconds)
           : 0;
+
+        accumulatedRef.current -= appliedSeconds * 1000;
 
         projectElapsedRef.current = nextProjectElapsed;
         setProjectElapsedRef.current(nextProjectElapsed);
@@ -295,37 +441,45 @@ export function useTimer(
 
         // Update store each accumulated second (only applied seconds)
         const state = useFocusStore.getState();
-        state.incrementProjectTime(projectId, appliedSeconds);
-        if (subPieceId) {
-          state.incrementSubPieceTime(projectId, subPieceId, appliedSeconds);
-        }
-
-        // Check target reached first (takes precedence over sub-piece completion)
-        const targetReached = targetTimeSecondsRef.current > 0 && (appliedSeconds < secondsElapsed || projectElapsedRef.current >= targetTimeSecondsRef.current);
-        if (targetReached) {
-          setIsRunningRef.current(false);
-          if (rafRef.current !== null) {
-            cancelAnimationFrame(rafRef.current);
-            rafRef.current = null;
+        if (appliedSeconds > 0) {
+          state.incrementProjectTime(projectId, appliedSeconds);
+          if (subPieceId) {
+            state.incrementSubPieceTime(projectId, subPieceId, appliedSeconds);
           }
-          lastTickRef.current = null;
-          useFocusStore.getState().completeProject(projectId);
-          localStorage.removeItem(SESSION_KEY);
-          onCompleteRef.current?.();
-          return;
         }
 
         // Auto-complete sub-piece when it hits zero
         if (subPieceId && prevSubPieceRemaining > 0 && nextSubPieceRemaining === 0) {
           setIsRunningRef.current(false);
+          isRunningRef.current = false;
           if (rafRef.current !== null) {
             cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
           }
           lastTickRef.current = null;
-          useFocusStore
-            .getState()
-            .completeSubPiece(projectId, subPieceId);
+          state.completeSubPiece(projectId, subPieceId);
+          localStorage.removeItem(SESSION_KEY);
+          onCompleteRef.current?.();
+          return;
+        }
+
+        // Auto-pause and mark target reached when project crosses its target
+        if (
+          targetTimeSecondsRef.current > 0 &&
+          prevProjectElapsed < targetTimeSecondsRef.current &&
+          nextProjectElapsed >= targetTimeSecondsRef.current
+        ) {
+          setIsRunningRef.current(false);
+          isRunningRef.current = false;
+          setTargetReachedRef.current(true);
+          targetReachedRef.current = true;
+          projectTargetShownRef.current = true;
+          state.completeProject(projectId);
+          if (rafRef.current !== null) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+          }
+          lastTickRef.current = null;
           localStorage.removeItem(SESSION_KEY);
           onCompleteRef.current?.();
           return;
@@ -350,9 +504,12 @@ export function useTimer(
   const start = useCallback(() => {
     if (!projectId) return;
     if (subPieceId && subPieceRemainingRef.current <= 0) return;
-    if (targetTimeSeconds > 0 && projectElapsedRef.current >= targetTimeSeconds) return;
     setIsRunning(true);
-  }, [projectId, subPieceId, targetTimeSeconds]);
+    void sendTimerCommand(
+      "START_TIMER",
+      buildExtensionState(true, projectElapsedRef.current, subPieceRemainingRef.current)
+    );
+  }, [projectId, subPieceId]);
 
   const pause = useCallback(() => {
     setIsRunning(false);
@@ -362,6 +519,7 @@ export function useTimer(
       rafRef.current = null;
     }
     persistSession(false, projectElapsedRef.current, subPieceRemainingRef.current);
+    void sendTimerCommand("PAUSE_TIMER");
   }, [persistSession]);
 
   const reset = useCallback(() => {
@@ -369,6 +527,9 @@ export function useTimer(
     lastTickRef.current = null;
     accumulatedRef.current = 0;
     lastPersistRef.current = 0;
+    projectTargetShownRef.current = false;
+    setTargetReached(false);
+    targetReachedRef.current = false;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -395,6 +556,7 @@ export function useTimer(
     setProjectElapsed(baselineProjectElapsed);
     setSubPieceRemaining(baselineSubPieceRemaining);
     localStorage.removeItem(SESSION_KEY);
+    void sendTimerCommand("RESET_TIMER");
   }, [projectId, subPieceId]);
 
   const resetToZero = useCallback(() => {
@@ -402,6 +564,9 @@ export function useTimer(
     lastTickRef.current = null;
     accumulatedRef.current = 0;
     lastPersistRef.current = 0;
+    projectTargetShownRef.current = false;
+    setTargetReached(false);
+    targetReachedRef.current = false;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -435,6 +600,8 @@ export function useTimer(
     lastTickRef.current = null;
     accumulatedRef.current = 0;
     lastPersistRef.current = 0;
+    setTargetReached(false);
+    targetReachedRef.current = false;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -451,6 +618,39 @@ export function useTimer(
     localStorage.removeItem(SESSION_KEY);
   }, []);
 
+  const restart = useCallback(() => {
+    if (!projectId) return;
+
+    const refreshedProject = useFocusStore.getState().getProjectById(projectId);
+    const refreshedSubPiece = subPieceId
+      ? useFocusStore.getState().getSubPieceById(projectId, subPieceId)
+      : undefined;
+
+    const newProjectElapsed = refreshedProject?.totalTimeSeconds ?? 0;
+    const newSubPieceRemaining = refreshedSubPiece
+      ? Math.max(0, refreshedSubPiece.allocatedMinutes * 60 - refreshedSubPiece.elapsedSeconds)
+      : 0;
+
+    projectElapsedRef.current = newProjectElapsed;
+    subPieceRemainingRef.current = newSubPieceRemaining;
+    sessionStartProjectElapsedRef.current = newProjectElapsed;
+    sessionStartSubPieceRemainingRef.current = newSubPieceRemaining;
+
+    setProjectElapsed(newProjectElapsed);
+    setSubPieceRemaining(newSubPieceRemaining);
+    setTargetReached(false);
+    targetReachedRef.current = false;
+    projectTargetShownRef.current = false;
+
+    setIsRunning(false);
+    isRunningRef.current = false;
+
+    lastTickRef.current = null;
+    accumulatedRef.current = 0;
+    lastPersistRef.current = 0;
+    localStorage.removeItem(SESSION_KEY);
+  }, [projectId, subPieceId]);
+
   // When projectId is undefined, return neutral values and no-op handlers.
   // All hooks above are still called unconditionally, keeping hook count stable.
   if (projectId === undefined) {
@@ -458,11 +658,13 @@ export function useTimer(
       isRunning: false,
       projectElapsed: 0,
       subPieceRemaining: 0,
+      targetReached: false,
       start: () => {},
       pause: () => {},
       reset: () => {},
       resetToZero: () => {},
       reinitialize: () => {},
+      restart: () => {},
     };
   }
 
@@ -470,10 +672,12 @@ export function useTimer(
     isRunning,
     projectElapsed,
     subPieceRemaining,
+    targetReached,
     start,
     pause,
     reset,
     resetToZero,
     reinitialize,
+    restart,
   };
 }

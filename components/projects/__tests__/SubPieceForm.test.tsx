@@ -104,6 +104,49 @@ describe('SubPieceForm', () => {
     )
   })
 
+  it('calls onSubPieceAdded callback with the new sub-piece id', async () => {
+    const user = userEvent.setup()
+    const mockOnSubPieceAdded = vi.fn()
+    const mockAddSubPiece = vi.fn(() => ({ id: 'new-subpiece-id' }))
+    const mockGetProjectById = vi.fn(() => ({ id: projectId, subPieces: [] }))
+    const mockGetRemainingBudgetSeconds = vi.fn(() => 3600)
+
+    const mockedModule = await import('@/lib/store/useFocusStore')
+    const newState = {
+      getProjectById: mockGetProjectById,
+      addSubPiece: mockAddSubPiece,
+      getRemainingBudgetSeconds: mockGetRemainingBudgetSeconds,
+    }
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.getState = vi.fn(() => newState)
+    // @ts-expect-error - mocking internal
+    mockedModule.useFocusStore.mockImplementation((selector) => (selector ? selector(newState) : newState))
+
+    render(
+      <SubPieceForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        projectId={projectId}
+        onSubPieceAdded={mockOnSubPieceAdded}
+      />
+    )
+
+    const nameInput = screen.getByLabelText(/Sub-piece Name/i)
+    const minutesInput = screen.getByLabelText(/Allocated Minutes/i)
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Design API')
+    await user.clear(minutesInput)
+    await user.type(minutesInput, '45')
+
+    const submitButton = screen.getByRole('button', { name: /သိမ်းဆည်းရန်/i })
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(mockOnSubPieceAdded).toHaveBeenCalledWith('new-subpiece-id')
+    })
+  })
+
   it('shows validation error for empty name', async () => {
     const user = userEvent.setup()
     render(<SubPieceForm open={true} onOpenChange={mockOnOpenChange} projectId={projectId} />)

@@ -1,14 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TimerPanel } from "../TimerPanel";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import type { Project, SubPiece } from "@/lib/types";
 import { mockPush } from "@/__mocks__/next-navigation";
 import { toast } from "sonner";
 
+const restartProjectMock = vi.fn();
+const setActiveProjectMock = vi.fn();
+
 // Mock the store
 vi.mock("@/lib/store/useFocusStore", () => ({
-  useFocusStore: vi.fn(),
+  useFocusStore: Object.assign(vi.fn(), {
+    getState: () => ({
+      restartProject: restartProjectMock,
+      setActiveProject: setActiveProjectMock,
+    }),
+  }),
 }));
 
 // Mock useTimer hook
@@ -17,11 +25,13 @@ vi.mock("@/hooks/useTimer", () => ({
     isRunning: false,
     projectElapsed: 0,
     subPieceRemaining: 0,
+    targetReached: false,
     start: vi.fn(),
     pause: vi.fn(),
     reset: vi.fn(),
     reinitialize: vi.fn(),
     resetToZero: vi.fn(),
+    restart: vi.fn(),
   })),
 }));
 
@@ -82,6 +92,8 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 describe("TimerPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    restartProjectMock.mockClear();
+    setActiveProjectMock.mockClear();
   });
 
   it("shows empty state when no active project", () => {
@@ -672,10 +684,8 @@ describe("TimerPanel", () => {
     spyInfo.mockRestore();
   });
 
-  it("does not render ScheduleToast when no schedule is due", () => {
-    const spyInfo = vi.spyOn(toast, "info").mockImplementation(() => "toast-id");
-
-    const project = createMockProject();
+  it("shows normal timer UI when project elapsed is at or above target", () => {
+    const project = createMockProject({ targetTimeSeconds: 600 });
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
@@ -683,11 +693,94 @@ describe("TimerPanel", () => {
     );
 
     // @ts-expect-error - mock return
-    useScheduleWatcher.mockReturnValue({ dueSchedule: undefined });
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 600,
+      subPieceRemaining: 0,
+      targetReached: true,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
 
     render(<TimerPanel />);
 
-    expect(spyInfo).not.toHaveBeenCalled();
-    spyInfo.mockRestore();
+    // Target-reached card should no longer block the timer controls
+    expect(screen.queryByText(/Target reached/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+  });
+
+  it("shows restart dialog when starting a completed project", () => {
+    const startMock = vi.fn();
+    const restartMock = vi.fn();
+    const project = createMockProject({ status: "completed" });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 3600,
+      subPieceRemaining: 0,
+      targetReached: true,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: restartMock,
+    });
+
+    render(<TimerPanel />);
+
+    // Should show normal timer UI, not target-reached card
+    expect(screen.queryByText(/Target reached/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+
+    expect(screen.getByText(/Project Completed/i)).toBeInTheDocument();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("restarts a completed project and starts the timer when restart is confirmed", () => {
+    const startMock = vi.fn();
+    const restartMock = vi.fn();
+    const project = createMockProject({ status: "completed" });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 3600,
+      subPieceRemaining: 0,
+      targetReached: true,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: restartMock,
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+    fireEvent.click(screen.getByRole("button", { name: /Restart/i }));
+
+    expect(restartProjectMock).toHaveBeenCalledTimes(1);
+    expect(restartProjectMock).toHaveBeenCalledWith("proj-1");
+    expect(restartMock).toHaveBeenCalledTimes(1);
+    expect(startMock).toHaveBeenCalledTimes(1);
   });
 });

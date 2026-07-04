@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { fakeBrowser } from "@webext-core/fake-browser";
 import { setBrowserInstance } from "../storage";
-import { setAlarmBrowserInstance } from "../timerAlarm";
 import { handleMessage } from "../messageHandler";
 import type { ExtensionTimerState } from "../types";
 
 describe("background.ts handleMessage", () => {
   beforeEach(() => {
     setBrowserInstance(fakeBrowser);
-    setAlarmBrowserInstance(fakeBrowser);
     fakeBrowser.reset();
   });
 

@@ -16,6 +16,11 @@ describe("redirect.ts", () => {
     updateCalls = [];
     fakeBrowser.reset();
 
+    fakeBrowser.notifications.create = vi.fn().mockResolvedValue("notification-id");
+    (
+      fakeBrowser.notifications as unknown as { getPermissionLevel(): Promise<string> }
+    ).getPermissionLevel = vi.fn().mockResolvedValue("granted");
+
     // Build a minimal mock browser that wraps fakeBrowser's storage but
     // overrides tabs.update and runtime.getURL to avoid fake-browser tab validation.
     mockBrowser = {
@@ -147,6 +152,76 @@ describe("redirect.ts", () => {
       await handleTabUpdate(42, { url: "https://youtube.com/watch?v=abc123" });
 
       expect(updateCalls).toHaveLength(0);
+    });
+
+    it("creates a distraction-blocked notification with English title and message when redirecting", async () => {
+      await mockBrowser.storage.local.set({
+        ff_extension_settings: { strictMode: true },
+      });
+
+      await handleTabUpdate(42, { url: "https://youtube.com/shorts/abc123" });
+
+      expect(updateCalls).toHaveLength(1);
+      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
+      const [id, options] = (
+        fakeBrowser.notifications.create as ReturnType<typeof vi.fn>
+      ).mock.calls[0];
+      expect(id.startsWith("distraction-blocked-")).toBe(true);
+      expect(options).toMatchObject({
+        type: "basic",
+        title: "Distraction Blocked — Focus Protected",
+        message:
+          "Your time is valuable. We blocked a distracting site so you can stay focused.",
+      });
+    });
+
+    it("does not create a notification for allowed URLs", async () => {
+      await mockBrowser.storage.local.set({
+        ff_extension_settings: { strictMode: true },
+      });
+
+      await handleTabUpdate(42, { url: "https://google.com" });
+
+      expect(updateCalls).toHaveLength(0);
+      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
+    });
+
+    it("does not create a notification when strict mode is off", async () => {
+      await mockBrowser.storage.local.set({
+        ff_extension_settings: { strictMode: false },
+      });
+
+      await handleTabUpdate(42, { url: "https://youtube.com/shorts/abc123" });
+
+      expect(updateCalls).toHaveLength(0);
+      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
+    });
+
+    it("still redirects but does not create a notification when permission is denied", async () => {
+      (
+        fakeBrowser.notifications as unknown as { getPermissionLevel(): Promise<string> }
+      ).getPermissionLevel = vi.fn().mockResolvedValue("denied");
+      await mockBrowser.storage.local.set({
+        ff_extension_settings: { strictMode: true },
+      });
+
+      await handleTabUpdate(42, { url: "https://youtube.com/shorts/abc123" });
+
+      expect(updateCalls).toHaveLength(1);
+      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
+    });
+
+    it("still redirects when notifications.create rejects", async () => {
+      fakeBrowser.notifications.create = vi.fn().mockRejectedValue(new Error("create failed"));
+      await mockBrowser.storage.local.set({
+        ff_extension_settings: { strictMode: true },
+      });
+
+      await expect(
+        handleTabUpdate(42, { url: "https://youtube.com/shorts/abc123" }),
+      ).resolves.toBeUndefined();
+
+      expect(updateCalls).toHaveLength(1);
     });
   });
 });

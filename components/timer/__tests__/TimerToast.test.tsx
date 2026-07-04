@@ -33,7 +33,9 @@ describe("TimerToast", () => {
 
     expect(spyInfo).toHaveBeenCalledTimes(1);
     expect(spyInfo).toHaveBeenCalledWith("စတင်ကြည့်ရအောင်!", {
+      id: "timer-toast",
       description: "Let's get started!",
+      duration: 4000,
     });
     spyInfo.mockRestore();
   });
@@ -51,7 +53,9 @@ describe("TimerToast", () => {
 
     expect(spyInfo).toHaveBeenCalledTimes(1);
     expect(spyInfo).toHaveBeenCalledWith("စတင်ကြည့်ရအောင်!", {
+      id: "timer-toast",
       description: "Let's get started!",
+      duration: 4000,
     });
     spyInfo.mockRestore();
   });
@@ -69,7 +73,9 @@ describe("TimerToast", () => {
 
     expect(spySuccess).toHaveBeenCalledTimes(1);
     expect(spySuccess).toHaveBeenCalledWith("စတင်ကြည့်ရအောင်!", {
+      id: "timer-toast",
       description: "Let's get started!",
+      duration: 6000,
     });
     spySuccess.mockRestore();
   });

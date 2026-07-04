@@ -19,8 +19,19 @@ vi.mock("@/lib/sound", () => ({
 
 // Mock SubPieceForm to avoid store interactions
 vi.mock("@/components/projects/SubPieceForm", () => ({
-  SubPieceForm: function SubPieceFormMock() {
-    return React.createElement("div", { "data-testid": "subpiece-form" }, "SubPieceForm");
+  SubPieceForm: function SubPieceFormMock({ onSubPieceAdded }: { onSubPieceAdded?: (id: string) => void }) {
+    return React.createElement(
+      "div",
+      { "data-testid": "subpiece-form" },
+      React.createElement(
+        "button",
+        {
+          "data-testid": "mock-add-subpiece",
+          onClick: () => onSubPieceAdded?.("new-sp-1"),
+        },
+        "Add SubPiece"
+      )
+    );
   },
 }));
 
@@ -204,8 +215,9 @@ describe("TimerPanel - CompletionDialog integration", () => {
     // Project name should be visible (appears in dialog description and info row)
     expect(screen.getAllByText(/Test Project/)[0]).toBeInTheDocument();
 
-    // Single Burmese "continue" button should be present
-    expect(screen.getByText("ဆက်လက်ပါ")).toBeInTheDocument();
+    // Continue and Back-to-projects buttons should be present
+    expect(screen.getByText("Continue focusing")).toBeInTheDocument();
+    expect(screen.getByText("Back to projects")).toBeInTheDocument();
   });
 
   it("shows project target XP based on elapsed time capped at target", () => {
@@ -261,7 +273,8 @@ describe("TimerPanel - CompletionDialog integration", () => {
     expect(screen.getByText(new RegExp(`XP gained: \\\+${expectedXp}`))).toBeInTheDocument();
   });
 
-  it("clicking continue button on project target summary dismisses it", () => {
+  it("clicking continue button on project target summary keeps project focus", () => {
+    const setActiveProject = vi.fn();
     const project = createMockProject({
       subPieces: [
         createMockSubPiece({
@@ -270,91 +283,6 @@ describe("TimerPanel - CompletionDialog integration", () => {
           status: "idle",
         }),
       ],
-    });
-
-    // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) =>
-      selector({
-        projects: [project],
-        activeProjectId: "proj-1",
-        schedules: [],
-        getNextDueSchedule: vi.fn(() => undefined),
-      })
-    );
-
-    render(<TimerPanel />);
-
-    // Simulate completion via the onComplete callback
-    expect(mockOnComplete).toBeDefined();
-    act(() => {
-      mockOnComplete!();
-    });
-
-    // Find and click the continue button (Burmese)
-    const continueButton = screen.getByText("ဆက်လက်ပါ");
-    expect(continueButton).toBeInTheDocument();
-
-    fireEvent.click(continueButton);
-
-    expect(mockReinitialize).toHaveBeenCalledTimes(1);
-  });
-
-  it("clicking 'Add another sub-piece' opens SubPieceForm", () => {
-    const completedSubPiece = createMockSubPiece({
-      id: "sp-1",
-      name: "Completed SubPiece",
-      status: "completed",
-      elapsedSeconds: 600,
-      allocatedMinutes: 10,
-    });
-
-    const project = createMockProject({
-      subPieces: [completedSubPiece],
-    });
-
-    // @ts-expect-error - mock return
-    useFocusStore.mockImplementation((selector) =>
-      selector({
-        projects: [project],
-        activeProjectId: "proj-1",
-        schedules: [],
-        getNextDueSchedule: vi.fn(() => undefined),
-      })
-    );
-
-    const { rerender } = render(<TimerPanel />);
-
-    // Simulate completion via the onComplete callback
-    expect(mockOnComplete).toBeDefined();
-    act(() => {
-      mockOnComplete!();
-    });
-
-    // Click "Add another sub-piece" button
-    const addButton = screen.getByText(/အခန်းကဏ္ဍအသစ်ထည့်ရန်/);
-    fireEvent.click(addButton);
-
-    // After clicking, the dialog closes (setShowSummary(false)) and SubPieceForm opens.
-    // Since SubPieceForm is mocked, we just need to verify it renders after the state change.
-    // Rerender to pick up the state change.
-    rerender(<TimerPanel />);
-
-    // SubPieceForm should be rendered (mocked) - it appears alongside the timer UI
-    expect(screen.getByTestId("subpiece-form")).toBeInTheDocument();
-  });
-
-  it("clicking 'Continue focusing' calls setActiveProject and reinitialize", () => {
-    const setActiveProject = vi.fn();
-    const completedSubPiece = createMockSubPiece({
-      id: "sp-1",
-      name: "Completed SubPiece",
-      status: "completed",
-      elapsedSeconds: 600,
-      allocatedMinutes: 10,
-    });
-
-    const project = createMockProject({
-      subPieces: [completedSubPiece],
     });
 
     // @ts-expect-error - mock return
@@ -381,13 +309,130 @@ describe("TimerPanel - CompletionDialog integration", () => {
       mockOnComplete!();
     });
 
-    // Click "Continue focusing" button
-    const continueButton = screen.getByText(/Test Project ကို ဆက်လက်ပြီး focus လုပ်မယ်/);
+    // Find and click the continue button
+    const continueButton = screen.getByText("Continue focusing");
+    expect(continueButton).toBeInTheDocument();
+
     fireEvent.click(continueButton);
 
     expect(setActiveProject).toHaveBeenCalledTimes(1);
     expect(setActiveProject).toHaveBeenCalledWith("proj-1");
-    expect(mockReinitialize).toHaveBeenCalledTimes(1);
+
+    // Restore original getState
+    useFocusStore.getState = originalGetState;
+  });
+
+  it("clicking 'Add another sub-piece' opens SubPieceForm and sets the new sub-piece active on add", () => {
+    const setActiveSubPiece = vi.fn();
+    const completedSubPiece = createMockSubPiece({
+      id: "sp-1",
+      name: "Completed SubPiece",
+      status: "completed",
+      elapsedSeconds: 600,
+      allocatedMinutes: 10,
+    });
+
+    const project = createMockProject({
+      subPieces: [completedSubPiece],
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
+    );
+
+    // Mock getState for setActiveSubPiece
+    const originalGetState = useFocusStore.getState;
+    useFocusStore.getState = vi.fn(() => ({
+      setActiveSubPiece,
+    })) as unknown as typeof useFocusStore.getState;
+
+    const { rerender } = render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
+    });
+
+    // Click "Add another sub-piece" button
+    const addButton = screen.getByText(/အခန်းကဏ္ဍအသစ်ထည့်ရန်/);
+    fireEvent.click(addButton);
+
+    // After clicking, the dialog closes (setShowSummary(false)) and SubPieceForm opens.
+    // Since SubPieceForm is mocked, we just need to verify it renders after the state change.
+    // Rerender to pick up the state change.
+    rerender(<TimerPanel />);
+
+    // SubPieceForm should be rendered (mocked) - it appears alongside the timer UI
+    expect(screen.getByTestId("subpiece-form")).toBeInTheDocument();
+
+    // Simulate the mocked SubPieceForm adding a new sub-piece
+    const mockAddButton = screen.getByTestId("mock-add-subpiece");
+    fireEvent.click(mockAddButton);
+
+    expect(setActiveSubPiece).toHaveBeenCalledTimes(1);
+    expect(setActiveSubPiece).toHaveBeenCalledWith("proj-1", "new-sp-1");
+
+    // Restore original getState
+    useFocusStore.getState = originalGetState;
+  });
+
+  it("clicking 'Continue focusing' refocuses the completed sub-piece and sets it active", () => {
+    const refocusSubPiece = vi.fn();
+    const setActiveSubPiece = vi.fn();
+    const completedSubPiece = createMockSubPiece({
+      id: "sp-1",
+      name: "Completed SubPiece",
+      status: "completed",
+      elapsedSeconds: 600,
+      allocatedMinutes: 10,
+    });
+
+    const project = createMockProject({
+      subPieces: [completedSubPiece],
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
+    );
+
+    // Mock getState for store actions
+    const originalGetState = useFocusStore.getState;
+    useFocusStore.getState = vi.fn(() => ({
+      refocusSubPiece,
+      setActiveSubPiece,
+    })) as unknown as typeof useFocusStore.getState;
+
+    render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
+    });
+
+    // Click "Continue focusing" button
+    const continueButton = screen.getByText(/Test Project ကို ဆက်လက်ပြီး focus လုပ်မယ်/);
+    fireEvent.click(continueButton);
+
+    expect(refocusSubPiece).toHaveBeenCalledTimes(1);
+    expect(refocusSubPiece).toHaveBeenCalledWith("proj-1", "sp-1", 10);
+    expect(setActiveSubPiece).toHaveBeenCalledTimes(1);
+    expect(setActiveSubPiece).toHaveBeenCalledWith("proj-1", "sp-1");
 
     // Restore original getState
     useFocusStore.getState = originalGetState;

@@ -1,134 +1,110 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fakeBrowser } from "@webext-core/fake-browser";
-import { handleMessage, setControlBrowserInstance, type TimerMessage } from "../messageHandler";
+import { handleMessage, type TimerMessage } from "../messageHandler";
 import { setBrowserInstance } from "../storage";
-import { setAlarmBrowserInstance } from "../timerAlarm";
+import * as timerEngine from "../timerEngine";
 
-describe("controlMessage — START_TIMER", () => {
+describe("controlMessage", () => {
   beforeEach(() => {
     fakeBrowser.reset();
-    setControlBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
     setBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    setAlarmBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
     vi.clearAllMocks();
   });
 
-  it("finds FocusFlow tab and sends EXT_START_TIMER", async () => {
-    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([
-      { id: 42, url: "http://localhost:3000/timer" },
-    ]);
-    fakeBrowser.tabs.sendMessage = sendMessageMock;
+  describe("START_TIMER", () => {
+    it("validates payload and calls timerEngine.startSession", async () => {
+      const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
+      const state = {
+        projectId: "proj-1",
+        projectElapsed: 10,
+        subPieceRemaining: 100,
+        isRunning: true,
+        savedAt: Date.now(),
+      };
 
-    const message: TimerMessage = { action: "START_TIMER" };
-    const result = await handleMessage(message);
+      const message: TimerMessage = { action: "START_TIMER", payload: state };
+      const result = await handleMessage(message);
 
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    expect(sendMessageMock).toHaveBeenCalledWith(42, { action: "EXT_START_TIMER" });
-    expect(result).toEqual({ ok: true, forwarded: true });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith(state);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
+
+    it("returns error for invalid payload and does not call engine", async () => {
+      const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
+      const message = { action: "START_TIMER", payload: { projectId: "proj-1" } } as unknown as TimerMessage;
+      const result = await handleMessage(message);
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(result).toEqual({ ok: false, error: "Invalid timer state payload" });
+      spy.mockRestore();
+    });
   });
 
-  it("returns error when no FocusFlow tab exists", async () => {
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([]);
+  describe("PAUSE_TIMER", () => {
+    it("calls timerEngine.pauseSession", async () => {
+      const spy = vi.spyOn(timerEngine, "pauseSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { action: "PAUSE_TIMER" };
+      const result = await handleMessage(message);
 
-    const message: TimerMessage = { action: "START_TIMER" };
-    const result = await handleMessage(message);
-
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(result).toEqual({ ok: false, error: "No FocusFlow tab found" });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
   });
 
-  it("existing UPDATE_TIMER_STATE still works", async () => {
-    const state = {
-      projectId: "proj-1",
-      projectElapsed: 120,
-      subPieceRemaining: 300,
-      isRunning: true,
-      savedAt: Date.now(),
-    };
+  describe("RESET_TIMER", () => {
+    it("calls timerEngine.resetSession", async () => {
+      const spy = vi.spyOn(timerEngine, "resetSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { action: "RESET_TIMER" };
+      const result = await handleMessage(message);
 
-    const message: TimerMessage = { action: "UPDATE_TIMER_STATE", payload: state };
-    const result = await handleMessage(message);
-
-    expect(result).toEqual({ ok: true });
-  });
-});
-
-describe("controlMessage — PAUSE_TIMER", () => {
-  beforeEach(() => {
-    fakeBrowser.reset();
-    setControlBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    setBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    setAlarmBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    vi.clearAllMocks();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
   });
 
-  it("finds FocusFlow tab and sends EXT_PAUSE_TIMER", async () => {
-    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([
-      { id: 42, url: "http://localhost:3000/timer" },
-    ]);
-    fakeBrowser.tabs.sendMessage = sendMessageMock;
+  describe("UPDATE_TIMER_STATE (backwards compatibility)", () => {
+    it("still stores state and starts alarm when running", async () => {
+      const state = {
+        projectId: "proj-1",
+        projectElapsed: 120,
+        subPieceRemaining: 300,
+        isRunning: true,
+        savedAt: Date.now(),
+      };
 
-    const message: TimerMessage = { action: "PAUSE_TIMER" };
-    const result = await handleMessage(message);
+      const message: TimerMessage = { action: "UPDATE_TIMER_STATE", payload: state };
+      const result = await handleMessage(message);
 
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    expect(sendMessageMock).toHaveBeenCalledWith(42, { action: "EXT_PAUSE_TIMER" });
-    expect(result).toEqual({ ok: true, forwarded: true });
+      expect(result).toEqual({ ok: true });
+    });
+
+    it("returns error for invalid payload", async () => {
+      const message = { action: "UPDATE_TIMER_STATE", payload: { projectId: "proj-1" } } as unknown as TimerMessage;
+      const result = await handleMessage(message);
+
+      expect(result).toEqual({ ok: false, error: "Invalid timer state payload" });
+    });
   });
 
-  it("returns error when no FocusFlow tab exists", async () => {
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([]);
+  describe("GET_TIMER_STATE", () => {
+    it("returns null when no state is stored", async () => {
+      const message: TimerMessage = { action: "GET_TIMER_STATE" };
+      const result = await handleMessage(message);
 
-    const message: TimerMessage = { action: "PAUSE_TIMER" };
-    const result = await handleMessage(message);
-
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(result).toEqual({ ok: false, error: "No FocusFlow tab found" });
-  });
-});
-
-describe("controlMessage — RESET_TIMER", () => {
-  beforeEach(() => {
-    fakeBrowser.reset();
-    setControlBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    setBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    setAlarmBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
-    vi.clearAllMocks();
+      expect(result).toBeNull();
+    });
   });
 
-  it("finds FocusFlow tab and sends EXT_RESET_TIMER", async () => {
-    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([
-      { id: 42, url: "http://localhost:3000/timer" },
-    ]);
-    fakeBrowser.tabs.sendMessage = sendMessageMock;
+  describe("unknown action", () => {
+    it("returns error for unknown action", async () => {
+      const message = { action: "UNKNOWN_ACTION" } as unknown as TimerMessage;
+      const result = await handleMessage(message);
 
-    const message: TimerMessage = { action: "RESET_TIMER" };
-    const result = await handleMessage(message);
-
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    expect(sendMessageMock).toHaveBeenCalledWith(42, { action: "EXT_RESET_TIMER" });
-    expect(result).toEqual({ ok: true, forwarded: true });
-  });
-
-  it("returns error when no FocusFlow tab exists", async () => {
-    fakeBrowser.tabs.query = vi.fn().mockResolvedValue([]);
-
-    const message: TimerMessage = { action: "RESET_TIMER" };
-    const result = await handleMessage(message);
-
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledTimes(1);
-    expect(fakeBrowser.tabs.query).toHaveBeenCalledWith({ url: "http://localhost:3000/*" });
-    expect(result).toEqual({ ok: false, error: "No FocusFlow tab found" });
+      expect(result).toEqual({ ok: false, error: "Unknown action" });
+    });
   });
 });

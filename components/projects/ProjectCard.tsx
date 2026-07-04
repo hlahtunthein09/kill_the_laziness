@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/time";
 import type { Project } from "@/lib/types";
@@ -13,11 +13,12 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Progress, ProgressLabel, ProgressTrack, ProgressIndicator, ProgressValue } from "@/components/ui/progress";
+import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Target, Pencil, Trash2 } from "lucide-react";
 import { AddSubPieceButton } from "./AddSubPieceButton";
 import { SubPieceList } from "./SubPieceList";
+import { ProjectCompletedDialog } from "./ProjectCompletedDialog";
 import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { Button } from "@/components/ui/button";
@@ -98,23 +99,25 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [targetHours, setTargetHours] = useState(() => project.targetTimeSeconds / 3600);
 
+  const openTargetDialog = useCallback(() => {
+    setTargetHours(project.targetTimeSeconds / 3600);
+    setIsTargetDialogOpen(true);
+  }, [project.targetTimeSeconds]);
+
   const allocatedHours = useMemo(() => {
     return project.subPieces.reduce((sum, sp) => sum + sp.allocatedMinutes, 0) / 60;
   }, [project.subPieces]);
-
-  useEffect(() => {
-    if (isTargetDialogOpen) setTargetHours(project.targetTimeSeconds / 3600);
-  }, [isTargetDialogOpen, project.targetTimeSeconds]);
 
   const formattedTime = useMemo(() => formatDuration(project.totalTimeSeconds), [project.totalTimeSeconds]);
   const formattedTarget = useMemo(() => formatDuration(project.targetTimeSeconds), [project.targetTimeSeconds]);
 
   const description = project.description?.trim();
 
-  const isCompleted = project.status === "completed";
+  const isTargetReached =
+    project.targetTimeSeconds > 0 && project.totalTimeSeconds >= project.targetTimeSeconds;
 
   const handleFocusClick = () => {
-    if (isCompleted) {
+    if (isTargetReached) {
       setIsDialogOpen(true);
     } else {
       setActiveProject(project.id);
@@ -122,8 +125,17 @@ export function ProjectCard({ project }: ProjectCardProps) {
     }
   };
 
-  const handleRefocusConfirm = () => {
-    useFocusStore.getState().updateProject(project.id, { status: "idle" });
+  const handleRestart = () => {
+    useFocusStore.getState().restartProject(project.id);
+    setActiveProject(project.id);
+    router.push("/timer");
+    setIsDialogOpen(false);
+  };
+
+  const handleExtend = (additionalMinutes: number) => {
+    useFocusStore.getState().updateProject(project.id, {
+      targetTimeSeconds: project.targetTimeSeconds + additionalMinutes * 60,
+    });
     setActiveProject(project.id);
     router.push("/timer");
     setIsDialogOpen(false);
@@ -133,7 +145,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
     <Card className={cn(
       "group h-full bg-card-glow border border-border hover:shadow-md transition-shadow duration-200",
       isActive && "ring-2 ring-primary border-primary",
-      !isActive && isCompleted && "border-emerald-500"
+      !isActive && isTargetReached && "border-emerald-500"
     )}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
@@ -143,7 +155,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </CardTitle>
           <button
             type="button"
-            onClick={() => setIsTargetDialogOpen(true)}
+            onClick={openTargetDialog}
             className="inline-flex items-center justify-center rounded-full p-1 text-primary bg-primary/10 hover:bg-primary/20 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             aria-label="ပစ်မှတ်အချိန် ပြင်ရန် (Edit target)"
           >
@@ -189,7 +201,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <span className="text-muted-foreground">/ {formattedTarget}</span>
             <button
               type="button"
-              onClick={() => setIsTargetDialogOpen(true)}
+              onClick={openTargetDialog}
               className="inline-flex items-center justify-center rounded-full p-1 text-primary bg-primary/10 hover:bg-primary/20 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
               aria-label="ပစ်မှတ်အချိန် ပြင်ရန် (Edit target)"
             >
@@ -233,26 +245,15 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <AddSubPieceButton projectId={project.id} className="w-full bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]" />
         </div>
       </CardFooter>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} dismissible={false}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>ပရောဂျက်ပြီးစီးသွားပါပြီ (Project Completed)</DialogTitle>
-            <DialogDescription>
-              ဒီပရောဂျက်ကို ပြန်စ focus လုပ်ချင်ပါသလား?
-              <br />
-              This project is completed. Refocus will start a new session.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              မလုပ်ပါ (Cancel)
-            </Button>
-            <Button onClick={handleRefocusConfirm}>
-              focus လုပ်မယ် (Refocus)
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProjectCompletedDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        projectName={project.name}
+        totalTimeSeconds={project.totalTimeSeconds}
+        targetTimeSeconds={project.targetTimeSeconds}
+        onRestart={handleRestart}
+        onExtend={handleExtend}
+      />
       <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen} dismissible={false}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -309,7 +310,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <DialogDescription>
               {project.name} နှင့် sub piece အားလုံးကို ဖျက်မှာ သေချာပါသလား။ ဒီဟာကို ပြန်restore မလုပ်နိုင်ပါ။
               <br />
-              This will permanently delete "{project.name}" and all its sub-pieces.
+              This will permanently delete &ldquo;{project.name}&rdquo; and all its sub-pieces.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

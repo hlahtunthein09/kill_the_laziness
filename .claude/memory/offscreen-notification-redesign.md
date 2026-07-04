@@ -104,7 +104,9 @@ Web app: START_TIMER ──► background messageHandler ──► timerEngine.s
 
 Total ~280 lines across 4 pieces. Implement one piece at a time with tests and live browser verification.
 
-## Immediate changes already on branch
+## Immediate changes already on main
+
+The following changes were committed to `fix/session-2026-06-26`, then fast-forward merged into `main` and pushed. The `fix/session-2026-06-26` branch has been deleted both locally and remotely.
 
 - `lib/constants.ts`: `MILESTONE_INTERVAL_SECONDS = 60`.
 - `components/timer/TimerPanel.tsx`: uses `MILESTONE_INTERVAL_SECONDS` for milestone toast.
@@ -118,6 +120,8 @@ Verification at end of this chat:
 - 45 targeted tests passing (TimerToast, TimerPanel, TimerPanel.session-summary, timerAlarm).
 - `npm run build:ext` succeeds.
 - Full suite remains 564/566 (2 pre-existing `globals.test.ts` dark-mode CSS failures).
+
+Current branch: `main`.
 
 ## Next chat starting point
 

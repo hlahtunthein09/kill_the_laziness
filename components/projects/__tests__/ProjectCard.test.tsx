@@ -3,22 +3,33 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import type { Project } from '@/lib/types'
 
 const setActiveProjectMock = vi.fn()
+const restartProjectMock = vi.fn()
 const updateProjectMock = vi.fn()
+const getProjectByIdMock = vi.fn((id: string) => ({
+  id,
+  name: 'Mock Project',
+  targetTimeSeconds: 7200,
+  totalTimeSeconds: 0,
+}))
 const getRemainingBudgetSecondsMock = vi.fn(() => 3600)
 let mockActiveProjectId: string | null = null
 
-function useFocusStore(selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; updateProject: typeof updateProjectMock; getRemainingBudgetSeconds: typeof getRemainingBudgetSecondsMock }) => unknown) {
+function useFocusStore(selector: (state: { activeProjectId: string | null; setActiveProject: typeof setActiveProjectMock; restartProject: typeof restartProjectMock; updateProject: typeof updateProjectMock; getProjectById: typeof getProjectByIdMock; getRemainingBudgetSeconds: typeof getRemainingBudgetSecondsMock }) => unknown) {
   return selector({
     activeProjectId: mockActiveProjectId,
     setActiveProject: setActiveProjectMock,
+    restartProject: restartProjectMock,
     updateProject: updateProjectMock,
+    getProjectById: getProjectByIdMock,
     getRemainingBudgetSeconds: getRemainingBudgetSecondsMock,
   })
 }
 useFocusStore.getState = () => ({
   activeProjectId: mockActiveProjectId,
   setActiveProject: setActiveProjectMock,
+  restartProject: restartProjectMock,
   updateProject: updateProjectMock,
+  getProjectById: getProjectByIdMock,
   getRemainingBudgetSeconds: getRemainingBudgetSecondsMock,
 })
 
@@ -51,7 +62,9 @@ function createMockProject(overrides: Partial<Project> = {}): Project {
 describe('ProjectCard', () => {
   beforeEach(() => {
     setActiveProjectMock.mockClear()
+    restartProjectMock.mockClear()
     updateProjectMock.mockClear()
+    getProjectByIdMock.mockClear()
     getRemainingBudgetSecondsMock.mockClear()
     getRemainingBudgetSecondsMock.mockReturnValue(3600)
     mockPush.mockClear()
@@ -134,9 +147,9 @@ describe('ProjectCard', () => {
     expect(oceanContainer.querySelector('.bg-sky-400')).toBeInTheDocument()
   })
 
-  it('shows completed green border when project is completed', () => {
+  it('shows completed green border when project has reached its target', () => {
     const { container } = render(
-      <ProjectCard project={createMockProject({ status: 'completed' })} />
+      <ProjectCard project={createMockProject({ status: 'completed', totalTimeSeconds: 7200, targetTimeSeconds: 7200 })} />
     )
 
     expect(screen.getByText(/ပြီးစီး/)).toBeInTheDocument()
@@ -243,6 +256,8 @@ describe('ProjectCard', () => {
         project={createMockProject({
           id: 'proj-completed-status',
           status: 'completed',
+          totalTimeSeconds: 7200,
+          targetTimeSeconds: 7200,
         })}
       />
     )
@@ -253,20 +268,20 @@ describe('ProjectCard', () => {
     // Dialog should be open with the confirmation title
     expect(screen.getByText(/ပရောဂျက်ပြီးစီးသွားပါပြီ/)).toBeInTheDocument()
     expect(screen.getByText(/Project Completed/)).toBeInTheDocument()
-    expect(screen.getByText(/ဒီပရောဂျက်ကို ပြန်စ focus လုပ်ချင်ပါသလား/)).toBeInTheDocument()
-    expect(screen.getByText(/Refocus will start a new session/)).toBeInTheDocument()
 
     // Should NOT have set active project or navigated yet
     expect(setActiveProjectMock).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('clicking Cancel in the refocus dialog does not change project status or navigate', () => {
+  it('clicking Cancel in the completed-project dialog does not restart or navigate', () => {
     render(
       <ProjectCard
         project={createMockProject({
           id: 'proj-cancel-test',
           status: 'completed',
+          totalTimeSeconds: 7200,
+          targetTimeSeconds: 7200,
         })}
       />
     )
@@ -281,18 +296,21 @@ describe('ProjectCard', () => {
     const cancelButton = screen.getByRole('button', { name: /Cancel/i })
     fireEvent.click(cancelButton)
 
-    // Should NOT have called updateProject, setActiveProject, or navigated
+    // Should NOT have called restartProject, setActiveProject, or navigated
+    expect(restartProjectMock).not.toHaveBeenCalled()
     expect(updateProjectMock).not.toHaveBeenCalled()
     expect(setActiveProjectMock).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('clicking Confirm in the refocus dialog updates status, sets active project, and navigates', () => {
+  it('clicking Restart in the completed-project dialog restarts the project and navigates', () => {
     render(
       <ProjectCard
         project={createMockProject({
           id: 'proj-confirm-test',
           status: 'completed',
+          totalTimeSeconds: 7200,
+          targetTimeSeconds: 7200,
         })}
       />
     )
@@ -303,13 +321,13 @@ describe('ProjectCard', () => {
     // Dialog is open
     expect(screen.getByText(/ပရောဂျက်ပြီးစီးသွားပါပြီ/)).toBeInTheDocument()
 
-    // Click Refocus
-    const refocusButton = screen.getByRole('button', { name: /Refocus/i })
-    fireEvent.click(refocusButton)
+    // Click Restart
+    const restartButton = screen.getByRole('button', { name: /Restart/i })
+    fireEvent.click(restartButton)
 
-    // Should have called updateProject with status idle
-    expect(updateProjectMock).toHaveBeenCalledTimes(1)
-    expect(updateProjectMock).toHaveBeenCalledWith('proj-confirm-test', { status: 'idle' })
+    // Should have called restartProject
+    expect(restartProjectMock).toHaveBeenCalledTimes(1)
+    expect(restartProjectMock).toHaveBeenCalledWith('proj-confirm-test')
 
     // Should have set active project and navigated
     expect(setActiveProjectMock).toHaveBeenCalledTimes(1)

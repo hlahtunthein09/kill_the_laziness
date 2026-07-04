@@ -1,5 +1,6 @@
 import type { Browser } from "webextension-polyfill";
 import { getTimerState } from "./storage";
+import { notifyScheduleDue } from "./notifications";
 
 const SCHEDULE_ALARM_NAME = "schedule-check";
 
@@ -56,15 +57,5 @@ export async function onScheduleAlarmTick(): Promise<void> {
   lastNotifiedRef.minute = currentMinute;
 
   const browser = await getBrowser();
-  const iconUrl = browser.runtime.getURL("/icon/128.png");
-  try {
-    await browser.notifications.create("schedule-due", {
-      type: "basic",
-      iconUrl,
-      title: "FocusFlow AI — စီစဉ်ထားသော focus အချိန် ရောက်ပါပြီ",
-      message: `${state.projectName ?? "ပရောဂျက်"} · ${state.subPieceName ?? "အထွေထွေ focus"} · ${due.startTime}`,
-    });
-  } catch (err) {
-    console.error("[scheduleAlarm] Failed to show schedule notification:", err);
-  }
+  await notifyScheduleDue(browser, state, due);
 }

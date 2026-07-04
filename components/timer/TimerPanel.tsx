@@ -9,12 +9,14 @@ import { TimerToast } from "./TimerToast";
 import { ScheduleToast } from "@/components/schedule/ScheduleToast";
 import { CompletionDialog } from "./CompletionDialog";
 import { SubPieceForm } from "@/components/projects/SubPieceForm";
+import { ProjectCompletedDialog } from "@/components/projects/ProjectCompletedDialog";
 import { FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import type { ExtensionTimerState } from "@/extension/lib/types";
 import { MILESTONE_INTERVAL_SECONDS, XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
 import { playCompleteSound, playMilestoneSound } from "@/lib/sound";
 
@@ -57,18 +59,21 @@ export function TimerPanel() {
 
   // ALL hooks must be called unconditionally BEFORE any conditional return
   // to keep React hook count stable across renders.
-  const [projectCompleted, setProjectCompleted] = useState(false);
   const [isSubPieceFormOpen, setIsSubPieceFormOpen] = useState(false);
 
   const handleComplete = useCallback(() => {
     setToastTrigger("complete");
     setShowSummary(true);
-    setProjectCompleted(true);
     playCompleteSound();
   }, []);
 
-  const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset, reinitialize, resetToZero } =
+  const { isRunning, projectElapsed, subPieceRemaining, start, pause, reset, restart } =
     useTimer(activeProject?.id, resolvedSubPiece?.id, handleComplete);
+
+  const [displayProjectElapsed, setDisplayProjectElapsed] = useState(projectElapsed);
+  const [displaySubPieceRemaining, setDisplaySubPieceRemaining] = useState(subPieceRemaining);
+  const ignoreNextProjectSyncRef = useRef(false);
+  const ignoreNextSubPieceSyncRef = useRef(false);
 
   // Track previous isRunning to detect transitions (paused -> running)
   const prevIsRunningRef = useRef(isRunning);
@@ -76,6 +81,7 @@ export function TimerPanel() {
     "start" | "milestone" | "complete" | undefined
   >(undefined);
   const [showSummary, setShowSummary] = useState(false);
+  const [showRestartDialog, setShowRestartDialog] = useState(false);
 
   // Track last milestone (every 5 minutes = 300s)
   const lastMilestoneRef = useRef(0);
@@ -149,15 +155,67 @@ export function TimerPanel() {
     };
   }, [activeProject, resolvedSubPiece, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
 
+  useEffect(() => {
+    if (ignoreNextProjectSyncRef.current) {
+      ignoreNextProjectSyncRef.current = false;
+      return;
+    }
+    setDisplayProjectElapsed(projectElapsed);
+  }, [projectElapsed]);
+
+  useEffect(() => {
+    if (ignoreNextSubPieceSyncRef.current) {
+      ignoreNextSubPieceSyncRef.current = false;
+      return;
+    }
+    setDisplaySubPieceRemaining(subPieceRemaining);
+  }, [subPieceRemaining]);
+
+  // Listen for extension state broadcasts and keep displayed times accurate
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const state = (e as CustomEvent<ExtensionTimerState | undefined>).detail;
+      if (!state || typeof state !== "object") return;
+      if (
+        typeof state.projectElapsed !== "number" ||
+        typeof state.subPieceRemaining !== "number"
+      ) {
+        return;
+      }
+      ignoreNextProjectSyncRef.current = true;
+      ignoreNextSubPieceSyncRef.current = true;
+      setDisplayProjectElapsed(state.projectElapsed);
+      setDisplaySubPieceRemaining(state.subPieceRemaining);
+    };
+
+    window.addEventListener("ff:state", handler);
+    return () => window.removeEventListener("ff:state", handler);
+  }, []);
+
+  // When the active sub-piece changes mid-session (e.g. after refocusing a
+  // completed sub-piece or adding a new one from the completion summary),
+  // restart the timer so it picks up the new sub-piece's allocated time.
+  const hasInitializedRef = useRef(false);
+  const prevActiveSubPieceIdRef = useRef(activeSubPieceId);
+  useEffect(() => {
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      prevActiveSubPieceIdRef.current = activeSubPieceId;
+      return;
+    }
+
+    if (
+      activeSubPieceId &&
+      prevActiveSubPieceIdRef.current !== activeSubPieceId
+    ) {
+      restart();
+    }
+    prevActiveSubPieceIdRef.current = activeSubPieceId;
+  }, [activeSubPieceId, restart]);
+
   // Reset trigger after it has been consumed by TimerToast
   const handleToastShown = () => {
     setToastTrigger(undefined);
-  };
-
-  const handleContinue = () => {
-    reinitialize();
-    setShowSummary(false);
-    setProjectCompleted(false);
   };
 
   const handleAddSubPiece = useCallback(() => {
@@ -166,12 +224,74 @@ export function TimerPanel() {
   }, []);
 
   const handleContinueProject = useCallback(() => {
-    if (activeProject) {
+    if (!activeProject) {
+      setShowSummary(false);
+      return;
+    }
+
+    const completed = activeProject.subPieces.find(
+      (sp) => sp.status === "completed"
+    );
+
+    if (completed) {
+      // Reset the completed sub-piece so the user can keep focusing on it.
+      useFocusStore
+        .getState()
+        .refocusSubPiece(activeProject.id, completed.id, completed.allocatedMinutes);
+      useFocusStore.getState().setActiveSubPiece(activeProject.id, completed.id);
+    } else {
+      // Project-only focus mode — keep running against the project target.
       useFocusStore.getState().setActiveProject(activeProject.id);
     }
-    reinitialize();
+
     setShowSummary(false);
-  }, [activeProject, reinitialize]);
+  }, [activeProject]);
+
+  const handleBackToProjects = useCallback(() => {
+    setShowSummary(false);
+    router.push("/projects");
+  }, [router]);
+
+  const handleSubPieceAdded = useCallback(
+    (subPieceId: string) => {
+      if (activeProject) {
+        useFocusStore.getState().setActiveSubPiece(activeProject.id, subPieceId);
+      }
+    },
+    [activeProject]
+  );
+
+  const handleStart = useCallback(() => {
+    const targetReached =
+      activeProject &&
+      activeProject.targetTimeSeconds > 0 &&
+      projectElapsed >= activeProject.targetTimeSeconds;
+    if (targetReached) {
+      setShowRestartDialog(true);
+    } else {
+      start();
+    }
+  }, [activeProject, projectElapsed, start]);
+
+  const handleRestartConfirm = useCallback(() => {
+    if (!activeProject) return;
+    useFocusStore.getState().restartProject(activeProject.id);
+    restart();
+    start();
+    setShowRestartDialog(false);
+  }, [activeProject, restart, start]);
+
+  const handleExtendConfirm = useCallback(
+    (additionalMinutes: number) => {
+      if (!activeProject) return;
+      useFocusStore.getState().updateProject(activeProject.id, {
+        targetTimeSeconds: activeProject.targetTimeSeconds + additionalMinutes * 60,
+      });
+      start();
+      setShowRestartDialog(false);
+    },
+    [activeProject, start]
+  );
 
   // Empty state: no active project
   if (!activeProject) {
@@ -242,6 +362,7 @@ export function TimerPanel() {
           open={isSubPieceFormOpen}
           onOpenChange={setIsSubPieceFormOpen}
           projectId={activeProject.id}
+          onSubPieceAdded={handleSubPieceAdded}
         />
       </div>
     );
@@ -269,19 +390,13 @@ export function TimerPanel() {
           allocatedMinutes={Math.round(activeProject.targetTimeSeconds / 60)}
           xpGained={projectXpGained}
           mode="project"
-          onContinueProject={() => {
-            reinitialize();
-            setShowSummary(false);
-          }}
-        />
-        <SubPieceForm
-          open={isSubPieceFormOpen}
-          onOpenChange={setIsSubPieceFormOpen}
-          projectId={activeProject.id}
+          onContinueProject={handleContinueProject}
+          onBackToProjects={handleBackToProjects}
         />
       </div>
     );
   }
+
 
   return (
     <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
@@ -308,8 +423,8 @@ export function TimerPanel() {
       </div>
 
       <TimerDisplay
-        projectElapsed={projectElapsed}
-        subPieceRemaining={subPieceRemaining}
+        projectElapsed={displayProjectElapsed}
+        subPieceRemaining={displaySubPieceRemaining}
         isRunning={isRunning}
         allocatedMinutes={resolvedSubPiece?.allocatedMinutes}
         subPieceName={resolvedSubPiece?.name}
@@ -318,7 +433,7 @@ export function TimerPanel() {
 
       <TimerControls
         isRunning={isRunning}
-        onStart={start}
+        onStart={handleStart}
         onPause={pause}
         onReset={reset}
       />
@@ -327,6 +442,17 @@ export function TimerPanel() {
         open={isSubPieceFormOpen}
         onOpenChange={setIsSubPieceFormOpen}
         projectId={activeProject.id}
+        onSubPieceAdded={handleSubPieceAdded}
+      />
+
+      <ProjectCompletedDialog
+        open={showRestartDialog}
+        onOpenChange={setShowRestartDialog}
+        projectName={activeProject.name}
+        totalTimeSeconds={projectElapsed}
+        targetTimeSeconds={activeProject.targetTimeSeconds}
+        onRestart={handleRestartConfirm}
+        onExtend={handleExtendConfirm}
       />
     </div>
   );

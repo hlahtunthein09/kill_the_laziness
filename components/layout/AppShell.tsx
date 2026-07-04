@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
@@ -9,8 +9,17 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+const MD_BREAKPOINT = 768;
+
 export function AppShell({ children }: AppShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Default to open on larger screens; close on small screens after hydration.
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < MD_BREAKPOINT) {
+      setSidebarOpen(false);
+    }
+  }, []);
 
   return (
     <div className={cn("flex h-screen w-full overflow-hidden bg-background")}>
