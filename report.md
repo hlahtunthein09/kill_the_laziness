@@ -17,7 +17,7 @@ Built using a piece-by-piece, user-confirmed workflow. Each feature (project/sub
 
 ### MCP
 
-- path: mcp.json
+- path: .mcp.json
 - what: MCP server registry used during development — **context7** for library docs (Next.js, Zustand, Framer Motion, shadcn/ui, WXT, webextension-polyfill), **ctxai** for package-safety validation, **github** for branch/PR/issue operations, and **playwright** (also configured in `.mcp.json`) for browser automation and live UI verification.
 
 ### Skill
