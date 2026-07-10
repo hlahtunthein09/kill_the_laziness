@@ -16,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { formatDuration } from "@/lib/time";
+import { getRemainingTargetSeconds, doesSubPieceFit } from "@/lib/project";
 import { ProjectCompletedDialog } from "./ProjectCompletedDialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Clock, CheckCircle2, PauseCircle, PlayCircle, Circle, Target } from "lucide-react";
@@ -67,9 +68,16 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
   const [isProjectCompletedDialogOpen, setIsProjectCompletedDialogOpen] = useState(false);
   const [newAllocatedMinutes, setNewAllocatedMinutes] = useState(subPiece.allocatedMinutes);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
+  const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [extendMinutes, setExtendMinutes] = useState(1);
+  const [extendContext, setExtendContext] = useState<"warning" | "refocus" | null>(null);
 
   const isTargetReached =
     project && project.targetTimeSeconds > 0 && project.totalTimeSeconds >= project.targetTimeSeconds;
+
+  const remainingMinutes = project ? Math.floor(getRemainingTargetSeconds(project) / 60) : 0;
+  const isRefocusOverBudget = newAllocatedMinutes > remainingMinutes;
 
   const handleFocus = () => {
     setActiveProject(projectId);
@@ -77,20 +85,75 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
     router.push("/timer");
   };
 
-  const handleRefocus = () => {
-    useFocusStore.getState().refocusSubPiece(projectId, subPiece.id, newAllocatedMinutes);
+  const handleFocusWholeProject = () => {
+    setActiveProject(projectId);
+    router.push("/timer");
+    setIsWarningDialogOpen(false);
+  };
+
+  const openExtendDialogFromWarning = () => {
+    if (!project) return;
+    const deficitMinutes = Math.max(1, subPiece.allocatedMinutes - remainingMinutes);
+    setExtendMinutes(deficitMinutes);
+    setExtendContext("warning");
+    setIsWarningDialogOpen(false);
+    setIsExtendDialogOpen(true);
+  };
+
+  const openExtendDialogFromRefocus = () => {
+    if (!project) return;
+    const deficitMinutes = Math.max(1, newAllocatedMinutes - remainingMinutes);
+    setExtendMinutes(deficitMinutes);
+    setExtendContext("refocus");
+    setIsDialogOpen(false);
+    setIsExtendDialogOpen(true);
+  };
+
+  const handleExtendConfirm = () => {
+    if (!project || !extendContext) return;
+    const minutes = Math.max(1, extendMinutes);
+    useFocusStore.getState().updateProject(projectId, {
+      targetTimeSeconds: project.targetTimeSeconds + minutes * 60,
+    });
+    setIsExtendDialogOpen(false);
+    setExtendContext(null);
+    if (extendContext === "warning") {
+      handleFocus();
+    } else {
+      performRefocus(newAllocatedMinutes);
+    }
+  };
+
+  const handleExtendCancel = () => {
+    setIsExtendDialogOpen(false);
+    setExtendContext(null);
+  };
+
+  const tryFocusSubPiece = () => {
+    if (!project) return;
+    if (doesSubPieceFit(project, subPiece)) {
+      handleFocus();
+    } else {
+      setIsWarningDialogOpen(true);
+    }
+  };
+
+  const performRefocus = (minutes: number) => {
+    useFocusStore.getState().refocusSubPiece(projectId, subPiece.id, minutes);
     setActiveProject(projectId);
     setActiveSubPiece(projectId, subPiece.id);
     router.push("/timer");
     setIsDialogOpen(false);
   };
 
+  const handleRefocus = () => {
+    if (!project || isRefocusOverBudget) return;
+    performRefocus(newAllocatedMinutes);
+  };
+
   const handleProjectRestart = () => {
     useFocusStore.getState().restartProject(projectId);
-    useFocusStore.getState().refocusSubPiece(projectId, subPiece.id, newAllocatedMinutes);
-    setActiveProject(projectId);
-    setActiveSubPiece(projectId, subPiece.id);
-    router.push("/timer");
+    performRefocus(newAllocatedMinutes);
     setIsProjectCompletedDialogOpen(false);
   };
 
@@ -99,7 +162,7 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
     useFocusStore.getState().updateProject(projectId, {
       targetTimeSeconds: project.targetTimeSeconds + additionalMinutes * 60,
     });
-    handleRefocus();
+    performRefocus(newAllocatedMinutes);
     setIsProjectCompletedDialogOpen(false);
   };
 
@@ -112,7 +175,7 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
     } else if (isCompleted) {
       setIsDialogOpen(true);
     } else {
-      handleFocus();
+      tryFocusSubPiece();
     }
     setIsDetailOpen(false);
   };
@@ -124,7 +187,7 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
     } else if (isCompleted) {
       setIsDialogOpen(true);
     } else {
-      handleFocus();
+      tryFocusSubPiece();
     }
   };
 
@@ -186,7 +249,23 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
               value={newAllocatedMinutes}
               onChange={(e) => setNewAllocatedMinutes(Number(e.target.value))}
               data-testid="refocus-duration-input"
+              aria-invalid={isRefocusOverBudget}
             />
+            {isRefocusOverBudget && (
+              <p className="text-sm text-destructive" data-testid="refocus-error">
+                ပစ်မှတ်အချိန် {remainingMinutes} မိနစ်သာ ကျန်ပါတယ်။ ဤအခန်းကဏ္ဍအတွက် အများဆုံး {remainingMinutes} မိနစ်သာ ရွေးနိုင်ပါတယ်။
+              </p>
+            )}
+            {isRefocusOverBudget && (
+              <Button
+                variant="link"
+                className="h-auto p-0 justify-start"
+                onClick={openExtendDialogFromRefocus}
+                data-testid="refocus-extend-button"
+              >
+                ပစ်မှတ်အချိန်တိုးမယ် (Extend target)
+              </Button>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -198,9 +277,86 @@ export function SubPieceCard({ subPiece, projectId }: SubPieceCardProps) {
             </Button>
             <Button
               onClick={handleRefocus}
+              disabled={isRefocusOverBudget}
               data-testid="refocus-confirm-button"
             >
               focus လုပ်မယ် (Refocus)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Warning Dialog (over-budget focus attempt) */}
+      <Dialog open={isWarningDialogOpen} onOpenChange={setIsWarningDialogOpen}>
+        <DialogContent className="p-6">
+          <DialogHeader>
+            <DialogTitle>
+              ဤအခန်းကဏ္ဍအတွက် အချိန်မလုံလောက်ပါ (Not enough time for this sub-piece)
+            </DialogTitle>
+            <DialogDescription data-testid="warning-description" className="mb-2">
+              &ldquo;{project?.name}&rdquo; မှ ပစ်မှတ်အချိန်သို့ {remainingMinutes} မိနစ်သာ ကျန်ပါတယ်။ &ldquo;{subPiece.name}&rdquo; အတွက် {subPiece.allocatedMinutes} မိနစ် လိုအပ်ပါတယ်။
+              <br />
+              <span className="text-muted-foreground">
+                Not enough target time remaining for this sub-piece.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-3 mt-4 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setIsWarningDialogOpen(false)}
+              data-testid="warning-cancel-button"
+            >
+              မလုပ်ပါ (Cancel)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleFocusWholeProject}
+              data-testid="warning-focus-whole-button"
+            >
+              ပရောဂျက်တစ်ခုလုံး focus လုပ်မယ် (Focus whole project)
+            </Button>
+            <Button
+              onClick={openExtendDialogFromWarning}
+              data-testid="warning-extend-button"
+            >
+              ပစ်မှတ်အချိန်တိုးမယ် (Extend target)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extend Target Dialog */}
+      <Dialog open={isExtendDialogOpen} onOpenChange={setIsExtendDialogOpen}>
+        <DialogContent className="p-6" data-testid="extend-dialog">
+          <DialogHeader>
+            <DialogTitle>ပရောဂျက်အတွက် အချိန်တိုးမည် (Extend Project Target)</DialogTitle>
+            <DialogDescription className="mb-2">
+              ဘယ်လောက်မိနစ် တိုးချင်ပါသလဲ? (How many minutes to add?)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={extendMinutes}
+              onChange={(e) => setExtendMinutes(Number(e.target.value))}
+              data-testid="extend-minutes-input"
+            />
+          </div>
+          <DialogFooter className="gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={handleExtendCancel}
+              data-testid="extend-cancel-button"
+            >
+              မလုပ်ပါ (Cancel)
+            </Button>
+            <Button
+              onClick={handleExtendConfirm}
+              data-testid="extend-confirm-button"
+            >
+              တိုးမယ် (Extend)
             </Button>
           </DialogFooter>
         </DialogContent>

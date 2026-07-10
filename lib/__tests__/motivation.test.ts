@@ -29,6 +29,21 @@ describe('getMotivation', () => {
     expect(result.my.length).toBeGreaterThan(0);
   });
 
+  it('returns a Burmese/English completed message when remainingSeconds is 0', () => {
+    const ctx: MotivationContext = {
+      elapsedSeconds: 600,
+      remainingSeconds: 0,
+      isRunning: false,
+      completedToday: 0,
+    };
+    const result = getMotivation(ctx);
+    expect(result.tier).toBe('completed');
+    expect(result.my).toBeTruthy();
+    expect(result.my.length).toBeGreaterThan(0);
+    expect(result.en).toBeTruthy();
+    expect(result.en.length).toBeGreaterThan(0);
+  });
+
   it('returns a Burmese string for struggling tier', () => {
     const ctx: MotivationContext = {
       elapsedSeconds: 400,
@@ -121,6 +136,10 @@ describe('getMotivation', () => {
     // completing
     const c = getMotivation({ elapsedSeconds: 600, remainingSeconds: 30, isRunning: true, completedToday: 0 });
     expect(c.tier).toBe('completing');
+
+    // completed
+    const co = getMotivation({ elapsedSeconds: 600, remainingSeconds: 0, isRunning: false, completedToday: 0 });
+    expect(co.tier).toBe('completed');
 
     // struggling
     const s = getMotivation({ elapsedSeconds: 400, remainingSeconds: 600, isRunning: true, completedToday: 0 });

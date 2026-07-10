@@ -1,5 +1,4 @@
 import type { Browser } from "webextension-polyfill";
-import type { FocusSessionSchedule } from "@/lib/types";
 import { setExtensionSettings } from "./settingsSync";
 
 const STORE_KEY = "ff_focus_store";
@@ -17,34 +16,6 @@ async function getBrowser(): Promise<Browser> {
     _browser = browser;
   }
   return _browser!;
-}
-
-function readSchedulesFromStore(): FocusSessionSchedule[] | undefined {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return undefined;
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return undefined;
-
-    const record = parsed as Record<string, unknown>;
-    if (!("state" in record)) return undefined;
-
-    const state = record.state as Record<string, unknown>;
-    if (!("schedules" in state) || !Array.isArray(state.schedules)) return undefined;
-
-    return state.schedules as FocusSessionSchedule[];
-  } catch {
-    return undefined;
-  }
-}
-
-// Timer state is now owned by the extension service worker (timerEngine.ts).
-// The web app sends commands (START/PAUSE/RESET_TIMER) and reads state via
-// GET_TIMER_STATE / STATE_UPDATED broadcasts. We no longer forward the web
-// app's localStorage session here to avoid fighting with the engine.
-export async function syncFocusSession(): Promise<void> {
-  // Deprecated: extension owns active session state.
 }
 
 export async function syncExtensionSettings(): Promise<void> {

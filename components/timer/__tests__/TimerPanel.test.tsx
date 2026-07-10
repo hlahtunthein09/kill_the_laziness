@@ -8,6 +8,11 @@ import { toast } from "sonner";
 
 const restartProjectMock = vi.fn();
 const setActiveProjectMock = vi.fn();
+const updateProjectMock = vi.fn();
+const mockStart = vi.fn();
+const mockPause = vi.fn();
+const mockReset = vi.fn();
+const mockRestart = vi.fn();
 
 // Mock the store
 vi.mock("@/lib/store/useFocusStore", () => ({
@@ -15,6 +20,7 @@ vi.mock("@/lib/store/useFocusStore", () => ({
     getState: () => ({
       restartProject: restartProjectMock,
       setActiveProject: setActiveProjectMock,
+      updateProject: updateProjectMock,
     }),
   }),
 }));
@@ -26,12 +32,12 @@ vi.mock("@/hooks/useTimer", () => ({
     projectElapsed: 0,
     subPieceRemaining: 0,
     targetReached: false,
-    start: vi.fn(),
-    pause: vi.fn(),
-    reset: vi.fn(),
+    start: mockStart,
+    pause: mockPause,
+    reset: mockReset,
     reinitialize: vi.fn(),
     resetToZero: vi.fn(),
-    restart: vi.fn(),
+    restart: mockRestart,
   })),
 }));
 
@@ -94,6 +100,11 @@ describe("TimerPanel", () => {
     vi.clearAllMocks();
     restartProjectMock.mockClear();
     setActiveProjectMock.mockClear();
+    updateProjectMock.mockClear();
+    mockStart.mockClear();
+    mockPause.mockClear();
+    mockReset.mockClear();
+    mockRestart.mockClear();
   });
 
   it("shows empty state when no active project", () => {
@@ -739,48 +750,439 @@ describe("TimerPanel", () => {
 
     render(<TimerPanel />);
 
-    // Should show normal timer UI, not target-reached card
-    expect(screen.queryByText(/Target reached/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId("timer-start")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("timer-start"));
-
-    expect(screen.getByText(/Project Completed/i)).toBeInTheDocument();
+    // Should show completed status and disable start/reset buttons
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument();
+    expect(screen.getByTestId("timer-start")).toBeDisabled();
+    expect(screen.getByTestId("timer-reset")).toBeDisabled();
     expect(startMock).not.toHaveBeenCalled();
   });
 
-  it("restarts a completed project and starts the timer when restart is confirmed", () => {
+  it("starts timer when active sub-piece fits within remaining target time", () => {
     const startMock = vi.fn();
-    const restartMock = vi.fn();
-    const project = createMockProject({ status: "completed" });
+    const project = createMockProject({
+      totalTimeSeconds: 0,
+      targetTimeSeconds: 60 * 60,
+    });
 
     // @ts-expect-error - mock return
     useFocusStore.mockImplementation((selector) =>
-      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
     );
 
     // @ts-expect-error - mock return
     useTimer.mockReturnValue({
       isRunning: false,
-      projectElapsed: 3600,
-      subPieceRemaining: 0,
+      projectElapsed: 0,
+      subPieceRemaining: 25 * 60,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+
+    expect(startMock).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText(/Not enough time for this sub-piece/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("blocks start when active sub-piece exceeds remaining target time", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 5 * 60,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+
+    expect(screen.getByText(/Not enough time for this sub-piece/i)).toBeInTheDocument();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("warning dialog shows remaining and allocated minutes", () => {
+    const project = createMockProject({
+      name: "Budget Test Project",
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 5 * 60,
+      targetReached: false,
+      start: vi.fn(),
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+
+    const description = screen.getByTestId("budget-warning-description");
+    expect(description).toHaveTextContent("2 မိနစ်");
+    expect(description).toHaveTextContent("25 မိနစ်");
+    expect(description).toHaveTextContent("Budget Test Project");
+    expect(description).toHaveTextContent("Test SubPiece");
+  });
+
+  it("Extend target opens input dialog with default deficit value", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 5 * 60,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+    fireEvent.click(screen.getByTestId("budget-warning-extend-button"));
+
+    expect(screen.getByTestId("extend-dialog")).toBeInTheDocument();
+    expect(screen.getByText(/ပရောဂျက်အတွက် အချိန်တိုးမည်/)).toBeInTheDocument();
+    expect(screen.getByTestId("extend-minutes-input")).toHaveValue(23);
+    expect(updateProjectMock).not.toHaveBeenCalled();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("custom extend amount updates target and starts timer", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 5 * 60,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+    fireEvent.click(screen.getByTestId("budget-warning-extend-button"));
+
+    const input = screen.getByTestId("extend-minutes-input");
+    fireEvent.change(input, { target: { value: "10" } });
+    fireEvent.click(screen.getByTestId("extend-confirm-button"));
+
+    expect(updateProjectMock).toHaveBeenCalledTimes(1);
+    expect(updateProjectMock).toHaveBeenCalledWith("proj-1", {
+      targetTimeSeconds: 60 * 60 + 10 * 60,
+    });
+    expect(startMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to project-only focus and starts timer when Focus whole project is clicked", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 5 * 60,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+    fireEvent.click(screen.getByTestId("budget-warning-focus-whole-button"));
+
+    expect(setActiveProjectMock).toHaveBeenCalledTimes(1);
+    expect(setActiveProjectMock).toHaveBeenCalledWith("proj-1");
+    expect(startMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows ProjectCompletedDialog instead of budget dialog when target is reached", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 60 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: false,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 60 * 60,
+      subPieceRemaining: 5 * 60,
       targetReached: true,
       start: startMock,
       pause: vi.fn(),
       reset: vi.fn(),
       reinitialize: vi.fn(),
       resetToZero: vi.fn(),
-      restart: restartMock,
+      restart: vi.fn(),
     });
 
     render(<TimerPanel />);
 
     fireEvent.click(screen.getByTestId("timer-start"));
-    fireEvent.click(screen.getByRole("button", { name: /Restart/i }));
 
-    expect(restartProjectMock).toHaveBeenCalledTimes(1);
-    expect(restartProjectMock).toHaveBeenCalledWith("proj-1");
-    expect(restartMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Project Completed/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Not enough time for this sub-piece/i)
+    ).not.toBeInTheDocument();
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("bypasses budget check when projectOnlyFocus is true", () => {
+    const startMock = vi.fn();
+    const project = createMockProject({
+      totalTimeSeconds: 58 * 60,
+      targetTimeSeconds: 60 * 60,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: true,
+      })
+    );
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 58 * 60,
+      subPieceRemaining: 0,
+      targetReached: false,
+      start: startMock,
+      pause: vi.fn(),
+      reset: vi.fn(),
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: vi.fn(),
+    });
+
+    render(<TimerPanel />);
+
+    fireEvent.click(screen.getByTestId("timer-start"));
+
     expect(startMock).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText(/Not enough time for this sub-piece/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("calls timer start when extension dispatches ff:start", () => {
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 0,
+      subPieceRemaining: 1500,
+      targetReached: false,
+      start: mockStart,
+      pause: mockPause,
+      reset: mockReset,
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: mockRestart,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    render(<TimerPanel />);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("ff:start", { bubbles: true }));
+    });
+
+    expect(mockStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls timer pause when extension dispatches ff:pause", () => {
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: true,
+      projectElapsed: 300,
+      subPieceRemaining: 1200,
+      targetReached: false,
+      start: mockStart,
+      pause: mockPause,
+      reset: mockReset,
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: mockRestart,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    render(<TimerPanel />);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("ff:pause", { bubbles: true }));
+    });
+
+    expect(mockPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls timer reset when extension dispatches ff:reset", () => {
+    const project = createMockProject();
+
+    // @ts-expect-error - mock return
+    useTimer.mockReturnValue({
+      isRunning: false,
+      projectElapsed: 300,
+      subPieceRemaining: 1200,
+      targetReached: false,
+      start: mockStart,
+      pause: mockPause,
+      reset: mockReset,
+      reinitialize: vi.fn(),
+      resetToZero: vi.fn(),
+      restart: mockRestart,
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({ projects: [project], activeProjectId: "proj-1", activeSubPieceId: null })
+    );
+
+    render(<TimerPanel />);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("ff:reset", { bubbles: true }));
+    });
+
+    expect(mockReset).toHaveBeenCalledTimes(1);
   });
 });

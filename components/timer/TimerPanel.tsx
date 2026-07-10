@@ -5,7 +5,6 @@ import { useTimer } from "@/hooks/useTimer";
 import { useScheduleWatcher } from "@/hooks/useScheduleWatcher";
 import { TimerDisplay } from "./TimerDisplay";
 import { TimerControls } from "./TimerControls";
-import { TimerToast } from "./TimerToast";
 import { ScheduleToast } from "@/components/schedule/ScheduleToast";
 import { CompletionDialog } from "./CompletionDialog";
 import { SubPieceForm } from "@/components/projects/SubPieceForm";
@@ -16,9 +15,19 @@ import type { MotivationContext } from "@/lib/motivation";
 import { getMotivation } from "@/lib/motivation";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ExtensionTimerState } from "@/extension/lib/types";
-import { MILESTONE_INTERVAL_SECONDS, XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
+import { XP_PER_MINUTE, XP_SUB_PIECE_COMPLETE } from "@/lib/constants";
 import { playCompleteSound, playMilestoneSound } from "@/lib/sound";
+import { doesSubPieceFit, getRemainingTargetSeconds } from "@/lib/project";
 
 export function TimerPanel() {
   const router = useRouter();
@@ -28,6 +37,7 @@ export function TimerPanel() {
   const projects = useFocusStore((s) => s.projects);
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
+  const activeSubPiece = activeProject?.subPieces.find((sp) => sp.id === activeSubPieceId);
 
   // Resolve sub-piece with priority:
   // 1. projectOnlyFocus: true — no sub-piece (project-only timer)
@@ -62,7 +72,6 @@ export function TimerPanel() {
   const [isSubPieceFormOpen, setIsSubPieceFormOpen] = useState(false);
 
   const handleComplete = useCallback(() => {
-    setToastTrigger("complete");
     setShowSummary(true);
     playCompleteSound();
   }, []);
@@ -75,19 +84,12 @@ export function TimerPanel() {
   const ignoreNextProjectSyncRef = useRef(false);
   const ignoreNextSubPieceSyncRef = useRef(false);
 
-  // Track previous isRunning to detect transitions (paused -> running)
-  const prevIsRunningRef = useRef(isRunning);
-  const [toastTrigger, setToastTrigger] = useState<
-    "start" | "milestone" | "complete" | undefined
-  >(undefined);
   const [showSummary, setShowSummary] = useState(false);
   const [showRestartDialog, setShowRestartDialog] = useState(false);
+  const [showBudgetWarningDialog, setShowBudgetWarningDialog] = useState(false);
   const [resumeAfterSummary, setResumeAfterSummary] = useState(false);
-
-  // Track last milestone (every 5 minutes = 300s)
-  const lastMilestoneRef = useRef(0);
-  // Track last tier for tier-change milestone
-  const lastTierRef = useRef<string>("");
+  const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [extendMinutes, setExtendMinutes] = useState(1);
 
   const motivationContext: MotivationContext = useMemo(
     () => ({
@@ -98,36 +100,6 @@ export function TimerPanel() {
     }),
     [projectElapsed, subPieceRemaining, isRunning]
   );
-
-  // Detect start trigger: transition from paused to running
-  useEffect(() => {
-    if (!prevIsRunningRef.current && isRunning) {
-      setToastTrigger("start");
-    }
-    prevIsRunningRef.current = isRunning;
-  }, [isRunning]);
-
-  // Detect milestone trigger: every N seconds of elapsed time
-  useEffect(() => {
-    if (!isRunning) return;
-    const milestone = Math.floor(projectElapsed / MILESTONE_INTERVAL_SECONDS);
-    if (milestone > lastMilestoneRef.current && milestone > 0) {
-      lastMilestoneRef.current = milestone;
-      setToastTrigger("milestone");
-      playMilestoneSound();
-    }
-  }, [isRunning, projectElapsed]);
-
-  // Detect tier-change milestone
-  useEffect(() => {
-    if (!isRunning) return;
-    const motivation = getMotivation(motivationContext);
-    if (lastTierRef.current && lastTierRef.current !== motivation.tier) {
-      setToastTrigger("milestone");
-      playMilestoneSound();
-    }
-    lastTierRef.current = motivation.tier;
-  }, [isRunning, motivationContext]);
 
   // Extension control listeners: ff:start, ff:pause, ff:reset
   const handleExtensionStart = useCallback(() => {
@@ -143,7 +115,7 @@ export function TimerPanel() {
   }, [reset]);
 
   useEffect(() => {
-    if (!activeProject || !resolvedSubPiece) return;
+    if (!activeProject) return;
 
     window.addEventListener("ff:start", handleExtensionStart);
     window.addEventListener("ff:pause", handleExtensionPause);
@@ -154,7 +126,7 @@ export function TimerPanel() {
       window.removeEventListener("ff:pause", handleExtensionPause);
       window.removeEventListener("ff:reset", handleExtensionReset);
     };
-  }, [activeProject, resolvedSubPiece, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
+  }, [activeProject, handleExtensionStart, handleExtensionPause, handleExtensionReset]);
 
   useEffect(() => {
     if (ignoreNextProjectSyncRef.current) {
@@ -224,11 +196,6 @@ export function TimerPanel() {
     start();
   }, [resumeAfterSummary, restart, start]);
 
-  // Reset trigger after it has been consumed by TimerToast
-  const handleToastShown = () => {
-    setToastTrigger(undefined);
-  };
-
   const handleAddSubPiece = useCallback(() => {
     setShowSummary(false);
     setIsSubPieceFormOpen(true);
@@ -268,10 +235,17 @@ export function TimerPanel() {
       projectElapsed >= activeProject.targetTimeSeconds;
     if (targetReached) {
       setShowRestartDialog(true);
+    } else if (
+      !projectOnlyFocus &&
+      activeProject &&
+      resolvedSubPiece &&
+      !doesSubPieceFit(activeProject, resolvedSubPiece)
+    ) {
+      setShowBudgetWarningDialog(true);
     } else {
       start();
     }
-  }, [activeProject, projectElapsed, start]);
+  }, [activeProject, projectElapsed, projectOnlyFocus, resolvedSubPiece, start]);
 
   const handleRestartConfirm = useCallback(() => {
     if (!activeProject) return;
@@ -281,7 +255,7 @@ export function TimerPanel() {
     setShowRestartDialog(false);
   }, [activeProject, restart, start]);
 
-  const handleExtendConfirm = useCallback(
+  const handleProjectExtend = useCallback(
     (additionalMinutes: number) => {
       if (!activeProject) return;
       useFocusStore.getState().updateProject(activeProject.id, {
@@ -292,6 +266,50 @@ export function TimerPanel() {
     },
     [activeProject, start]
   );
+
+  const remainingTargetMinutes = activeProject
+    ? Math.floor(getRemainingTargetSeconds(activeProject) / 60)
+    : 0;
+
+  const isCompleted = projectOnlyFocus
+    ? (activeProject?.targetTimeSeconds ?? 0) > 0 && projectElapsed >= (activeProject?.targetTimeSeconds ?? 0)
+    : activeSubPiece?.status === "completed" || subPieceRemaining === 0;
+
+  const openExtendDialog = useCallback(() => {
+    if (!activeProject || !resolvedSubPiece) return;
+    const deficitMinutes = Math.max(
+      1,
+      resolvedSubPiece.allocatedMinutes - remainingTargetMinutes
+    );
+    setExtendMinutes(deficitMinutes);
+    setShowBudgetWarningDialog(false);
+    setIsExtendDialogOpen(true);
+  }, [activeProject, resolvedSubPiece, remainingTargetMinutes]);
+
+  const handleExtendDialogConfirm = useCallback(() => {
+    if (!activeProject) return;
+    const minutes = Math.max(1, extendMinutes);
+    useFocusStore.getState().updateProject(activeProject.id, {
+      targetTimeSeconds: activeProject.targetTimeSeconds + minutes * 60,
+    });
+    setIsExtendDialogOpen(false);
+    start();
+  }, [activeProject, extendMinutes, start]);
+
+  const handleExtendDialogCancel = useCallback(() => {
+    setIsExtendDialogOpen(false);
+  }, []);
+
+  const handleFocusWholeProjectAndStart = useCallback(() => {
+    if (!activeProject) return;
+    useFocusStore.getState().setActiveProject(activeProject.id);
+    setShowBudgetWarningDialog(false);
+    start();
+  }, [activeProject, start]);
+
+  const handleCancelBudgetWarning = useCallback(() => {
+    setShowBudgetWarningDialog(false);
+  }, []);
 
   // Empty state: no active project
   if (!activeProject) {
@@ -337,11 +355,6 @@ export function TimerPanel() {
   if (showSummary && completedSubPiece) {
     return (
       <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
-        <TimerToast
-          context={motivationContext}
-          trigger={toastTrigger}
-          onShown={handleToastShown}
-        />
         <ScheduleToast
           dueSchedule={dueSchedule}
           projectName={dueProject?.name}
@@ -372,11 +385,6 @@ export function TimerPanel() {
   if (showSummary && !completedSubPiece) {
     return (
       <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
-        <TimerToast
-          context={motivationContext}
-          trigger={toastTrigger}
-          onShown={handleToastShown}
-        />
         <ScheduleToast
           dueSchedule={dueSchedule}
           projectName={dueProject?.name}
@@ -400,11 +408,6 @@ export function TimerPanel() {
 
   return (
     <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
-      <TimerToast
-        context={motivationContext}
-        trigger={toastTrigger}
-        onShown={handleToastShown}
-      />
       <ScheduleToast
         dueSchedule={dueSchedule}
         projectName={dueProject?.name}
@@ -426,6 +429,7 @@ export function TimerPanel() {
         projectElapsed={displayProjectElapsed}
         subPieceRemaining={displaySubPieceRemaining}
         isRunning={isRunning}
+        isCompleted={isCompleted}
         allocatedMinutes={resolvedSubPiece?.allocatedMinutes}
         subPieceName={resolvedSubPiece?.name}
         targetTimeSeconds={activeProject.targetTimeSeconds}
@@ -433,6 +437,7 @@ export function TimerPanel() {
 
       <TimerControls
         isRunning={isRunning}
+        isCompleted={isCompleted}
         onStart={handleStart}
         onPause={pause}
         onReset={reset}
@@ -452,8 +457,82 @@ export function TimerPanel() {
         totalTimeSeconds={projectElapsed}
         targetTimeSeconds={activeProject.targetTimeSeconds}
         onRestart={handleRestartConfirm}
-        onExtend={handleExtendConfirm}
+        onExtend={handleProjectExtend}
       />
+
+      <Dialog open={showBudgetWarningDialog} onOpenChange={setShowBudgetWarningDialog}>
+        <DialogContent className="p-6">
+          <DialogHeader>
+            <DialogTitle>
+              ဤအခန်းကဏ္ဍအတွက် အချိန်မလုံလောက်ပါ (Not enough time for this sub-piece)
+            </DialogTitle>
+            <DialogDescription data-testid="budget-warning-description" className="mb-2">
+              &ldquo;{activeProject?.name}&rdquo; မှ ပစ်မှတ်အချိန်သို့ {remainingTargetMinutes} မိနစ်သာ ကျန်ပါတယ်။ &ldquo;{resolvedSubPiece?.name}&rdquo; အတွက် {resolvedSubPiece?.allocatedMinutes} မိနစ် လိုအပ်ပါတယ်။
+              <br />
+              <span className="text-muted-foreground">
+                Not enough target time remaining for this sub-piece.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-3 mt-4 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={handleCancelBudgetWarning}
+              data-testid="budget-warning-cancel-button"
+            >
+              မလုပ်ပါ (Cancel)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleFocusWholeProjectAndStart}
+              data-testid="budget-warning-focus-whole-button"
+            >
+              ပရောဂျက်တစ်ခုလုံး focus လုပ်မယ် (Focus whole project)
+            </Button>
+            <Button
+              onClick={openExtendDialog}
+              data-testid="budget-warning-extend-button"
+            >
+              ပစ်မှတ်အချိန်တိုးမယ် (Extend target)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isExtendDialogOpen} onOpenChange={setIsExtendDialogOpen}>
+        <DialogContent className="p-6" data-testid="extend-dialog">
+          <DialogHeader>
+            <DialogTitle>ပရောဂျက်အတွက် အချိန်တိုးမည် (Extend Project Target)</DialogTitle>
+            <DialogDescription className="mb-2">
+              ဘယ်လောက်မိနစ် တိုးချင်ပါသလဲ? (How many minutes to add?)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={extendMinutes}
+              onChange={(e) => setExtendMinutes(Number(e.target.value))}
+              data-testid="extend-minutes-input"
+            />
+          </div>
+          <DialogFooter className="gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={handleExtendDialogCancel}
+              data-testid="extend-cancel-button"
+            >
+              မလုပ်ပါ (Cancel)
+            </Button>
+            <Button
+              onClick={handleExtendDialogConfirm}
+              data-testid="extend-confirm-button"
+            >
+              တိုးမယ် (Extend)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Play, Pause, RotateCcw } from "lucide-react";
 
 interface TimerControlsProps {
   isRunning: boolean;
+  isCompleted?: boolean;
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
@@ -12,6 +13,7 @@ interface TimerControlsProps {
 
 export function TimerControls({
   isRunning,
+  isCompleted = false,
   onStart,
   onPause,
   onReset,
@@ -22,6 +24,7 @@ export function TimerControls({
         <Button
           onClick={onPause}
           variant="outline"
+          disabled={isCompleted}
           className="gap-1.5 bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]"
           data-testid="timer-pause"
         >
@@ -31,6 +34,7 @@ export function TimerControls({
       ) : (
         <Button
           onClick={onStart}
+          disabled={isCompleted}
           className="gap-1.5"
           data-testid="timer-start"
         >
@@ -41,6 +45,7 @@ export function TimerControls({
 
       <Button
         onClick={onReset}
+        disabled={isCompleted}
         variant="outline"
         className="gap-1.5 bg-card border-border hover:bg-card hover:text-primary hover:border-primary/50 hover:shadow-[0_0_10px_rgba(198,241,53,0.12)]"
         data-testid="timer-reset"

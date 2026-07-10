@@ -1723,4 +1723,123 @@ describe('useFocusStore', () => {
       expect(updated.targetTimeSeconds).toBe(7200)
     })
   })
+
+  describe('refocus budget validation', () => {
+    it('uses elapsed project time when elapsed is greater than allocated sub-piece time', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Elapsed Budget Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 5',
+        allocatedMinutes: 5,
+        order: 0,
+      })
+
+      // 57 minutes 30 seconds elapsed — more than the 5-minute allocation
+      useFocusStore.getState().incrementProjectTime(project.id, 57 * 60 + 30)
+
+      expect(useFocusStore.getState().getRemainingBudgetSeconds(project.id)).toBe(150)
+    })
+
+    it('clamps refocus requested minutes to the actual remaining budget', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Refocus Clamp Test',
+        description: '',
+        color: 'ocean',
+        targetTimeSeconds: 3600,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 5',
+        allocatedMinutes: 5,
+        order: 0,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 57 * 60 + 30)
+      useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+
+      // Only 2.5 minutes remain, so requesting 5 minutes should clamp to 2
+      useFocusStore.getState().refocusSubPiece(project.id, subPiece.id, 5)
+
+      expect(useFocusStore.getState().projects[0].subPieces[0].allocatedMinutes).toBe(2)
+    })
+
+    it('preserves requested minutes when the project has enough remaining budget', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Refocus Within Budget Test',
+        description: '',
+        color: 'forest',
+        targetTimeSeconds: 600,
+      })
+
+      useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Other Task',
+        allocatedMinutes: 5,
+        order: 0,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Refocus Task',
+        allocatedMinutes: 3,
+        order: 1,
+      })
+
+      useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+      useFocusStore.getState().refocusSubPiece(project.id, subPiece.id, 3)
+
+      expect(useFocusStore.getState().projects[0].subPieces[1].allocatedMinutes).toBe(3)
+    })
+
+    it('sets allocatedMinutes to 0 when no budget remains', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Zero Budget Refocus Test',
+        description: '',
+        color: 'coral',
+        targetTimeSeconds: 600,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 5',
+        allocatedMinutes: 5,
+        order: 0,
+      })
+
+      useFocusStore.getState().incrementProjectTime(project.id, 600)
+      useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+
+      useFocusStore.getState().refocusSubPiece(project.id, subPiece.id, 5)
+
+      expect(useFocusStore.getState().projects[0].subPieces[0].allocatedMinutes).toBe(0)
+    })
+
+    it('keeps existing allocatedMinutes when no explicit value is provided and budget allows', () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Refocus Keep Within Budget Test',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 3600,
+      })
+
+      const subPiece = useFocusStore.getState().addSubPiece({
+        projectId: project.id,
+        name: 'Task 25',
+        allocatedMinutes: 25,
+        order: 0,
+      })
+
+      useFocusStore.getState().completeSubPiece(project.id, subPiece.id)
+      useFocusStore.getState().refocusSubPiece(project.id, subPiece.id)
+
+      expect(useFocusStore.getState().projects[0].subPieces[0].allocatedMinutes).toBe(25)
+    })
+  })
 })

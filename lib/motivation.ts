@@ -5,7 +5,7 @@
  * Picked by `getMotivation(context)` based on timer state.
  */
 
-export type MotivationTier = 'beginning' | 'struggling' | 'succeeding' | 'completing';
+export type MotivationTier = 'beginning' | 'struggling' | 'succeeding' | 'completing' | 'completed';
 
 export interface MotivationContext {
   elapsedSeconds: number;
@@ -47,6 +47,13 @@ const completingMessages: MotivationMessage[] = [
   { my: 'အံ့သြစရာကောင်းလိုက်တာ! သင်နီးစပ်လာပြီ', en: 'Amazing! You\'re almost done.' },
 ];
 
+const completedMessages: MotivationMessage[] = [
+  { my: 'ပြီးစီးပါပြီ! ကောင်းလိုက်တာ', en: 'Completed! Great job.' },
+  { my: 'သင်အနိုင်ရပါပြီ', en: 'You crushed it.' },
+  { my: 'ဒီအခန်းကဏ္ဍ ပြီးစီးပါပြီ', en: 'This session is done.' },
+  { my: 'ရှေ့ဆက်ဖို့ အသင့်ဖြစ်ပါပြီ', en: 'Ready for the next one.' },
+];
+
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -57,6 +64,11 @@ function determineTier(context: MotivationContext): MotivationTier {
   // beginning: timer just started, elapsed < 60s
   if (elapsedSeconds < 60) {
     return 'beginning';
+  }
+
+  // completed: session has finished
+  if (remainingSeconds === 0) {
+    return 'completed';
   }
 
   // completing: remaining < 60s
@@ -89,6 +101,9 @@ export function getMotivation(context: MotivationContext): MotivationMessage & {
       break;
     case 'completing':
       messages = completingMessages;
+      break;
+    case 'completed':
+      messages = completedMessages;
       break;
   }
 

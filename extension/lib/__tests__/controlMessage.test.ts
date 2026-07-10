@@ -1,51 +1,99 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { fakeBrowser } from "@webext-core/fake-browser";
 import { handleMessage, type TimerMessage } from "../messageHandler";
-import { setBrowserInstance } from "../storage";
 import * as timerEngine from "../timerEngine";
+
+const validToken = {
+  sessionId: "abc12345",
+  projectId: "proj-1",
+  mode: "sub-piece" as const,
+  subPieceId: "sub-1",
+  targetTimeSeconds: 3600,
+  projectElapsedBaseline: 0,
+  subPieceRemainingBaseline: 3600,
+  isRunning: true,
+  startedAt: 1,
+  resumedAt: 1,
+  elapsedActiveSeconds: 0,
+};
+
+const projectToken = {
+  sessionId: "def67890",
+  projectId: "proj-2",
+  mode: "project" as const,
+  targetTimeSeconds: 7200,
+  projectElapsedBaseline: 120,
+  isRunning: false,
+  startedAt: 2,
+  resumedAt: 2,
+  elapsedActiveSeconds: 60,
+};
 
 describe("controlMessage", () => {
   beforeEach(() => {
-    fakeBrowser.reset();
-    setBrowserInstance(fakeBrowser as unknown as typeof import("wxt/browser").browser);
     vi.clearAllMocks();
   });
 
-  describe("START_TIMER", () => {
-    it("validates payload and calls timerEngine.startSession", async () => {
+  describe("SET_ACTIVE_SESSION", () => {
+    it("validates token and calls timerEngine.startSession", async () => {
       const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
-      const state = {
-        projectId: "proj-1",
-        projectElapsed: 10,
-        subPieceRemaining: 100,
-        isRunning: true,
-        savedAt: Date.now(),
-      };
-
-      const message: TimerMessage = { action: "START_TIMER", payload: state };
+      const message: TimerMessage = { type: "SET_ACTIVE_SESSION", token: validToken };
       const result = await handleMessage(message);
 
       expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy).toHaveBeenCalledWith(state);
+      expect(spy).toHaveBeenCalledWith(validToken);
       expect(result).toEqual({ ok: true });
       spy.mockRestore();
     });
 
-    it("returns error for invalid payload and does not call engine", async () => {
+    it("returns error for invalid token", async () => {
       const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
-      const message = { action: "START_TIMER", payload: { projectId: "proj-1" } } as unknown as TimerMessage;
+      const message = { type: "SET_ACTIVE_SESSION", token: { projectId: "proj-1" } } as unknown as TimerMessage;
       const result = await handleMessage(message);
 
       expect(spy).not.toHaveBeenCalled();
-      expect(result).toEqual({ ok: false, error: "Invalid timer state payload" });
+      expect(result).toEqual({ ok: false, error: "Invalid session token" });
       spy.mockRestore();
     });
   });
 
-  describe("PAUSE_TIMER", () => {
+  describe("START_SESSION", () => {
+    it("calls startSession with token when provided", async () => {
+      const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { type: "START_SESSION", token: validToken };
+      const result = await handleMessage(message);
+
+      expect(spy).toHaveBeenCalledWith(validToken);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
+
+    it("calls startSession with undefined when token is omitted", async () => {
+      const spy = vi.spyOn(timerEngine, "startSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { type: "START_SESSION" };
+      const result = await handleMessage(message);
+
+      expect(spy).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
+  });
+
+  describe("RESUME_SESSION", () => {
+    it("calls timerEngine.resumeSession", async () => {
+      const spy = vi.spyOn(timerEngine, "resumeSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { type: "RESUME_SESSION" };
+      const result = await handleMessage(message);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ ok: true });
+      spy.mockRestore();
+    });
+  });
+
+  describe("PAUSE_SESSION", () => {
     it("calls timerEngine.pauseSession", async () => {
       const spy = vi.spyOn(timerEngine, "pauseSession").mockResolvedValue(undefined);
-      const message: TimerMessage = { action: "PAUSE_TIMER" };
+      const message: TimerMessage = { type: "PAUSE_SESSION" };
       const result = await handleMessage(message);
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -54,10 +102,10 @@ describe("controlMessage", () => {
     });
   });
 
-  describe("RESET_TIMER", () => {
+  describe("RESET_SESSION", () => {
     it("calls timerEngine.resetSession", async () => {
       const spy = vi.spyOn(timerEngine, "resetSession").mockResolvedValue(undefined);
-      const message: TimerMessage = { action: "RESET_TIMER" };
+      const message: TimerMessage = { type: "RESET_SESSION" };
       const result = await handleMessage(message);
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -66,45 +114,66 @@ describe("controlMessage", () => {
     });
   });
 
-  describe("UPDATE_TIMER_STATE (backwards compatibility)", () => {
-    it("still stores state and starts alarm when running", async () => {
-      const state = {
-        projectId: "proj-1",
-        projectElapsed: 120,
-        subPieceRemaining: 300,
-        isRunning: true,
-        savedAt: Date.now(),
-      };
-
-      const message: TimerMessage = { action: "UPDATE_TIMER_STATE", payload: state };
+  describe("UPDATE_SESSION", () => {
+    it("validates token and calls timerEngine.updateSession", async () => {
+      const spy = vi.spyOn(timerEngine, "updateSession").mockResolvedValue(undefined);
+      const message: TimerMessage = { type: "UPDATE_SESSION", token: projectToken };
       const result = await handleMessage(message);
 
+      expect(spy).toHaveBeenCalledWith(projectToken);
       expect(result).toEqual({ ok: true });
+      spy.mockRestore();
     });
 
-    it("returns error for invalid payload", async () => {
-      const message = { action: "UPDATE_TIMER_STATE", payload: { projectId: "proj-1" } } as unknown as TimerMessage;
+    it("returns error for invalid token", async () => {
+      const spy = vi.spyOn(timerEngine, "updateSession").mockResolvedValue(undefined);
+      const message = { type: "UPDATE_SESSION", token: "bad" } as unknown as TimerMessage;
       const result = await handleMessage(message);
 
-      expect(result).toEqual({ ok: false, error: "Invalid timer state payload" });
-    });
-  });
-
-  describe("GET_TIMER_STATE", () => {
-    it("returns null when no state is stored", async () => {
-      const message: TimerMessage = { action: "GET_TIMER_STATE" };
-      const result = await handleMessage(message);
-
-      expect(result).toBeNull();
+      expect(spy).not.toHaveBeenCalled();
+      expect(result).toEqual({ ok: false, error: "Invalid session token" });
+      spy.mockRestore();
     });
   });
 
-  describe("unknown action", () => {
-    it("returns error for unknown action", async () => {
-      const message = { action: "UNKNOWN_ACTION" } as unknown as TimerMessage;
+  describe("GET_ACTIVE_SESSION", () => {
+    it("returns the active token from the engine", async () => {
+      const spy = vi.spyOn(timerEngine, "getActiveSession").mockResolvedValue(validToken);
+      const message: TimerMessage = { type: "GET_ACTIVE_SESSION" };
       const result = await handleMessage(message);
 
-      expect(result).toEqual({ ok: false, error: "Unknown action" });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ ok: true, token: validToken });
+      spy.mockRestore();
+    });
+
+    it("returns null token when no session is active", async () => {
+      const spy = vi.spyOn(timerEngine, "getActiveSession").mockResolvedValue(null);
+      const message: TimerMessage = { type: "GET_ACTIVE_SESSION" };
+      const result = await handleMessage(message);
+
+      expect(result).toEqual({ ok: true, token: null });
+      spy.mockRestore();
+    });
+  });
+
+  describe("unknown message", () => {
+    it("returns error for unknown type", async () => {
+      const message = { type: "UNKNOWN_TYPE" } as unknown as TimerMessage;
+      const result = await handleMessage(message);
+
+      expect(result).toEqual({ ok: false, error: "Unknown type" });
+    });
+  });
+
+  describe("engine error", () => {
+    it("returns { ok: false, error } when engine throws", async () => {
+      const spy = vi.spyOn(timerEngine, "pauseSession").mockRejectedValue(new Error("pause failed"));
+      const message: TimerMessage = { type: "PAUSE_SESSION" };
+      const result = await handleMessage(message);
+
+      expect(result).toEqual({ ok: false, error: "pause failed" });
+      spy.mockRestore();
     });
   });
 });

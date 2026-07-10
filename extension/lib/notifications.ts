@@ -9,6 +9,7 @@ import type { Browser } from "webextension-polyfill";
 import type { FocusSessionSchedule } from "../../lib/types";
 import { getMotivation } from "./motivation";
 import type { ExtensionTimerState } from "./types";
+import type { NotificationPayload } from "./notificationEngine";
 
 declare module "webextension-polyfill" {
   namespace Notifications {
@@ -56,96 +57,57 @@ export function nextId(prefix: string): string {
   return `${prefix}-${Date.now()}-${++idCounter}`;
 }
 
-export async function notifyMilestone(
-  browser: Browser,
-  elapsedSeconds: number,
-  remainingSeconds: number,
-): Promise<void> {
-  const clampedElapsed = Math.max(0, elapsedSeconds);
-  const clampedRemaining = Math.max(0, remainingSeconds);
-
-  const msg = getMotivation({
-    elapsedSeconds: clampedElapsed,
-    remainingSeconds: clampedRemaining,
-    isRunning: true,
-    completedToday: 0,
-  });
-
-  const iconUrl = getIconUrl(browser);
-  const id = nextId("focus-milestone");
-
-  console.log("[notifications] notifyMilestone elapsed=", clampedElapsed, "remaining=", clampedRemaining);
-
-  await withPermission(browser, async () => {
-    await browser.notifications.create(id, {
-      type: "basic",
-      iconUrl: iconUrl ?? browser.runtime.getURL("/icon/128.png"),
-      title: msg.my,
-      message: msg.en,
-      priority: 2,
-      requireInteraction: true,
-    });
-  });
+function suffix(body: string, persistent: boolean): string {
+  return persistent ? `${body} — (tap to dismiss)` : `${body} — (auto-dismiss)`;
 }
 
-export async function notifyStart(
+export const NOTIF_CLEAR_ALARM_PREFIX = "clear-notif-";
+
+export async function scheduleNotificationClear(
   browser: Browser,
-  state: ExtensionTimerState,
+  notificationId: string,
+  delayMs: number,
 ): Promise<void> {
-  const msg = getMotivation({
-    elapsedSeconds: 0,
-    remainingSeconds: state.subPieceRemaining,
-    isRunning: true,
-    completedToday: 0,
-  });
-
-  const iconUrl = getIconUrl(browser);
-  const id = nextId("focus-start");
-
-  console.log("[notifications] notifyStart project=", state.projectName ?? state.projectId);
-
-  await withPermission(browser, async () => {
-    await browser.notifications.create(id, {
-      type: "basic",
-      iconUrl: iconUrl ?? browser.runtime.getURL("/icon/128.png"),
-      title: msg.my,
-      message: msg.en,
-      priority: 2,
-      requireInteraction: true,
+  try {
+    const when = Date.now() + delayMs;
+    console.log(
+      "[notifications] scheduleNotificationClear",
+      notificationId,
+      "alarmName=",
+      `${NOTIF_CLEAR_ALARM_PREFIX}${notificationId}`,
+      "when=",
+      when,
+      "now=",
+      Date.now(),
+    );
+    await browser.alarms.create(`${NOTIF_CLEAR_ALARM_PREFIX}${notificationId}`, {
+      when,
     });
-  });
+  } catch {
+    // Silently ignore failures so a clear-schedule problem never crashes the flow.
+  }
 }
 
-export async function notifySessionComplete(
+export async function notifyFromPayload(
   browser: Browser,
-  state: ExtensionTimerState,
-  targetReached: boolean,
+  payload: NotificationPayload,
 ): Promise<void> {
-  const name = targetReached
-    ? (state.projectName ?? "ပရောဂျက်")
-    : (state.subPieceName ?? "အထွေထွေ focus");
-
-  const msg = getMotivation({
-    elapsedSeconds: state.projectElapsed,
-    remainingSeconds: 0,
-    isRunning: false,
-    completedToday: 0,
-  });
-
+  const persistent =
+    payload.id.startsWith("focus-almost-") || payload.id.startsWith("focus-complete-");
   const iconUrl = getIconUrl(browser);
-  const id = nextId("session-complete");
-
-  console.log("[notifications] notifySessionComplete targetReached=", targetReached, "project=", state.projectName ?? state.projectId);
 
   await withPermission(browser, async () => {
-    await browser.notifications.create(id, {
+    await browser.notifications.create(payload.id, {
       type: "basic",
       iconUrl: iconUrl ?? browser.runtime.getURL("/icon/128.png"),
-      title: `${name} အတွက် အချိန် ပြည့်ပါပြီ`,
-      message: `${msg.my} — ${msg.en}`,
-      priority: 2,
-      requireInteraction: true,
+      title: payload.title,
+      message: suffix(payload.message, persistent),
+      priority: payload.priority ?? 2,
+      requireInteraction: persistent,
     });
+    if (!persistent) {
+      await scheduleNotificationClear(browser, payload.id, 3000);
+    }
   });
 }
 

@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fakeBrowser } from "@webext-core/fake-browser";
 import {
-  notifyMilestone,
-  notifySessionComplete,
   notifyScheduleDue,
   notifyDistractionBlocked,
-  notifyStart,
+  notifyFromPayload,
   nextId,
   withPermission,
   getIconUrl,
@@ -28,6 +26,7 @@ describe("notifications.ts", () => {
     fakeBrowser.reset();
     fakeBrowser.runtime.getURL = (path: string) => `chrome-extension://test${path}`;
     fakeBrowser.notifications.create = vi.fn().mockResolvedValue("notification-id");
+    fakeBrowser.alarms.create = vi.fn().mockResolvedValue(undefined);
     setNotificationPermissionLevel("granted");
     vi.clearAllMocks();
   });
@@ -84,239 +83,23 @@ describe("notifications.ts", () => {
     });
   });
 
-  describe("notifyMilestone", () => {
-    it("creates a beginning-tier notification with deterministic message", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      await notifyMilestone(fakeBrowser, 30, 600);
-
-      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
+  describe("notifyFromPayload", () => {
+    it("creates a basic notification from payload with correct persistence and auto-clear", async () => {
+      const payload = { id: "focus-start-123", title: "စ_Start", message: "Start msg", priority: 2 };
+      await notifyFromPayload(fakeBrowser, payload);
       const [id, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(id.startsWith("focus-milestone-")).toBe(true);
-      expect(options).toMatchObject({
-        type: "basic",
-        iconUrl: "chrome-extension://test/icon/128.png",
-        title: "စတင်ကြည့်ရအောင်!",
-        message: "Let's get started!",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("creates a struggling-tier notification with deterministic message", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      await notifyMilestone(fakeBrowser, 400, 600);
-
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options).toMatchObject({
-        type: "basic",
-        title: "အနည်းငယ်ပင်ပန်းနေပြီလား? အနားယူလိုက်ပါ",
-        message: "Feeling stuck? Take a breath.",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("creates a succeeding-tier notification with deterministic message", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      await notifyMilestone(fakeBrowser, 150, 120);
-
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options).toMatchObject({
-        type: "basic",
-        title: "ကောင်းလိုက်တာ! အရမ်းစဉ်းစားနေပြီ",
-        message: "Great! You're in the zone.",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("creates a completing-tier notification with deterministic message", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      await notifyMilestone(fakeBrowser, 600, 30);
-
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options).toMatchObject({
-        type: "basic",
-        title: "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ",
-        message: "Almost there! One more step.",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("does not call create when permission is denied and resolves without throwing", async () => {
-      setNotificationPermissionLevel("denied");
-
-      await expect(notifyMilestone(fakeBrowser, 30, 600)).resolves.toBeUndefined();
-      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
-    });
-
-    it("resolves without throwing when notifications.create rejects", async () => {
-      fakeBrowser.notifications.create = vi.fn().mockRejectedValue(new Error("create failed"));
-
-      await expect(notifyMilestone(fakeBrowser, 30, 600)).resolves.toBeUndefined();
-    });
-
-    it("produces two different IDs for two rapid calls", async () => {
-      await notifyMilestone(fakeBrowser, 30, 600);
-      await notifyMilestone(fakeBrowser, 30, 600);
-
-      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(2);
-      const [id1] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      const [id2] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[1];
-      expect(id1).not.toBe(id2);
-    });
-
-    it("clamps negative elapsed and remaining values to 0 and still creates a notification", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      await notifyMilestone(fakeBrowser, -10, -5);
-
-      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options).toMatchObject({
-        type: "basic",
-        title: "စတင်ကြည့်ရအောင်!",
-        message: "Let's get started!",
-      });
-
-      randomSpy.mockRestore();
-    });
-  });
-
-  describe("notifyStart", () => {
-    it("creates a beginning-tier notification with priority 2, correct iconUrl, and unique focus-start id when permission is granted", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectName: "Project Alpha",
-        subPieceName: "Sub-piece One",
-        projectElapsed: 0,
-        subPieceRemaining: 1500,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await notifyStart(fakeBrowser, state);
-
-      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
-      const [id, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(id.startsWith("focus-start-")).toBe(true);
-      expect(options).toMatchObject({
-        type: "basic",
-        iconUrl: "chrome-extension://test/icon/128.png",
-        title: "စတင်ကြည့်ရအောင်!",
-        message: "Let's get started!",
-        priority: 2,
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("does not call create when permission is denied and resolves without throwing", async () => {
-      setNotificationPermissionLevel("denied");
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectElapsed: 0,
-        subPieceRemaining: 1500,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await expect(notifyStart(fakeBrowser, state)).resolves.toBeUndefined();
-      expect(fakeBrowser.notifications.create).not.toHaveBeenCalled();
-    });
-
-    it("resolves without throwing when notifications.create rejects", async () => {
-      fakeBrowser.notifications.create = vi.fn().mockRejectedValue(new Error("create failed"));
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectElapsed: 0,
-        subPieceRemaining: 1500,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await expect(notifyStart(fakeBrowser, state)).resolves.toBeUndefined();
-    });
-  });
-
-  describe("notifySessionComplete", () => {
-    it("uses sub-piece name and first completing message when targetReached is false", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectName: "Project Alpha",
-        subPieceName: "Sub-piece One",
-        projectElapsed: 1200,
-        subPieceRemaining: 0,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await notifySessionComplete(fakeBrowser, state, false);
-
-      expect(fakeBrowser.notifications.create).toHaveBeenCalledTimes(1);
-      const [id, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(id.startsWith("session-complete-")).toBe(true);
-      expect(options).toMatchObject({
-        type: "basic",
-        iconUrl: "chrome-extension://test/icon/128.png",
-        title: "Sub-piece One အတွက် အချိန် ပြည့်ပါပြီ",
-        message: "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ — Almost there! One more step.",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("uses project name and first completing message when targetReached is true", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectName: "Project Alpha",
-        subPieceName: "Sub-piece One",
-        projectElapsed: 3600,
-        subPieceRemaining: 0,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await notifySessionComplete(fakeBrowser, state, true);
-
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options).toMatchObject({
-        type: "basic",
-        title: "Project Alpha အတွက် အချိန် ပြည့်ပါပြီ",
-        message: "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ — Almost there! One more step.",
-      });
-
-      randomSpy.mockRestore();
-    });
-
-    it("uses fallback names when projectName and subPieceName are missing", async () => {
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectElapsed: 60,
-        subPieceRemaining: 0,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      await notifySessionComplete(fakeBrowser, state, false);
-      const [, optionsSubPiece] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(optionsSubPiece.title).toBe("အထွေထွေ focus အတွက် အချိန် ပြည့်ပါပြီ");
+      expect(id).toBe("focus-start-123");
+      expect(options.requireInteraction).toBe(false);
+      expect(fakeBrowser.alarms.create).toHaveBeenCalledTimes(1);
 
       fakeBrowser.notifications.create = vi.fn().mockResolvedValue("notification-id");
-      await notifySessionComplete(fakeBrowser, state, true);
-      const [, optionsProject] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(optionsProject.title).toBe("ပရောဂျက် အတွက် အချိန် ပြည့်ပါပြီ");
+      fakeBrowser.alarms.create = vi.fn().mockResolvedValue(undefined);
 
-      randomSpy.mockRestore();
+      await notifyFromPayload(fakeBrowser, { id: "focus-complete-456", title: "Complete", message: "Done" });
+      const [id2, options2] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(id2).toBe("focus-complete-456");
+      expect(options2.requireInteraction).toBe(true);
+      expect(fakeBrowser.alarms.create).not.toHaveBeenCalled();
     });
   });
 
@@ -453,40 +236,6 @@ describe("notifications.ts", () => {
   });
 
   describe("requireInteraction flag", () => {
-    it("notifyMilestone sets requireInteraction to true", async () => {
-      await notifyMilestone(fakeBrowser, 30, 600);
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options.requireInteraction).toBe(true);
-    });
-
-    it("notifyStart sets requireInteraction to true", async () => {
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectElapsed: 0,
-        subPieceRemaining: 1500,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-      await notifyStart(fakeBrowser, state);
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options.requireInteraction).toBe(true);
-    });
-
-    it("notifySessionComplete sets requireInteraction to true", async () => {
-      const state: ExtensionTimerState = {
-        projectId: "p1",
-        projectName: "Project Alpha",
-        subPieceName: "Sub-piece One",
-        projectElapsed: 1200,
-        subPieceRemaining: 0,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-      await notifySessionComplete(fakeBrowser, state, false);
-      const [, options] = (fakeBrowser.notifications.create as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(options.requireInteraction).toBe(true);
-    });
-
     it("notifyScheduleDue sets requireInteraction to true", async () => {
       const state: ExtensionTimerState = {
         projectId: "p1",

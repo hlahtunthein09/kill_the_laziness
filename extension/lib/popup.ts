@@ -1,9 +1,9 @@
 import { browser } from "wxt/browser";
 import { formatDuration } from "../../lib/time";
-import type { ExtensionTimerState } from "./types";
+import type { ExtensionTimerState, ActiveSessionToken } from "./types";
 
-export const TIMER_STATE_KEY = "ff_extension_timer";
 export const FOCUSFLOW_URL = "http://localhost:3000/timer";
+const ACTIVE_SESSION_KEY = "ff_active_session_v2";
 
 let _browserInstance: typeof browser | null = null;
 
@@ -13,6 +13,53 @@ export function setPopupBrowserInstance(instance: typeof browser): void {
 
 function getBrowser(): typeof browser {
   return _browserInstance ?? browser;
+}
+
+async function getActiveSessionToken(): Promise<ActiveSessionToken | null> {
+  try {
+    const response = (await getBrowser().runtime.sendMessage({
+      type: "GET_ACTIVE_SESSION",
+    })) as { ok: boolean; token: ActiveSessionToken | null } | undefined;
+    return response?.ok ? (response.token ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getStoredSessionToken(): Promise<ActiveSessionToken | null> {
+  try {
+    const result = await getBrowser().storage.local.get(ACTIVE_SESSION_KEY);
+    const stored = (result[ACTIVE_SESSION_KEY] as { token?: ActiveSessionToken } | undefined)?.token;
+    return stored ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function tokenToDisplayState(token: ActiveSessionToken): ExtensionTimerState {
+  const drift = token.isRunning
+    ? Math.min(60 * 60, (Date.now() - token.resumedAt) / 1000)
+    : 0;
+  const elapsedActive = token.elapsedActiveSeconds + drift;
+  const projectElapsed = token.projectElapsedBaseline + elapsedActive;
+  const subPieceRemaining =
+    token.subPieceRemainingBaseline !== undefined
+      ? Math.max(0, token.subPieceRemainingBaseline - elapsedActive)
+      : Math.max(0, token.targetTimeSeconds - elapsedActive);
+
+  return {
+    projectId: token.projectId,
+    subPieceId: token.subPieceId,
+    projectName: token.projectName,
+    subPieceName: token.subPieceName,
+    projectElapsed,
+    subPieceRemaining,
+    targetTimeSeconds: token.targetTimeSeconds,
+    isRunning: token.isRunning,
+    savedAt: Date.now(),
+    projectElapsedBaseline: token.projectElapsedBaseline,
+    subPieceRemainingBaseline: token.subPieceRemainingBaseline,
+  };
 }
 
 interface NotificationsWithPermission {
@@ -32,8 +79,10 @@ export function renderPopup(state: ExtensionTimerState | null): void {
   const subPieceNameEl = document.getElementById("subpiece-name");
   const elapsedEl = document.getElementById("elapsed-time");
   const remainingEl = document.getElementById("remaining-time");
+  const elapsedLabel = document.getElementById("elapsed-label");
+  const remainingLabel = document.getElementById("remaining-label");
 
-  if (!contentEl || !emptyEl || !statusDot || !statusLabel || !projectNameEl || !subPieceNameEl || !elapsedEl || !remainingEl) {
+  if (!contentEl || !emptyEl || !statusDot || !statusLabel || !projectNameEl || !subPieceNameEl || !elapsedEl || !remainingEl || !elapsedLabel || !remainingLabel) {
     return;
   }
 
@@ -46,8 +95,15 @@ export function renderPopup(state: ExtensionTimerState | null): void {
   contentEl.style.display = "block";
   emptyEl.style.display = "none";
 
+  const isCompleted = state.subPieceId
+    ? state.subPieceRemaining <= 0
+    : (state.targetTimeSeconds ?? 0) > 0 && state.projectElapsed >= (state.targetTimeSeconds ?? 0);
+
   // Status
-  if (state.isRunning) {
+  if (isCompleted) {
+    statusDot.className = "status-dot completed";
+    statusLabel.textContent = "ပြီးစီး (Completed)";
+  } else if (state.isRunning) {
     statusDot.className = "status-dot running";
     statusLabel.textContent = "အာရုံစိုက်နေသည် (Focusing)";
   } else {
@@ -59,71 +115,24 @@ export function renderPopup(state: ExtensionTimerState | null): void {
   projectNameEl.textContent = state.projectName || state.projectId;
   subPieceNameEl.textContent = state.subPieceName || state.subPieceId || "---";
 
-  // Times
-  elapsedEl.textContent = formatDuration(state.projectElapsed);
-  remainingEl.textContent = formatDuration(state.subPieceRemaining);
+  // Scope elapsed/remaining to the active focus mode
+  const isSubPiece = !!state.subPieceId;
+  const elapsedSeconds = isSubPiece
+    ? Math.max(0, (state.subPieceRemainingBaseline ?? state.subPieceRemaining) - state.subPieceRemaining)
+    : state.projectElapsed;
+  const remainingSeconds = isSubPiece
+    ? state.subPieceRemaining
+    : Math.max(0, (state.targetTimeSeconds ?? 0) - state.projectElapsed);
 
-  setupStartButton(state);
-  setupPauseResetButtons(state);
-}
+  elapsedLabel.textContent = isSubPiece
+    ? "အစိတ်အပိုင်း ကြာချိန် (Sub-piece elapsed)"
+    : "ပရောဂျက် ကြာချိန် (Project elapsed)";
+  remainingLabel.textContent = isSubPiece
+    ? "အစိတ်အပိုင်း ကျန်ချိန် (Sub-piece remaining)"
+    : "ပရောဂျက် ကျန်ချိန် (Project remaining)";
 
-export function setupPauseResetButtons(state: ExtensionTimerState | null): void {
-  const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement | null;
-  const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement | null;
-  if (!pauseBtn || !resetBtn) return;
-
-  if (!state || !state.isRunning) {
-    pauseBtn.style.display = "none";
-    resetBtn.style.display = "none";
-    pauseBtn.onclick = null;
-    resetBtn.onclick = null;
-    return;
-  }
-
-  pauseBtn.style.display = "block";
-  resetBtn.style.display = "block";
-
-  pauseBtn.onclick = () => {
-    getBrowser().runtime.sendMessage({ action: "PAUSE_TIMER" });
-  };
-
-  resetBtn.onclick = () => {
-    getBrowser().runtime.sendMessage({ action: "RESET_TIMER" });
-  };
-}
-
-export function setupStartButton(state: ExtensionTimerState | null): void {
-  const startBtn = document.getElementById("start-btn") as HTMLButtonElement | null;
-  if (!startBtn) return;
-
-  if (!state || state.isRunning) {
-    startBtn.style.display = "none";
-    startBtn.onclick = null;
-    return;
-  }
-
-  startBtn.style.display = "block";
-  startBtn.textContent = "စတင် (Start)";
-  startBtn.disabled = false;
-
-  startBtn.onclick = () => {
-    if (!state) return;
-
-    startBtn.textContent = "စတင်နေပါပြီ… (Starting…)";
-    startBtn.disabled = true;
-
-    window.setTimeout(() => {
-      startBtn.textContent = "စတင် (Start)";
-      startBtn.disabled = false;
-    }, 1000);
-
-    const payload: ExtensionTimerState = {
-      ...state,
-      isRunning: true,
-      savedAt: Date.now(),
-    };
-    getBrowser().runtime.sendMessage({ action: "START_TIMER", payload });
-  };
+  elapsedEl.textContent = formatDuration(elapsedSeconds);
+  remainingEl.textContent = formatDuration(remainingSeconds);
 }
 
 export async function renderNotificationStatus(browserInstance: typeof browser): Promise<void> {
@@ -180,9 +189,12 @@ export function setupOpenAppButton(): void {
 }
 
 export async function initPopup(): Promise<void> {
-  const result = await getBrowser().storage.local.get(TIMER_STATE_KEY);
-  const state = (result[TIMER_STATE_KEY] as ExtensionTimerState | undefined) ?? null;
-  renderPopup(state);
+  const token = await getActiveSessionToken();
+  console.log("[popup] token from message:", token);
+  const displayToken = token ?? (await getStoredSessionToken());
+  console.log("[popup] display token:", displayToken);
+  const displayState = displayToken ? tokenToDisplayState(displayToken) : null;
+  renderPopup(displayState);
   await renderNotificationStatus(getBrowser());
   setupTestNotificationButton();
   setupOpenAppButton();

@@ -5,6 +5,8 @@ import {
   setupControlListener,
 } from "../../entrypoints/control.content";
 
+let setupCalled = false;
+
 describe("control.content.ts", () => {
   beforeEach(async () => {
     fakeBrowser.reset();
@@ -14,59 +16,12 @@ describe("control.content.ts", () => {
     // Set location so the content script match pattern is satisfied
     window.location.href = "http://localhost:3000/timer";
 
-    // Call the setup function to register the listener
-    await setupControlListener();
-  });
-
-  it("dispatches ff:start when receiving EXT_START_TIMER", () => {
-    const listener = vi.fn();
-    window.addEventListener("ff:start", listener);
-
-    fakeBrowser.runtime.onMessage.trigger(
-      { action: "EXT_START_TIMER" },
-      { id: "test-extension-id" } as any
-    );
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    const event = listener.mock.calls[0][0] as CustomEvent;
-    expect(event.type).toBe("ff:start");
-    expect(event.bubbles).toBe(true);
-
-    window.removeEventListener("ff:start", listener);
-  });
-
-  it("dispatches ff:pause when receiving EXT_PAUSE_TIMER", () => {
-    const listener = vi.fn();
-    window.addEventListener("ff:pause", listener);
-
-    fakeBrowser.runtime.onMessage.trigger(
-      { action: "EXT_PAUSE_TIMER" },
-      { id: "test-extension-id" } as any
-    );
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    const event = listener.mock.calls[0][0] as CustomEvent;
-    expect(event.type).toBe("ff:pause");
-    expect(event.bubbles).toBe(true);
-
-    window.removeEventListener("ff:pause", listener);
-  });
-
-  it("dispatches ff:reset when receiving EXT_RESET_TIMER", () => {
-    const listener = vi.fn();
-    window.addEventListener("ff:reset", listener);
-
-    fakeBrowser.runtime.onMessage.trigger(
-      { action: "EXT_RESET_TIMER" },
-      { id: "test-extension-id" } as any
-    );
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    const event = listener.mock.calls[0][0] as CustomEvent;
-    expect(event.type).toBe("ff:reset");
-    expect(event.bubbles).toBe(true);
-
-    window.removeEventListener("ff:reset", listener);
+    // Call the setup function to register the listener only once; DOM event
+    // listeners otherwise accumulate across tests.
+    if (!setupCalled) {
+      await setupControlListener();
+      setupCalled = true;
+    }
   });
 
   it("dispatches ff:state when receiving STATE_UPDATED", () => {
@@ -95,72 +50,85 @@ describe("control.content.ts", () => {
     window.removeEventListener("ff:state", listener);
   });
 
-  it("forwards ff:command from web app to extension runtime", () => {
+  it("forwards ff:command events to browser.runtime.sendMessage", async () => {
     const sendMessageMock = vi.fn().mockResolvedValue(undefined);
     fakeBrowser.runtime.sendMessage = sendMessageMock;
 
     window.dispatchEvent(
       new CustomEvent("ff:command", {
-        detail: { action: "START_TIMER", payload: { projectId: "proj-1" } },
+        detail: { type: "START_SESSION", token: { projectId: "p1" } },
         bubbles: true,
       })
     );
 
-    const matching = sendMessageMock.mock.calls.find(
-      (call) =>
-        call[0].action === "START_TIMER" && call[0].payload?.projectId === "proj-1"
-    );
-    expect(matching).toBeDefined();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: "START_SESSION",
+      token: { projectId: "p1" },
+    });
   });
 
-  it("forwards ff:command without payload when none provided", () => {
-    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
+  it("forwards ff:request events and dispatches ff:response", async () => {
+    const sendMessageMock = vi.fn().mockResolvedValue({ ok: true, token: { projectId: "p1" } });
     fakeBrowser.runtime.sendMessage = sendMessageMock;
 
+    const responseListener = vi.fn();
+    window.addEventListener("ff:response", responseListener);
+
     window.dispatchEvent(
-      new CustomEvent("ff:command", {
-        detail: { action: "PAUSE_TIMER" },
+      new CustomEvent("ff:request", {
+        detail: { requestId: "req-1", type: "GET_ACTIVE_SESSION" },
         bubbles: true,
       })
     );
 
-    const matching = sendMessageMock.mock.calls.find(
-      (call) => call[0].action === "PAUSE_TIMER"
-    );
-    expect(matching).toBeDefined();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({ requestId: "req-1", type: "GET_ACTIVE_SESSION" });
+    expect(responseListener).toHaveBeenCalledTimes(1);
+    const event = responseListener.mock.calls[0][0] as CustomEvent;
+    expect(event.detail.requestId).toBe("req-1");
+    expect(event.detail.response).toEqual({ ok: true, token: { projectId: "p1" } });
+
+    window.removeEventListener("ff:response", responseListener);
   });
 
-  it("ignores ff:command with missing action", () => {
-    const sendMessageMock = vi.fn().mockResolvedValue(undefined);
-    fakeBrowser.runtime.sendMessage = sendMessageMock;
-
-    window.dispatchEvent(
-      new CustomEvent("ff:command", {
-        detail: { payload: {} },
-        bubbles: true,
-      })
-    );
-
-    expect(sendMessageMock).not.toHaveBeenCalled();
-  });
-
-  it("ignores unknown actions", () => {
+  it("ignores obsolete EXT_* actions and unknown actions", () => {
+    const stateListener = vi.fn();
     const startListener = vi.fn();
     const pauseListener = vi.fn();
     const resetListener = vi.fn();
+    window.addEventListener("ff:state", stateListener);
     window.addEventListener("ff:start", startListener);
     window.addEventListener("ff:pause", pauseListener);
     window.addEventListener("ff:reset", resetListener);
 
     fakeBrowser.runtime.onMessage.trigger(
+      { action: "EXT_START_TIMER" },
+      { id: "test-extension-id" } as any
+    );
+    fakeBrowser.runtime.onMessage.trigger(
+      { action: "EXT_PAUSE_TIMER" },
+      { id: "test-extension-id" } as any
+    );
+    fakeBrowser.runtime.onMessage.trigger(
+      { action: "EXT_RESET_TIMER" },
+      { id: "test-extension-id" } as any
+    );
+    fakeBrowser.runtime.onMessage.trigger(
       { action: "EXT_UNKNOWN" },
       { id: "test-extension-id" } as any
     );
 
+    expect(stateListener).not.toHaveBeenCalled();
     expect(startListener).not.toHaveBeenCalled();
     expect(pauseListener).not.toHaveBeenCalled();
     expect(resetListener).not.toHaveBeenCalled();
 
+    window.removeEventListener("ff:state", stateListener);
     window.removeEventListener("ff:start", startListener);
     window.removeEventListener("ff:pause", pauseListener);
     window.removeEventListener("ff:reset", resetListener);

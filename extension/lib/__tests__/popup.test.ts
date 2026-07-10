@@ -3,14 +3,12 @@ import { fakeBrowser } from "@webext-core/fake-browser";
 import {
   renderPopup,
   initPopup,
-  setupStartButton,
   setupOpenAppButton,
   renderNotificationStatus,
   setPopupBrowserInstance,
-  TIMER_STATE_KEY,
   FOCUSFLOW_URL,
 } from "../popup";
-import type { ExtensionTimerState } from "../types";
+import type { ExtensionTimerState, ActiveSessionToken } from "../types";
 
 interface FakeNotificationsWithPermission {
   getPermissionLevel(): Promise<string>;
@@ -25,17 +23,16 @@ const popupHtml = `
 <!DOCTYPE html>
 <html>
 <body>
-  <div id="popup-content">
+  <div id="popup-content" style="display: none;">
     <div id="notification-status" class="notification-status-row"></div>
     <span id="status-dot"></span>
     <span id="status-label">---</span>
     <div id="project-name">---</div>
     <div id="subpiece-name">---</div>
+    <div id="elapsed-label">Elapsed</div>
     <div id="elapsed-time">0m</div>
+    <div id="remaining-label">Remaining</div>
     <div id="remaining-time">0m</div>
-    <button id="start-btn" style="display: none;"></button>
-    <button id="pause-btn" style="display: none;"></button>
-    <button id="reset-btn" style="display: none;"></button>
   </div>
   <div id="empty-state" style="display: none;"></div>
   <button id="open-app-btn"></button>
@@ -107,11 +104,14 @@ describe("popup.ts", () => {
       expect(label!.textContent).toContain("Focusing");
     });
 
-    it("renders paused status with yellow dot and Burmese label", () => {
+    it("renders completed status for a finished sub-piece", () => {
       const state: ExtensionTimerState = {
         projectId: "proj-1",
-        projectElapsed: 120,
-        subPieceRemaining: 300,
+        projectName: "Test Project",
+        subPieceId: "sub-1",
+        subPieceName: "Test Task",
+        projectElapsed: 300,
+        subPieceRemaining: 0,
         isRunning: false,
         savedAt: Date.now(),
       };
@@ -121,9 +121,29 @@ describe("popup.ts", () => {
       const dot = document.getElementById("status-dot");
       const label = document.getElementById("status-label");
 
-      expect(dot!.className).toContain("paused");
-      expect(label!.textContent).toContain("ခဏရပ်ထားသည်");
-      expect(label!.textContent).toContain("Paused");
+      expect(dot!.className).toContain("completed");
+      expect(label!.textContent).toContain("ပြီးစီး");
+      expect(label!.textContent).toContain("Completed");
+    });
+
+    it("renders completed status for a finished project", () => {
+      const state: ExtensionTimerState = {
+        projectId: "proj-1",
+        projectName: "Test Project",
+        projectElapsed: 3600,
+        subPieceRemaining: 0,
+        targetTimeSeconds: 3600,
+        isRunning: false,
+        savedAt: Date.now(),
+      };
+
+      renderPopup(state);
+
+      const dot = document.getElementById("status-dot");
+      const label = document.getElementById("status-label");
+
+      expect(dot!.className).toContain("completed");
+      expect(label!.textContent).toContain("Completed");
     });
 
     it("renders project and sub-piece names when provided", () => {
@@ -179,10 +199,9 @@ describe("popup.ts", () => {
       const state: ExtensionTimerState = {
         projectId: "proj-1",
         projectName: "Test",
-        subPieceId: "sub-1",
-        subPieceName: "Task",
         projectElapsed: 3665, // 1h 1m 5s
-        subPieceRemaining: 185, // 3m 5s
+        subPieceRemaining: 0,
+        targetTimeSeconds: 3850, // remaining 185s → 3m 5s
         isRunning: true,
         savedAt: Date.now(),
       };
@@ -220,24 +239,111 @@ describe("popup.ts", () => {
       expect(emptyEl!.style.display).toBe("block");
     });
 
-    it("reads storage and renders state when key exists", async () => {
-      const state: ExtensionTimerState = {
+    it("falls back to stored session when GET_ACTIVE_SESSION returns null", async () => {
+      const token: ActiveSessionToken = {
+        sessionId: "abc12345",
         projectId: "proj-1",
         projectName: "Stored Project",
         subPieceId: "sub-1",
         subPieceName: "Stored Task",
-        projectElapsed: 900,
-        subPieceRemaining: 600,
+        mode: "sub-piece",
+        targetTimeSeconds: 600,
+        projectElapsedBaseline: 120,
+        subPieceRemainingBaseline: 300,
         isRunning: true,
-        savedAt: Date.now(),
+        startedAt: Date.now(),
+        resumedAt: Date.now(),
+        elapsedActiveSeconds: 0,
       };
 
-      await fakeBrowser.storage.local.set({ [TIMER_STATE_KEY]: state });
+      await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: {} } });
 
       await initPopup();
 
       expect(document.getElementById("project-name")!.textContent).toBe("Stored Project");
       expect(document.getElementById("status-dot")!.className).toContain("running");
+    });
+
+    it("adds live drift to running session display", async () => {
+      const now = 1_000_000;
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const token: ActiveSessionToken = {
+        sessionId: "abc12345",
+        projectId: "proj-1",
+        projectName: "Project",
+        subPieceId: "sub-1",
+        subPieceName: "Task",
+        mode: "sub-piece",
+        targetTimeSeconds: 600,
+        projectElapsedBaseline: 600,
+        subPieceRemainingBaseline: 300,
+        isRunning: true,
+        startedAt: now - 10_000,
+        resumedAt: now - 5_000,
+        elapsedActiveSeconds: 100,
+      };
+
+      await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: {} } });
+
+      await initPopup();
+
+      // sub-piece elapsed = baseline - remaining = 300 - (300 - 105) = 105
+      expect(document.getElementById("elapsed-time")!.textContent).toBe("1m 45s");
+      // sub-piece remaining = 300 - 105 = 195
+      expect(document.getElementById("remaining-time")!.textContent).toBe("3m 15s");
+      expect(document.getElementById("elapsed-label")!.textContent).toContain("Sub-piece elapsed");
+      expect(document.getElementById("remaining-label")!.textContent).toContain("Sub-piece remaining");
+    });
+
+    it("does not add drift to paused session display", async () => {
+      const now = 1_000_000;
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const token: ActiveSessionToken = {
+        sessionId: "abc12345",
+        projectId: "proj-1",
+        projectName: "Project",
+        subPieceId: "sub-1",
+        subPieceName: "Task",
+        mode: "sub-piece",
+        targetTimeSeconds: 600,
+        projectElapsedBaseline: 600,
+        subPieceRemainingBaseline: 300,
+        isRunning: false,
+        startedAt: now - 10_000,
+        resumedAt: now - 5_000,
+        elapsedActiveSeconds: 100,
+      };
+
+      await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: {} } });
+
+      await initPopup();
+
+      expect(document.getElementById("elapsed-time")!.textContent).toBe("1m 40s");
+      expect(document.getElementById("remaining-time")!.textContent).toBe("3m 20s");
+    });
+
+    it("shows project elapsed and remaining in project-only mode", async () => {
+      const token: ActiveSessionToken = {
+        sessionId: "abc12345",
+        projectId: "proj-1",
+        projectName: "Project",
+        mode: "project",
+        targetTimeSeconds: 3600,
+        projectElapsedBaseline: 1500,
+        isRunning: true,
+        startedAt: Date.now(),
+        resumedAt: Date.now(),
+        elapsedActiveSeconds: 0,
+      };
+
+      await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: {} } });
+
+      await initPopup();
+
+      expect(document.getElementById("elapsed-time")!.textContent).toBe("25m");
+      expect(document.getElementById("remaining-time")!.textContent).toBe("35m");
+      expect(document.getElementById("elapsed-label")!.textContent).toContain("Project elapsed");
+      expect(document.getElementById("remaining-label")!.textContent).toContain("Project remaining");
     });
   });
 
@@ -280,66 +386,6 @@ describe("popup.ts", () => {
       const status = document.getElementById("notification-status");
       expect(status!.querySelector(".status-dot")!.className).toContain("pending");
       expect(status!.textContent).toContain("ခွင့်ပြုချက်မရသေးပါ (Pending)");
-    });
-  });
-
-  describe("start button", () => {
-    it("shows the button when state exists and isRunning is false", () => {
-      const state: ExtensionTimerState = {
-        projectId: "proj-1",
-        projectName: "Test Project",
-        subPieceId: "sub-1",
-        subPieceName: "Test Task",
-        projectElapsed: 120,
-        subPieceRemaining: 300,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      setupStartButton(state);
-
-      const btn = document.getElementById("start-btn") as HTMLButtonElement;
-      expect(btn.style.display).toBe("block");
-      expect(btn.textContent).toContain("စတင်");
-    });
-
-    it("sends START_TIMER when clicked and shows temporary feedback", () => {
-      vi.useFakeTimers();
-      const sendMessageMock = vi.fn().mockResolvedValue({});
-      fakeBrowser.runtime.sendMessage = sendMessageMock;
-
-      const state: ExtensionTimerState = {
-        projectId: "proj-1",
-        projectName: "Test Project",
-        subPieceId: "sub-1",
-        subPieceName: "Test Task",
-        projectElapsed: 300,
-        subPieceRemaining: 600,
-        isRunning: false,
-        savedAt: Date.now(),
-      };
-
-      setupStartButton(state);
-      const btn = document.getElementById("start-btn") as HTMLButtonElement;
-      btn.click();
-
-      expect(btn.textContent).toContain("စတင်နေပါပြီ");
-      expect(btn.textContent).toContain("Starting");
-      expect(btn.disabled).toBe(true);
-
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
-      const sent = sendMessageMock.mock.calls[0][0] as {
-        action: string;
-        payload: ExtensionTimerState;
-      };
-      expect(sent.action).toBe("START_TIMER");
-      expect(sent.payload.isRunning).toBe(true);
-
-      vi.advanceTimersByTime(1000);
-      expect(btn.textContent).toContain("စတင်");
-      expect(btn.disabled).toBe(false);
-
-      vi.useRealTimers();
     });
   });
 

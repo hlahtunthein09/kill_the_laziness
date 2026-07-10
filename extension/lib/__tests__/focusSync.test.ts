@@ -3,7 +3,6 @@ import { fakeBrowser } from "@webext-core/fake-browser";
 import { setSettingsBrowserInstance } from "../settingsSync";
 import {
   setFocusSyncBrowserInstance,
-  syncFocusSession,
   syncExtensionSettings,
 } from "../focusSync";
 
@@ -17,25 +16,6 @@ describe("focusSync.ts", () => {
     vi.spyOn(fakeBrowser.storage.local, "set").mockResolvedValue(undefined);
     localStorage.clear();
     vi.clearAllMocks();
-  });
-
-  describe("syncFocusSession", () => {
-    it("no longer forwards web-app timer state to the extension", async () => {
-      const sendMessageMock = vi.fn().mockResolvedValue(undefined);
-      fakeBrowser.runtime.sendMessage = sendMessageMock;
-
-      await syncFocusSession();
-
-      expect(sendMessageMock).not.toHaveBeenCalled();
-    });
-
-    it("does not throw when extension context is invalid", async () => {
-      fakeBrowser.runtime.sendMessage = vi
-        .fn()
-        .mockRejectedValue(new Error("Extension context invalidated"));
-
-      await expect(syncFocusSession()).resolves.toBeUndefined();
-    });
   });
 
   describe("syncExtensionSettings", () => {

@@ -41,10 +41,10 @@ export function ProjectCompletedDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[95vw] sm:max-w-xl md:max-w-2xl p-6">
         <DialogHeader>
           <DialogTitle>ပရောဂျက်ပြီးစီးသွားပါပြီ (Project Completed)</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mb-2">
             {projectName} အတွက် ပစ်မှတ်အချိန် ပြည့်သွားပါပြီ။
             <br />
             Time used: {formatDuration(totalTimeSeconds)} / Target:{" "}
@@ -71,14 +71,14 @@ export function ProjectCompletedDialog({
           />
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+        <DialogFooter className="flex-col gap-3 mt-4 sm:flex-row sm:flex-wrap">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} className="sm:flex-1">
             မလုပ်ပါ (Cancel)
           </Button>
-          <Button variant="outline" onClick={onRestart} data-testid="restart-project-btn">
+          <Button variant="outline" onClick={onRestart} data-testid="restart-project-btn" className="sm:flex-1">
             သုညက ပြန်စမယ် (Restart)
           </Button>
-          <Button onClick={() => onExtend(additionalMinutes)} data-testid="extend-target-btn">
+          <Button onClick={() => onExtend(additionalMinutes)} data-testid="extend-target-btn" className="sm:flex-1">
             ပစ်မှတ်တိုးမယ် (Extend)
           </Button>
         </DialogFooter>

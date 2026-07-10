@@ -96,6 +96,10 @@
     .status-dot.paused {
       background: #fbbf24;
     }
+    .status-dot.completed {
+      background: #34d399;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
+    }
     .status-label {
       font-size: 0.8rem;
       font-weight: 500;
@@ -240,7 +244,7 @@
       margin: 0;
     }
   </style>
-  <script type="module" crossorigin src="/chunks/popup-DIPKq6fI.js"></script>
+  <script type="module" crossorigin src="/chunks/popup-BwEBEUM5.js"></script>
   <link rel="modulepreload" crossorigin href="/chunks/_virtual_wxt-html-plugins-Dezn_h7o.js">
 </head>
 <body>
@@ -253,7 +257,7 @@
       </div>
     </div>
 
-    <div id="popup-content">
+    <div id="popup-content" style="display: none;">
       <div id="notification-status" class="notification-status-row"></div>
 
       <div class="status-row">
@@ -273,24 +277,14 @@
 
       <div class="time-grid">
         <div class="time-card">
-          <div class="time-card-label">ကြာချိန် (Elapsed)</div>
+          <div id="elapsed-label" class="time-card-label">ကြာချိန် (Elapsed)</div>
           <div id="elapsed-time" class="time-card-value">0m</div>
         </div>
         <div class="time-card">
-          <div class="time-card-label">ကျန်ချိန် (Remaining)</div>
+          <div id="remaining-label" class="time-card-label">ကျန်ချိန် (Remaining)</div>
           <div id="remaining-time" class="time-card-value remaining">0m</div>
         </div>
       </div>
-
-      <button id="start-btn" class="btn btn-primary" type="button" style="display: none;">
-        စတင် (Start)
-      </button>
-      <button id="pause-btn" class="btn btn-secondary" type="button" style="display: none;">
-        ခဏရပ်ရန် (Pause)
-      </button>
-      <button id="reset-btn" class="btn btn-outline" type="button" style="display: none;">
-        ပြန်စရန် (Reset)
-      </button>
     </div>
 
     <div id="empty-state" class="empty-state" style="display: none;">

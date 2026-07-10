@@ -3,6 +3,13 @@ import { renderHook, act, render, screen, waitFor } from '@testing-library/react
 import { useTimer } from '../useTimer'
 import { useFocusStore } from '@/lib/store/useFocusStore'
 import { DEFAULT_APP_SETTINGS } from '@/lib/constants'
+import type { Browser } from 'webextension-polyfill'
+
+declare global {
+  interface Window {
+    browser?: Browser;
+  }
+}
 
 // Test harness component that renders hook values to the DOM so
 // React 19 state updates from useEffect are properly reflected.
@@ -27,6 +34,7 @@ describe('useTimer', () => {
   let rafCallbacks: Map<number, FrameRequestCallback>
   let rafId = 0
   let now = 0
+  let sendMessage: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     // Reset store
@@ -39,6 +47,10 @@ describe('useTimer', () => {
 
     // Clear localStorage
     localStorage.clear()
+
+    // Mock browser runtime messaging
+    sendMessage = vi.fn().mockResolvedValue(undefined)
+    window.browser = { runtime: { sendMessage } } as unknown as Browser
 
     // Mock RAF
     rafCallbacks = new Map()
@@ -60,6 +72,7 @@ describe('useTimer', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    window.browser = undefined
   })
 
   // Helper to flush all pending RAF callbacks (used to prime the timer after start)
@@ -242,6 +255,20 @@ describe('useTimer', () => {
       expect(raw).toBeTruthy()
       const session = JSON.parse(raw!)
       expect(session.targetTimeSeconds).toBe(3600)
+    })
+
+    it('persists session with allocatedMinutes on every 5-second persist', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(6)
+
+      const raw = localStorage.getItem('ff_active_session')
+      expect(raw).toBeTruthy()
+      const session = JSON.parse(raw!)
+      expect(session.allocatedMinutes).toBe(2)
     })
 
     it('persists session with project name only when no sub-piece', async () => {
@@ -857,129 +884,195 @@ describe('useTimer', () => {
     })
   })
 
-  describe('extension command bridge', () => {
-    let commandListener: ((e: Event) => void) | null = null
-    let requestListener: ((e: Event) => void) | null = null
+  describe('extension type bridge', () => {
+    let activeSessionToken: unknown = null
 
     beforeEach(() => {
-      commandListener = null
-      requestListener = null
-    })
-
-    function listenForCommands(onCommand: (action: string, payload?: unknown) => void) {
-      commandListener = (e: Event) => {
-        const detail = (e as CustomEvent).detail as { action?: string; payload?: unknown }
-        if (!detail?.action) return
-        onCommand(detail.action, detail.payload)
-      }
-      window.addEventListener('ff:command', commandListener)
-    }
-
-    function autoRespondToGetTimerState(response: unknown) {
-      requestListener = (e: Event) => {
-        const detail = (e as CustomEvent).detail as
-          | { requestId?: string; action?: string; payload?: unknown }
-          | undefined
-        if (detail?.action === 'GET_TIMER_STATE') {
-          window.dispatchEvent(
-            new CustomEvent('ff:response', {
-              detail: { requestId: detail.requestId, response },
-              bubbles: true,
-            })
-          )
+      activeSessionToken = null
+      sendMessage.mockImplementation(async (msg: { type?: string }) => {
+        if (msg.type === 'GET_ACTIVE_SESSION') {
+          return { ok: true, token: activeSessionToken }
         }
-      }
-      window.addEventListener('ff:request', requestListener)
-    }
-
-    afterEach(() => {
-      if (commandListener) window.removeEventListener('ff:command', commandListener)
-      if (requestListener) window.removeEventListener('ff:request', requestListener)
+        return undefined
+      })
     })
 
-    it('start() sends START_TIMER with payload via ff:command', async () => {
-      const { project, subPiece } = createProjectWithSubPiece()
-      let captured: { action: string; payload?: unknown } | null = null
+    function setActiveSessionToken(token: unknown) {
+      activeSessionToken = token
+    }
 
-      listenForCommands((action, payload) => {
-        captured = { action, payload }
-      })
-      autoRespondToGetTimerState(null)
+    function commandCalls() {
+      return sendMessage.mock.calls.map((call) => call[0]).filter((msg: { type?: string }) => msg.type !== 'GET_ACTIVE_SESSION')
+    }
+
+    it('start() sends START_SESSION with token via runtime.sendMessage', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      setActiveSessionToken(null)
 
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
-      await waitFor(() => expect(requestListener).not.toBeNull())
-
       act(() => result.current.start())
 
-      expect(captured).not.toBeNull()
-      expect(captured!.action).toBe('START_TIMER')
-      const msg = captured!.payload as Record<string, unknown>
-      expect(msg.projectId).toBe(project.id)
-      expect(msg.subPieceId).toBe(subPiece.id)
-      expect(msg.projectName).toBe('Test Project')
-      expect(msg.subPieceName).toBe('Task 1')
-      expect(msg.isRunning).toBe(true)
-      expect(msg.projectElapsed).toBe(0)
-      expect(msg.subPieceRemaining).toBe(120)
-      expect(msg.targetTimeSeconds).toBe(3600)
-      expect(msg.allocatedMinutes).toBe(2)
-      expect(typeof msg.savedAt).toBe('number')
+      await waitFor(() => expect(commandCalls().length).toBeGreaterThan(0))
+      const { type, token } = commandCalls()[0]
+      expect(type).toBe('START_SESSION')
+      expect(token.projectId).toBe(project.id)
+      expect(token.subPieceId).toBe(subPiece.id)
+      expect(token.projectName).toBe('Test Project')
+      expect(token.subPieceName).toBe('Task 1')
+      expect(token.mode).toBe('sub-piece')
+      expect(token.isRunning).toBe(true)
+      expect(token.targetTimeSeconds).toBe(120)
+      expect(token.projectElapsedBaseline).toBe(0)
+      expect(token.subPieceRemainingBaseline).toBe(120)
+      expect(token.elapsedActiveSeconds).toBe(0)
+      expect(typeof token.startedAt).toBe('number')
+      expect(typeof token.resumedAt).toBe('number')
     })
 
-    it('pause() sends PAUSE_TIMER via ff:command', async () => {
+    it('sets baselines to current values on start', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
-      let captured: { action: string; payload?: unknown } | null = null
-
-      listenForCommands((action, payload) => {
-        if (action === 'PAUSE_TIMER') captured = { action, payload }
-      })
-      autoRespondToGetTimerState(null)
+      useFocusStore.getState().incrementProjectTime(project.id, 50)
+      setActiveSessionToken(null)
 
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
-      await waitFor(() => expect(requestListener).not.toBeNull())
+      act(() => result.current.start())
 
+      await waitFor(() => expect(commandCalls().length).toBeGreaterThan(0))
+      const { token } = commandCalls()[0]
+      expect(token.projectElapsedBaseline).toBe(50)
+      expect(token.subPieceRemainingBaseline).toBe(120)
+    })
+
+    it('resets baselines on a fresh start after reset', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      setActiveSessionToken(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
       act(() => result.current.start())
       await flushRaf()
-      captured = null
+      await advanceTime(10)
+      act(() => result.current.pause())
+      act(() => result.current.reset())
+
+      act(() => result.current.start())
+
+      await waitFor(() => expect(commandCalls().length).toBe(4))
+      const startCommands = commandCalls().filter((msg) => msg.type === 'START_SESSION')
+      expect(startCommands.length).toBe(2)
+      expect(startCommands[0].token.projectElapsedBaseline).toBe(0)
+      expect(startCommands[0].token.subPieceRemainingBaseline).toBe(120)
+      expect(startCommands[1].token.projectElapsedBaseline).toBe(0)
+      expect(startCommands[1].token.subPieceRemainingBaseline).toBe(120)
+    })
+
+    it('preserves baselines across pause and resume', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      setActiveSessionToken(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(10)
+      act(() => result.current.pause())
+
+      act(() => result.current.start())
+
+      await waitFor(() => expect(commandCalls().length).toBe(3))
+      const types = commandCalls().map((msg) => msg.type)
+      expect(types).toEqual(['START_SESSION', 'PAUSE_SESSION', 'RESUME_SESSION'])
+      const first = commandCalls()[0].token
+      const third = commandCalls()[2].token
+      expect(first.projectElapsedBaseline).toBe(0)
+      expect(first.subPieceRemainingBaseline).toBe(120)
+      expect(third.projectElapsedBaseline).toBe(0)
+      expect(third.subPieceRemainingBaseline).toBe(120)
+    })
+
+    it('auto-completing sub-piece sends PAUSE_SESSION', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      setActiveSessionToken(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(120)
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.subPieceRemaining).toBe(0)
+      const lastCommand = commandCalls()[commandCalls().length - 1]
+      expect(lastCommand.type).toBe('PAUSE_SESSION')
+      expect(lastCommand.token.isRunning).toBe(false)
+    })
+
+    it('reaching project target sends PAUSE_SESSION', async () => {
+      const project = useFocusStore.getState().addProject({
+        name: 'Target Project',
+        description: '',
+        color: 'mint',
+        targetTimeSeconds: 10,
+      })
+      setActiveSessionToken(null)
+
+      const { result } = renderHook(() => useTimer(project.id))
+      act(() => result.current.start())
+      await flushRaf()
+      await advanceTime(12)
+
+      expect(result.current.isRunning).toBe(false)
+      expect(result.current.targetReached).toBe(true)
+      const lastCommand = commandCalls()[commandCalls().length - 1]
+      expect(lastCommand.type).toBe('PAUSE_SESSION')
+      expect(lastCommand.token.isRunning).toBe(false)
+    })
+
+    it('pause() sends PAUSE_SESSION', async () => {
+      const { project, subPiece } = createProjectWithSubPiece()
+      setActiveSessionToken(null)
+
+      const { result } = renderHook(() => useTimer(project.id, subPiece.id))
+      act(() => result.current.start())
+      await flushRaf()
 
       act(() => result.current.pause())
 
-      expect(captured).toEqual({ action: 'PAUSE_TIMER', payload: undefined })
+      await waitFor(() => expect(commandCalls().length).toBe(2))
+      expect(commandCalls()[1].type).toBe('PAUSE_SESSION')
+      expect(commandCalls()[1].token.isRunning).toBe(false)
     })
 
-    it('reset() sends RESET_TIMER via ff:command', async () => {
+    it('reset() sends RESET_SESSION', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
-      let captured: { action: string; payload?: unknown } | null = null
-
-      listenForCommands((action, payload) => {
-        if (action === 'RESET_TIMER') captured = { action, payload }
-      })
-      autoRespondToGetTimerState(null)
+      setActiveSessionToken(null)
 
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
-      await waitFor(() => expect(requestListener).not.toBeNull())
-
       act(() => result.current.start())
       await flushRaf()
       await advanceTime(5)
-      captured = null
 
       act(() => result.current.reset())
 
-      expect(captured).toEqual({ action: 'RESET_TIMER', payload: undefined })
+      await waitFor(() => expect(commandCalls().length).toBe(2))
+      expect(commandCalls()[1].type).toBe('RESET_SESSION')
+      expect(commandCalls()[1].token.isRunning).toBe(false)
     })
 
-    it('seeds display from GET_TIMER_STATE response on mount', async () => {
+    it('seeds display from GET_ACTIVE_SESSION response on mount', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
-      const extensionState = {
+      const token = {
         projectId: project.id,
         subPieceId: subPiece.id,
-        projectElapsed: 100,
-        subPieceRemaining: 80,
+        projectName: project.name,
+        subPieceName: subPiece.name,
+        mode: 'sub-piece',
+        targetTimeSeconds: 120,
+        projectElapsedBaseline: 100,
+        subPieceRemainingBaseline: 80,
         isRunning: false,
-        savedAt: Date.now(),
+        startedAt: Date.now(),
+        resumedAt: Date.now(),
+        elapsedActiveSeconds: 0,
       }
-      autoRespondToGetTimerState(extensionState)
+      setActiveSessionToken(token)
 
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
 
@@ -987,18 +1080,24 @@ describe('useTimer', () => {
       expect(result.current.subPieceRemaining).toBe(80)
     })
 
-    it('applies drift cap when GET_TIMER_STATE returns a running session', async () => {
+    it('applies drift cap when GET_ACTIVE_SESSION returns a running session', async () => {
       const { project, subPiece } = createProjectWithSubPiece()
-      const extensionState = {
+      now = 5000
+      const token = {
         projectId: project.id,
         subPieceId: subPiece.id,
-        projectElapsed: 10,
-        subPieceRemaining: 100,
+        projectName: project.name,
+        subPieceName: subPiece.name,
+        mode: 'sub-piece',
+        targetTimeSeconds: 120,
+        projectElapsedBaseline: 10,
+        subPieceRemainingBaseline: 100,
         isRunning: true,
-        savedAt: 0,
+        startedAt: 0,
+        resumedAt: 0,
+        elapsedActiveSeconds: 0,
       }
-      autoRespondToGetTimerState(extensionState)
-      now = 5000
+      setActiveSessionToken(token)
 
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
 
@@ -1007,9 +1106,8 @@ describe('useTimer', () => {
       expect(result.current.isRunning).toBe(true)
     })
 
-    it('silently skips commands when CustomEvent dispatch is unavailable', () => {
-      const originalDispatchEvent = window.dispatchEvent
-      vi.stubGlobal('dispatchEvent', undefined)
+    it('silently skips types when browser runtime is unavailable', () => {
+      window.browser = undefined
 
       const { project, subPiece } = createProjectWithSubPiece()
       const { result } = renderHook(() => useTimer(project.id, subPiece.id))
@@ -1017,8 +1115,6 @@ describe('useTimer', () => {
       expect(() => act(() => result.current.start())).not.toThrow()
       expect(() => act(() => result.current.pause())).not.toThrow()
       expect(() => act(() => result.current.reset())).not.toThrow()
-
-      window.dispatchEvent = originalDispatchEvent
     })
   })
 

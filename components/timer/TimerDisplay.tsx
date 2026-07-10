@@ -8,6 +8,7 @@ interface TimerDisplayProps {
   projectElapsed: number;
   subPieceRemaining: number;
   isRunning: boolean;
+  isCompleted?: boolean;
   allocatedMinutes?: number;
   subPieceName?: string;
   targetTimeSeconds?: number;
@@ -17,13 +18,16 @@ export function TimerDisplay({
   projectElapsed,
   subPieceRemaining,
   isRunning,
+  isCompleted = false,
   allocatedMinutes,
   subPieceName,
   targetTimeSeconds,
 }: TimerDisplayProps) {
-  const statusLabel = isRunning
-    ? { label: "လုပ်ဆောင်နေသည်", en: "Running", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" }
-    : { label: "ခဏရပ်ထား", en: "Paused", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+  const statusLabel = isCompleted
+    ? { label: "ပြီးစီး", en: "Completed", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" }
+    : isRunning
+      ? { label: "လုပ်ဆောင်နေသည်", en: "Running", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" }
+      : { label: "ခဏရပ်ထား", en: "Paused", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
 
   const showRemaining = allocatedMinutes && allocatedMinutes > 0;
   const showTarget = targetTimeSeconds && targetTimeSeconds > 0;

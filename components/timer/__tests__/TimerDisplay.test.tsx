@@ -196,16 +196,18 @@ describe("TimerDisplay", () => {
     expect(screen.getByText(/Paused/i)).toBeInTheDocument();
   });
 
-  it("shows running status badge when running", () => {
+  it("shows completed status badge when isCompleted is true", () => {
     render(
       <TimerDisplay
         projectElapsed={120}
         subPieceRemaining={900}
-        isRunning={true}
+        isRunning={false}
+        isCompleted={true}
         allocatedMinutes={25}
       />
     );
 
-    expect(screen.getByText(/Running/i)).toBeInTheDocument();
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Paused/i)).not.toBeInTheDocument();
   });
 });

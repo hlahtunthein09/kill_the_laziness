@@ -385,6 +385,21 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
   },
 
   refocusSubPiece: (projectId, subPieceId, allocatedMinutes) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return;
+    const subPiece = project.subPieces.find((sp) => sp.id === subPieceId);
+    if (!subPiece) return;
+
+    const allocatedByOthers =
+      project.subPieces.reduce((sum, sp) => sum + sp.allocatedMinutes, 0) - subPiece.allocatedMinutes;
+    const consumedSeconds = Math.max(project.totalTimeSeconds, allocatedByOthers * 60);
+    const remainingSeconds = Math.max(0, project.targetTimeSeconds - consumedSeconds);
+    const remainingMinutes = Math.floor(remainingSeconds / 60);
+
+    const requestedMinutes =
+      allocatedMinutes !== undefined && allocatedMinutes > 0 ? allocatedMinutes : subPiece.allocatedMinutes;
+    const finalMinutes = Math.max(0, Math.min(requestedMinutes, remainingMinutes));
+
     set((state) => ({
       projects: state.projects.map((p) => {
         if (p.id !== projectId) return p;
@@ -394,10 +409,7 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
             ...sp,
             status: "idle" as PieceStatus,
             elapsedSeconds: 0,
-            allocatedMinutes:
-              allocatedMinutes !== undefined && allocatedMinutes > 0
-                ? allocatedMinutes
-                : sp.allocatedMinutes,
+            allocatedMinutes: finalMinutes,
           };
         });
         const allCompleted = updatedSubPieces.length > 0 && updatedSubPieces.every((sp) => sp.status === "completed");
@@ -474,7 +486,8 @@ export const createProjectSlice: StateCreator<FocusState, [], [], ProjectSlice> 
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return 0;
     const allocatedSeconds = get().getTotalAllocatedMinutes(projectId) * 60;
-    return Math.max(0, project.targetTimeSeconds - allocatedSeconds);
+    const consumedSeconds = Math.max(project.totalTimeSeconds, allocatedSeconds);
+    return Math.max(0, project.targetTimeSeconds - consumedSeconds);
   },
 
   getProjectProgress: (projectId) => {

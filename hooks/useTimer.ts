@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusStore } from "@/lib/store/useFocusStore";
-import type { ExtensionTimerState } from "@/extension/lib/types";
+import type { ActiveSessionToken } from "@/extension/lib/types";
+import type { Browser } from "webextension-polyfill";
+
+declare global {
+  interface Window {
+    browser?: Browser;
+  }
+}
 
 const SESSION_KEY = "ff_active_session";
+// NOTE: This localStorage key is only for web-app restore after a tab close/
+// refresh. Extension sync is handled via window.browser.runtime.sendMessage and
+// the authoritative extension state; this session snapshot is NOT sent to the
+// extension and must not be used as a sync source.
 const MAX_DRIFT_SECONDS = 60 * 60; // 60 minutes
 
 interface SessionData {
@@ -14,9 +25,12 @@ interface SessionData {
   subPieceName?: string;
   projectElapsed: number;
   subPieceRemaining: number;
+  projectElapsedBaseline: number;
+  subPieceRemainingBaseline: number;
   savedAt: number;
   isRunning: boolean;
   targetTimeSeconds?: number;
+  allocatedMinutes?: number;
 }
 
 interface UseTimerReturn {
@@ -56,6 +70,8 @@ interface TimerInit {
   isRunning: boolean;
   projectElapsed: number;
   subPieceRemaining: number;
+  projectElapsedBaseline: number;
+  subPieceRemainingBaseline: number;
   shouldAutoComplete: boolean;
   autoCompleteSeconds: number;
   targetReached: boolean;
@@ -76,6 +92,8 @@ function computeInit(
       isRunning: false,
       projectElapsed: targetReached ? targetTimeSeconds : initialProjectTime,
       subPieceRemaining: initialSubPieceRemaining,
+      projectElapsedBaseline: targetReached ? targetTimeSeconds : initialProjectTime,
+      subPieceRemainingBaseline: initialSubPieceRemaining,
       shouldAutoComplete: false,
       autoCompleteSeconds: 0,
       targetReached,
@@ -120,6 +138,10 @@ function computeInit(
     isRunning,
     projectElapsed,
     subPieceRemaining: subPieceId ? subPieceRemaining : initialSubPieceRemaining,
+    projectElapsedBaseline: session.projectElapsedBaseline ?? session.projectElapsed,
+    subPieceRemainingBaseline:
+      session.subPieceRemainingBaseline ??
+      (subPieceId ? session.subPieceRemaining : initialSubPieceRemaining),
     shouldAutoComplete,
     autoCompleteSeconds,
     targetReached,
@@ -156,6 +178,8 @@ export function useTimer(
           isRunning: false,
           projectElapsed: 0,
           subPieceRemaining: 0,
+          projectElapsedBaseline: 0,
+          subPieceRemainingBaseline: 0,
           shouldAutoComplete: false,
           autoCompleteSeconds: 0,
           targetReached: false,
@@ -176,11 +200,14 @@ export function useTimer(
   const autoCompleteHandledRef = useRef(false);
   const projectTargetShownRef = useRef(false);
   const targetReachedRef = useRef(init.targetReached);
+  const startedAtRef = useRef(Date.now());
+  const resumedAtRef = useRef(Date.now());
 
   // Session baseline refs — track the values at session start so reset can
   // subtract elapsed deltas from the store and restore to baseline.
-  const sessionStartProjectElapsedRef = useRef(init.projectElapsed);
-  const sessionStartSubPieceRemainingRef = useRef(init.subPieceRemaining);
+  const projectElapsedBaselineRef = useRef(init.projectElapsedBaseline);
+  const subPieceRemainingBaselineRef = useRef(init.subPieceRemainingBaseline);
+  const wasStartedRef = useRef(init.isRunning);
   const prevProjectIdRef = useRef(projectId);
   const prevSubPieceIdRef = useRef(subPieceId);
 
@@ -209,8 +236,9 @@ export function useTimer(
   // Update session baseline refs when projectId or subPieceId changes.
   useEffect(() => {
     if (projectId !== prevProjectIdRef.current || subPieceId !== prevSubPieceIdRef.current) {
-      sessionStartProjectElapsedRef.current = projectElapsedRef.current;
-      sessionStartSubPieceRemainingRef.current = subPieceRemainingRef.current;
+      projectElapsedBaselineRef.current = projectElapsedRef.current;
+      subPieceRemainingBaselineRef.current = subPieceRemainingRef.current;
+      wasStartedRef.current = false;
       prevProjectIdRef.current = projectId;
       prevSubPieceIdRef.current = subPieceId;
     }
@@ -239,13 +267,16 @@ export function useTimer(
         subPieceName: subPiece?.name,
         projectElapsed: projElapsed,
         subPieceRemaining: spRemaining,
+        projectElapsedBaseline: projectElapsedBaselineRef.current,
+        subPieceRemainingBaseline: subPieceRemainingBaselineRef.current,
         savedAt: Date.now(),
         isRunning: running,
         targetTimeSeconds: project?.targetTimeSeconds ?? 0,
+        allocatedMinutes: subPiece?.allocatedMinutes,
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
     },
-    [projectId, subPieceId, project?.name, subPiece?.name, project?.targetTimeSeconds]
+    [projectId, subPieceId, project?.name, subPiece?.name, project?.targetTimeSeconds, subPiece?.allocatedMinutes]
   );
 
   // Keep the latest persistSession in a ref so tick can access it without
@@ -255,67 +286,96 @@ export function useTimer(
     persistSessionRef.current = persistSession;
   }, [persistSession]);
 
-  function buildExtensionState(
-    running: boolean,
-    projElapsed: number,
-    spRemaining: number
-  ): ExtensionTimerState {
-    return {
-      projectId: projectId!,
-      subPieceId,
-      projectName: project?.name,
-      subPieceName: subPiece?.name,
-      projectElapsed: projElapsed,
-      subPieceRemaining: spRemaining,
-      targetTimeSeconds: project?.targetTimeSeconds ?? 0,
-      allocatedMinutes: subPiece?.allocatedMinutes,
-      isRunning: running,
-      savedAt: Date.now(),
-    };
+  async function sendExtensionCommand(
+    type: "START_SESSION" | "RESUME_SESSION" | "PAUSE_SESSION" | "RESET_SESSION",
+    isRunning = type === "START_SESSION" || type === "RESUME_SESSION"
+  ) {
+    if (typeof window === "undefined") return;
+    const token = buildActiveSessionToken(isRunning);
+
+    // In a real browser page window.browser is only available when the content
+    // script injects it. Prefer the direct path; fall back to the ff:command
+    // event bridge so the content script can forward the message.
+    if (typeof window.browser !== "undefined") {
+      try {
+        await window.browser?.runtime?.sendMessage({ type, token });
+        return;
+      } catch {
+        // extension not installed or context invalid; fall through to event bridge
+      }
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("ff:command", {
+        detail: { type, token },
+        bubbles: true,
+      })
+    );
   }
 
-  async function sendExtensionRequest(action: string, payload?: unknown): Promise<unknown> {
-    if (typeof window === "undefined") return undefined;
+  async function getActiveSessionFromExtension(): Promise<ActiveSessionToken | null> {
+    if (typeof window === "undefined") return null;
+
+    if (typeof window.browser !== "undefined") {
+      try {
+        const response = (await window.browser?.runtime?.sendMessage({
+          type: "GET_ACTIVE_SESSION",
+        })) as { ok: boolean; token?: ActiveSessionToken } | undefined;
+        return response?.ok ? (response.token ?? null) : null;
+      } catch {
+        // fall through to event bridge
+      }
+    }
 
     return new Promise((resolve) => {
       const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const handler = (e: Event) => {
         const detail = (e as CustomEvent).detail as
-          | { requestId?: string; response?: unknown }
+          | { requestId?: string; response?: { ok: boolean; token?: ActiveSessionToken } }
           | undefined;
         if (detail?.requestId === requestId) {
           window.removeEventListener("ff:response", handler);
-          resolve(detail.response);
+          resolve(detail.response?.ok ? (detail.response.token ?? null) : null);
         }
       };
-
       window.addEventListener("ff:response", handler);
       window.dispatchEvent(
         new CustomEvent("ff:request", {
-          detail: { requestId, action, payload },
+          detail: { requestId, type: "GET_ACTIVE_SESSION" },
           bubbles: true,
         })
       );
-
-      // Clean up if the extension never responds.
       setTimeout(() => {
         window.removeEventListener("ff:response", handler);
-        resolve(undefined);
+        resolve(null);
       }, 1000);
     });
   }
 
-  async function sendTimerCommand(
-    action: "START_TIMER" | "PAUSE_TIMER" | "RESET_TIMER",
-    state?: ExtensionTimerState
-  ) {
-    try {
-      if (typeof window === "undefined") return;
-      const detail = state !== undefined ? { action, payload: state } : { action };
-      window.dispatchEvent(new CustomEvent("ff:command", { detail, bubbles: true }));
-    } catch {
-      // extension not installed or context invalid
-    }
+  function buildActiveSessionToken(isRunning: boolean): ActiveSessionToken {
+    const mode = subPieceId ? "sub-piece" : "project";
+    const targetTimeSeconds =
+      mode === "sub-piece"
+        ? (subPiece?.allocatedMinutes ?? 0) * 60
+        : (project?.targetTimeSeconds ?? 0);
+
+    return {
+      sessionId: Math.random().toString(16).slice(2, 10).padEnd(8, "0"),
+      projectId: projectId!,
+      subPieceId,
+      projectName: project?.name,
+      subPieceName: subPiece?.name,
+      mode,
+      targetTimeSeconds,
+      projectElapsedBaseline: projectElapsedBaselineRef.current,
+      ...(subPieceId && {
+        subPieceRemainingBaseline: subPieceRemainingBaselineRef.current,
+      }),
+      isRunning,
+      startedAt: startedAtRef.current,
+      resumedAt: resumedAtRef.current,
+      elapsedActiveSeconds: projectElapsedRef.current - projectElapsedBaselineRef.current,
+    };
   }
 
   // Keep the latest setters in refs so the RAF loop can call them without
@@ -335,31 +395,29 @@ export function useTimer(
 
     async function seedFromExtension() {
       try {
-        const response = await sendExtensionRequest("GET_TIMER_STATE");
-        if (!response || typeof response !== "object") return;
+        const token = await getActiveSessionFromExtension();
+        if (!token) return;
 
-        const state = response as Partial<ExtensionTimerState>;
         if (
-          typeof state.projectId !== "string" ||
-          state.projectId !== projectId ||
-          state.subPieceId !== subPieceId ||
-          typeof state.projectElapsed !== "number" ||
-          typeof state.subPieceRemaining !== "number" ||
-          typeof state.isRunning !== "boolean" ||
-          typeof state.savedAt !== "number"
+          token.projectId !== projectId ||
+          token.subPieceId !== subPieceId ||
+          typeof token.projectElapsedBaseline !== "number" ||
+          typeof token.targetTimeSeconds !== "number" ||
+          typeof token.isRunning !== "boolean" ||
+          typeof token.startedAt !== "number"
         ) {
           return;
         }
 
-        const rawDrift = state.isRunning
-          ? Math.floor((Date.now() - state.savedAt) / 1000)
-          : 0;
-        const drift = state.isRunning ? Math.min(MAX_DRIFT_SECONDS, rawDrift) : 0;
-        const driftWasCapped = state.isRunning && rawDrift > MAX_DRIFT_SECONDS;
+        const elapsedActive = token.isRunning
+          ? Math.floor((Date.now() - token.resumedAt) / 1000) + token.elapsedActiveSeconds
+          : token.elapsedActiveSeconds;
+        const drift = token.isRunning ? Math.min(MAX_DRIFT_SECONDS, elapsedActive) : 0;
+        const driftWasCapped = token.isRunning && elapsedActive > MAX_DRIFT_SECONDS;
 
-        let nextProjectElapsed = state.projectElapsed + drift;
+        let nextProjectElapsed = token.projectElapsedBaseline + drift;
         let nextSubPieceRemaining = subPieceId
-          ? Math.max(0, state.subPieceRemaining - drift)
+          ? Math.max(0, (token.subPieceRemainingBaseline ?? token.targetTimeSeconds) - drift)
           : 0;
 
         const targetReachedOnSeed =
@@ -368,7 +426,7 @@ export function useTimer(
           nextProjectElapsed = targetTimeSeconds;
         }
 
-        let nextIsRunning = state.isRunning && !driftWasCapped && !targetReachedOnSeed;
+        let nextIsRunning = token.isRunning && !driftWasCapped && !targetReachedOnSeed;
         if (subPieceId && nextSubPieceRemaining === 0) {
           nextIsRunning = false;
         }
@@ -458,6 +516,7 @@ export function useTimer(
           }
           lastTickRef.current = null;
           state.completeSubPiece(projectId, subPieceId);
+          void sendExtensionCommand("PAUSE_SESSION");
           localStorage.removeItem(SESSION_KEY);
           onCompleteRef.current?.();
           return;
@@ -480,6 +539,7 @@ export function useTimer(
             rafRef.current = null;
           }
           lastTickRef.current = null;
+          void sendExtensionCommand("PAUSE_SESSION");
           localStorage.removeItem(SESSION_KEY);
           onCompleteRef.current?.();
           return;
@@ -504,11 +564,21 @@ export function useTimer(
   const start = useCallback(() => {
     if (!projectId) return;
     if (subPieceId && subPieceRemainingRef.current <= 0) return;
+
+    const isResume = wasStartedRef.current;
+
+    // Set baseline on a real start (first time or after reset/restart/reinitialize).
+    // On resume (pause -> start), preserve the existing baseline.
+    if (!isResume) {
+      projectElapsedBaselineRef.current = projectElapsedRef.current;
+      subPieceRemainingBaselineRef.current = subPieceRemainingRef.current;
+      startedAtRef.current = Date.now();
+      wasStartedRef.current = true;
+    }
+
+    resumedAtRef.current = Date.now();
     setIsRunning(true);
-    void sendTimerCommand(
-      "START_TIMER",
-      buildExtensionState(true, projectElapsedRef.current, subPieceRemainingRef.current)
-    );
+    void sendExtensionCommand(isResume ? "RESUME_SESSION" : "START_SESSION");
   }, [projectId, subPieceId]);
 
   const pause = useCallback(() => {
@@ -519,7 +589,7 @@ export function useTimer(
       rafRef.current = null;
     }
     persistSession(false, projectElapsedRef.current, subPieceRemainingRef.current);
-    void sendTimerCommand("PAUSE_TIMER");
+    void sendExtensionCommand("PAUSE_SESSION");
   }, [persistSession]);
 
   const reset = useCallback(() => {
@@ -537,8 +607,8 @@ export function useTimer(
 
     if (!projectId) return;
 
-    const projectDelta = projectElapsedRef.current - sessionStartProjectElapsedRef.current;
-    const subPieceDelta = sessionStartSubPieceRemainingRef.current - subPieceRemainingRef.current;
+    const projectDelta = projectElapsedRef.current - projectElapsedBaselineRef.current;
+    const subPieceDelta = subPieceRemainingBaselineRef.current - subPieceRemainingRef.current;
 
     if (projectDelta > 0) {
       useFocusStore.getState().decrementProjectTime(projectId, projectDelta);
@@ -548,15 +618,20 @@ export function useTimer(
     }
 
     // For a fresh session, baseline is 0; reset restores display to 0.
-    const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
-    const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
+    const baselineProjectElapsed = projectElapsedBaselineRef.current;
+    const baselineSubPieceRemaining = subPieceRemainingBaselineRef.current;
 
     projectElapsedRef.current = baselineProjectElapsed;
     subPieceRemainingRef.current = baselineSubPieceRemaining;
     setProjectElapsed(baselineProjectElapsed);
     setSubPieceRemaining(baselineSubPieceRemaining);
+
+    // Reset is a fresh session boundary; clear the started flag so the next
+    // start re-establishes the baseline.
+    wasStartedRef.current = false;
+
     localStorage.removeItem(SESSION_KEY);
-    void sendTimerCommand("RESET_TIMER");
+    void sendExtensionCommand("RESET_SESSION");
   }, [projectId, subPieceId]);
 
   const resetToZero = useCallback(() => {
@@ -589,8 +664,9 @@ export function useTimer(
     setSubPieceRemaining(newSubPieceRemaining);
 
     // Update session baselines so subsequent resets behave correctly
-    sessionStartProjectElapsedRef.current = newProjectElapsed;
-    sessionStartSubPieceRemainingRef.current = newSubPieceRemaining;
+    projectElapsedBaselineRef.current = newProjectElapsed;
+    subPieceRemainingBaselineRef.current = newSubPieceRemaining;
+    wasStartedRef.current = false;
 
     localStorage.removeItem(SESSION_KEY);
   }, [projectId, subPieceId]);
@@ -608,13 +684,20 @@ export function useTimer(
     }
 
     // Restore display to the session baseline (0 for a fresh session)
-    const baselineProjectElapsed = sessionStartProjectElapsedRef.current;
-    const baselineSubPieceRemaining = sessionStartSubPieceRemainingRef.current;
+    const baselineProjectElapsed = projectElapsedBaselineRef.current;
+    const baselineSubPieceRemaining = subPieceRemainingBaselineRef.current;
 
     projectElapsedRef.current = baselineProjectElapsed;
     subPieceRemainingRef.current = baselineSubPieceRemaining;
     setProjectElapsed(baselineProjectElapsed);
     setSubPieceRemaining(baselineSubPieceRemaining);
+
+    // Reinitialize is a re-focus boundary; re-establish baselines from the
+    // current display and clear the started flag.
+    projectElapsedBaselineRef.current = baselineProjectElapsed;
+    subPieceRemainingBaselineRef.current = baselineSubPieceRemaining;
+    wasStartedRef.current = false;
+
     localStorage.removeItem(SESSION_KEY);
   }, []);
 
@@ -633,8 +716,11 @@ export function useTimer(
 
     projectElapsedRef.current = newProjectElapsed;
     subPieceRemainingRef.current = newSubPieceRemaining;
-    sessionStartProjectElapsedRef.current = newProjectElapsed;
-    sessionStartSubPieceRemainingRef.current = newSubPieceRemaining;
+    projectElapsedBaselineRef.current = newProjectElapsed;
+    subPieceRemainingBaselineRef.current = newSubPieceRemaining;
+    startedAtRef.current = Date.now();
+    resumedAtRef.current = Date.now();
+    wasStartedRef.current = false;
 
     setProjectElapsed(newProjectElapsed);
     setSubPieceRemaining(newSubPieceRemaining);
@@ -649,6 +735,7 @@ export function useTimer(
     accumulatedRef.current = 0;
     lastPersistRef.current = 0;
     localStorage.removeItem(SESSION_KEY);
+    void sendExtensionCommand("START_SESSION", false);
   }, [projectId, subPieceId]);
 
   // When projectId is undefined, return neutral values and no-op handlers.

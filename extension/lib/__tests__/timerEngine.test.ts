@@ -1,796 +1,408 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fakeBrowser } from "@webext-core/fake-browser";
-import { setBrowserInstance, getTimerState, getLastMilestone } from "../storage";
 import {
-  setTimerEngineBrowserInstance,
   startSession,
+  resumeSession,
   pauseSession,
   resetSession,
-  tick,
+  updateSession,
+  getSessionElapsed,
+  getActiveSession,
   restoreOnStartup,
-  _resetTargetNotifiedRef,
+  setTimerEngineBrowserInstance,
 } from "../timerEngine";
-import type { ExtensionTimerState } from "../types";
+import { buildNotificationSchedule, type NotificationPayload } from "../notificationEngine";
+import * as notifications from "./../notifications";
+import type { ActiveSessionToken } from "../types";
 
-async function seedTimerState(state: ExtensionTimerState): Promise<void> {
-  await fakeBrowser.storage.local.set({ ff_extension_timer: state });
+interface StoredSessionData {
+  token: ActiveSessionToken;
+  trackers: {
+    startFired: boolean;
+    milestoneTimesFired: number[];
+    almostDoneFired: boolean;
+    completeFired: boolean;
+  };
 }
 
-interface FakeNotificationsWithPermission {
-  getPermissionLevel(): Promise<string>;
+function baseToken(overrides?: Partial<ActiveSessionToken>): ActiveSessionToken {
+  return {
+    projectId: "proj-1",
+    subPieceId: "sub-1",
+    projectName: "Project",
+    subPieceName: "Sub-piece",
+    mode: "sub-piece",
+    targetTimeSeconds: 300,
+    projectElapsedBaseline: 0,
+    subPieceRemainingBaseline: 300,
+    isRunning: true,
+    startedAt: Date.now(),
+    resumedAt: Date.now(),
+    elapsedActiveSeconds: 0,
+    ...overrides,
+    sessionId: overrides?.sessionId ?? "abc12345",
+  };
 }
 
-function setNotificationPermissionLevel(level: string): void {
-  (
-    fakeBrowser.notifications as unknown as FakeNotificationsWithPermission
-  ).getPermissionLevel = vi.fn().mockResolvedValue(level);
-}
-
-describe("timerEngine.ts", () => {
-  let sendMessageSpy: ReturnType<typeof vi.spyOn>;
+describe("timerEngine", () => {
+  let now: number;
+  let notifyFromPayloadSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     fakeBrowser.reset();
-    setBrowserInstance(fakeBrowser);
-    setTimerEngineBrowserInstance(fakeBrowser);
-    _resetTargetNotifiedRef();
-    fakeBrowser.runtime.getURL = (path: string) => `chrome-extension://test${path}`;
-    fakeBrowser.runtime.sendMessage = vi.fn().mockResolvedValue(undefined);
-    sendMessageSpy = vi.spyOn(fakeBrowser.runtime, "sendMessage");
-    setNotificationPermissionLevel("granted");
+    setTimerEngineBrowserInstance(fakeBrowser as unknown as import("webextension-polyfill").Browser);
+    (fakeBrowser.notifications as any).getPermissionLevel = vi.fn().mockResolvedValue("granted");
+    (fakeBrowser.notifications as any).create = vi.fn().mockResolvedValue("notif-id");
+    notifyFromPayloadSpy = vi.spyOn(notifications, "notifyFromPayload").mockResolvedValue(undefined);
+    now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
     vi.clearAllMocks();
   });
 
-  // --- Alarm lifecycle ---
+  async function storedSession(): Promise<StoredSessionData | undefined> {
+    const result = await fakeBrowser.storage.local.get("ff_active_session_v2");
+    return result["ff_active_session_v2"] as StoredSessionData | undefined;
+  }
 
-  it("startSession stores state, sets isRunning=true, and creates both alarms", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 0,
-      subPieceRemaining: 1500,
-      isRunning: false,
-      savedAt: Date.now() - 1000,
-    };
+  function advance(ms: number): void {
+    now += ms;
+  }
 
-    await startSession(state);
-
-    const stored = await getTimerState();
-    expect(stored).not.toBeNull();
-    expect(stored!.isRunning).toBe(true);
-    expect(stored!.savedAt).toBeGreaterThanOrEqual(state.savedAt);
-
-    const focusAlarm = await fakeBrowser.alarms.get("focus-timer");
-    expect(focusAlarm).toBeDefined();
-    expect(focusAlarm?.periodInMinutes).toBe(1);
-
-    const keepAliveAlarm = await fakeBrowser.alarms.get("ff-keep-alive");
-    expect(keepAliveAlarm).toBeDefined();
-    expect(keepAliveAlarm?.periodInMinutes).toBe(4);
+  it("startSession persists token, resets trackers, and fires start", async () => {
+    await startSession(baseToken());
+    const stored = await storedSession();
+    expect(stored?.token.projectId).toBe("proj-1");
+    expect(stored?.trackers).toEqual({
+      startFired: true,
+      milestoneTimesFired: [],
+      almostDoneFired: false,
+      completeFired: false,
+    });
   });
 
-  it("startSession when already running is idempotent (alarms recreated, state stays running)", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 1400,
-      isRunning: true,
-      savedAt: Date.now(),
+  it("startSession stores a non-empty sessionId", async () => {
+    await startSession(baseToken());
+    const stored = await storedSession();
+    expect(stored?.token.sessionId).toBeTruthy();
+    expect(typeof stored?.token.sessionId).toBe("string");
+    expect(stored?.token.sessionId.length).toBeGreaterThan(0);
+  });
+
+  it("startSession generates a different sessionId for each real start", async () => {
+    await startSession(baseToken({ sessionId: "first-id" }));
+    const first = (await storedSession())!.token.sessionId;
+    await resetSession();
+    await startSession(baseToken({ sessionId: "first-id" }));
+    const second = (await storedSession())!.token.sessionId;
+    expect(first).not.toBe(second);
+  });
+
+  it("pauseSession freezes sessionElapsed and preserves trackers", async () => {
+    await startSession(baseToken());
+    advance(5000);
+    const before = await getSessionElapsed();
+    expect(before).toBeCloseTo(5, 1);
+    await pauseSession();
+    const trackers = (await storedSession())!.trackers;
+    advance(5000);
+    const after = await getSessionElapsed();
+    expect(after).toBeCloseTo(before, 1);
+    expect(trackers.startFired).toBe(true);
+  });
+
+  it("resumeSession continues sessionElapsed and preserves trackers", async () => {
+    await startSession(baseToken());
+    advance(5000);
+    await pauseSession();
+    advance(3000);
+    const pausedElapsed = await getSessionElapsed();
+    expect(pausedElapsed).toBeCloseTo(5, 1);
+    await resumeSession();
+    advance(2000);
+    expect(await getSessionElapsed()).toBeCloseTo(7, 1);
+    const stored = await storedSession();
+    expect(stored?.token.isRunning).toBe(true);
+  });
+
+  it("resetSession clears token and trackers", async () => {
+    await startSession(baseToken());
+    await resetSession();
+    expect(await storedSession()).toBeUndefined();
+    expect(await getActiveSession()).toBeNull();
+  });
+
+  it("updateSession preserves trackers for same project/sub-piece", async () => {
+    await startSession(baseToken());
+    const stored = await storedSession();
+    stored!.trackers.startFired = true;
+    stored!.trackers.milestoneTimesFired = [30];
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": stored });
+    await updateSession(baseToken({ targetTimeSeconds: 600 }));
+    const updated = await storedSession();
+    expect(updated?.token.targetTimeSeconds).toBe(600);
+    expect(updated?.trackers.startFired).toBe(true);
+    expect(updated?.trackers.milestoneTimesFired).toEqual([30]);
+  });
+
+  it("updateSession resets trackers when project changes", async () => {
+    await startSession(baseToken());
+    const stored = await storedSession();
+    stored!.trackers.startFired = true;
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": stored });
+    await updateSession(baseToken({ projectId: "proj-2" }));
+    const updated = await storedSession();
+    expect(updated?.token.projectId).toBe("proj-2");
+    expect(updated?.trackers.startFired).toBe(true);
+  });
+
+  it("updateSession resets trackers when sub-piece changes", async () => {
+    await startSession(baseToken());
+    const stored = await storedSession();
+    stored!.trackers.startFired = true;
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": stored });
+    await updateSession(baseToken({ subPieceId: "sub-2" }));
+    const updated = await storedSession();
+    expect(updated?.token.subPieceId).toBe("sub-2");
+    expect(updated?.trackers.startFired).toBe(true);
+  });
+
+  it("startSession creates per-stage alarms with absolute when timestamps", async () => {
+    const token = baseToken({ targetTimeSeconds: 300 });
+    await startSession(token);
+    const stored = await storedSession();
+    const alarms = await fakeBrowser.alarms.getAll();
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    const sessionId = stored!.token.sessionId;
+    expect(byName[`focus-${sessionId}-milestone-0-125`]).toBeDefined();
+    expect(byName[`focus-${sessionId}-milestone-0-125`].scheduledTime).toBe(now + 125 * 1000);
+    expect(byName[`focus-${sessionId}-milestone-1-175`].scheduledTime).toBe(now + 175 * 1000);
+    expect(byName[`focus-${sessionId}-almost-247.5`].scheduledTime).toBe(now + 247.5 * 1000);
+    expect(byName[`focus-${sessionId}-complete-300`].scheduledTime).toBe(now + 300 * 1000);
+  });
+
+  it("startSession fires Start notification exactly once", async () => {
+    await startSession(baseToken());
+    expect(notifyFromPayloadSpy).toHaveBeenCalledTimes(1);
+    await pauseSession();
+    await resumeSession();
+    expect(notifyFromPayloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauseSession clears all stage alarms", async () => {
+    await startSession(baseToken());
+    const beforeNames = (await fakeBrowser.alarms.getAll()).map((a) => a.name);
+    expect(beforeNames.some((n) => n?.startsWith("focus-"))).toBe(true);
+    await pauseSession();
+    const afterNames = (await fakeBrowser.alarms.getAll()).map((a) => a.name);
+    expect(afterNames.some((n) => n?.startsWith("focus-"))).toBe(false);
+  });
+
+  it("resumeSession recreates only remaining unfired stage alarms using Date.now() + remaining", async () => {
+    const token = baseToken({ targetTimeSeconds: 300 });
+    await startSession(token);
+    advance(130 * 1000);
+    await pauseSession();
+    advance(10 * 1000);
+    const resumedAt = now;
+    await resumeSession();
+    const alarms = await fakeBrowser.alarms.getAll();
+    const names = alarms.map((a) => a.name);
+    const sessionId = (await storedSession())!.token.sessionId;
+    expect(names).not.toContain(`focus-${sessionId}-milestone-0-125`);
+    expect(names).toContain(`focus-${sessionId}-milestone-1-175`);
+    expect(names).toContain(`focus-${sessionId}-almost-247.5`);
+    expect(names).toContain(`focus-${sessionId}-complete-300`);
+
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    expect(byName[`focus-${sessionId}-milestone-1-175`].scheduledTime).toBe(resumedAt + (175 - 130) * 1000);
+    expect(byName[`focus-${sessionId}-almost-247.5`].scheduledTime).toBe(resumedAt + (247.5 - 130) * 1000);
+    expect(byName[`focus-${sessionId}-complete-300`].scheduledTime).toBe(resumedAt + (300 - 130) * 1000);
+  });
+
+  it("5-hour pause then resume schedules alarms from remaining active time", async () => {
+    const token = baseToken({ targetTimeSeconds: 300 });
+    await startSession(token);
+    advance(150 * 1000);
+    await pauseSession();
+    advance(5 * 60 * 60 * 1000); // 5 hours
+    const resumedAt = now;
+    await resumeSession();
+    const alarms = await fakeBrowser.alarms.getAll();
+    const sessionId = (await storedSession())!.token.sessionId;
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    expect(byName[`focus-${sessionId}-milestone-1-175`].scheduledTime).toBe(resumedAt + (175 - 150) * 1000);
+    expect(byName[`focus-${sessionId}-almost-247.5`].scheduledTime).toBe(resumedAt + (247.5 - 150) * 1000);
+    expect(byName[`focus-${sessionId}-complete-300`].scheduledTime).toBe(resumedAt + (300 - 150) * 1000);
+    expect(await getSessionElapsed()).toBeCloseTo(150, 1);
+  });
+
+  it("1000 pause/resume cycles produce no drift and correct alarm math", async () => {
+    const token = baseToken({ targetTimeSeconds: 3600, subPieceRemainingBaseline: 3600 });
+    await startSession(token);
+    for (let i = 0; i < 1000; i++) {
+      advance(1000); // 1s active
+      await pauseSession();
+      advance(2000); // 2s idle
+      await resumeSession();
+    }
+    expect(await getSessionElapsed()).toBeCloseTo(1000, 1);
+    const alarms = await fakeBrowser.alarms.getAll();
+    const sessionId = (await storedSession())!.token.sessionId;
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    const schedule = buildNotificationSchedule((await storedSession())!.token);
+    const nextTarget = schedule.milestoneTimes.find((t) => t > 1000)!;
+    expect(byName[`focus-${sessionId}-milestone-0-${nextTarget}`]).toBeDefined();
+    expect(byName[`focus-${sessionId}-milestone-0-${nextTarget}`].scheduledTime).toBe(now + (nextTarget - 1000) * 1000);
+  });
+
+  it("browser sleep simulation recalculates alarms from remaining active time", async () => {
+    const token = baseToken({ targetTimeSeconds: 300 });
+    await startSession(token);
+    advance(50 * 1000);
+    await pauseSession();
+    advance(2 * 60 * 60 * 1000); // 2 hours
+    const resumedAt = now;
+    await resumeSession();
+    const alarms = await fakeBrowser.alarms.getAll();
+    const sessionId = (await storedSession())!.token.sessionId;
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    expect(byName[`focus-${sessionId}-milestone-0-125`].scheduledTime).toBe(resumedAt + (125 - 50) * 1000);
+    expect(byName[`focus-${sessionId}-milestone-1-175`].scheduledTime).toBe(resumedAt + (175 - 50) * 1000);
+    expect(byName[`focus-${sessionId}-almost-247.5`].scheduledTime).toBe(resumedAt + (247.5 - 50) * 1000);
+    expect(byName[`focus-${sessionId}-complete-300`].scheduledTime).toBe(resumedAt + (300 - 50) * 1000);
+  });
+
+  it("milestone passed while paused is skipped on resume", async () => {
+    const token = baseToken({ targetTimeSeconds: 300 });
+    await startSession(token);
+    advance(130 * 1000);
+    await pauseSession();
+    await resumeSession();
+    const alarms = await fakeBrowser.alarms.getAll();
+    const sessionId = (await storedSession())!.token.sessionId;
+    const names = alarms.map((a) => a.name);
+    expect(names).not.toContain(`focus-${sessionId}-milestone-0-125`);
+    expect(names).toContain(`focus-${sessionId}-milestone-1-175`);
+    expect(names).toContain(`focus-${sessionId}-almost-247.5`);
+    expect(names).toContain(`focus-${sessionId}-complete-300`);
+  });
+});
+
+describe("restoreOnStartup", () => {
+  let now: number;
+  let notifyFromPayloadSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    fakeBrowser.reset();
+    setTimerEngineBrowserInstance(fakeBrowser as unknown as import("webextension-polyfill").Browser);
+    (fakeBrowser.notifications as any).getPermissionLevel = vi.fn().mockResolvedValue("granted");
+    (fakeBrowser.notifications as any).create = vi.fn().mockResolvedValue("notif-id");
+    notifyFromPayloadSpy = vi.spyOn(notifications, "notifyFromPayload").mockResolvedValue(undefined);
+    now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    vi.clearAllMocks();
+  });
+
+  async function storedSession(): Promise<StoredSessionData | undefined> {
+    const result = await fakeBrowser.storage.local.get("ff_active_session_v2");
+    return result["ff_active_session_v2"] as StoredSessionData | undefined;
+  }
+
+  function trackers(overrides?: Partial<StoredSessionData["trackers"]>): StoredSessionData["trackers"] {
+    return {
+      startFired: true,
+      milestoneTimesFired: [],
+      almostDoneFired: false,
+      completeFired: false,
+      ...overrides,
     };
-    await seedTimerState(state);
+  }
 
-    await startSession();
-    await startSession();
+  it("no stored session is a no-op", async () => {
+    await restoreOnStartup();
+    expect(notifyFromPayloadSpy).not.toHaveBeenCalled();
+    expect(await fakeBrowser.alarms.getAll()).toEqual([]);
+  });
 
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(true);
+  it("paused session is a no-op", async () => {
+    const token = baseToken({ isRunning: false });
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: trackers() } });
+    await restoreOnStartup();
+    expect(notifyFromPayloadSpy).not.toHaveBeenCalled();
+    const stored = await storedSession();
+    expect(stored?.token.isRunning).toBe(false);
+    expect(stored?.token.elapsedActiveSeconds).toBe(0);
+  });
+
+  it("running below target checkpoints drift and schedules remaining alarms", async () => {
+    const token = baseToken({ targetTimeSeconds: 300, subPieceRemainingBaseline: 300, elapsedActiveSeconds: 100 });
+    token.resumedAt = now - 50_000;
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: trackers() } });
+    const restoredAt = now;
+
+    await restoreOnStartup();
+
+    const stored = await storedSession();
+    expect(stored?.token.elapsedActiveSeconds).toBeCloseTo(150, 1);
+    expect(stored?.token.resumedAt).toBe(restoredAt);
+    expect(stored?.token.isRunning).toBe(true);
 
     const alarms = await fakeBrowser.alarms.getAll();
-    const focusAlarms = alarms.filter((a) => a.name === "focus-timer");
-    const keepAliveAlarms = alarms.filter((a) => a.name === "ff-keep-alive");
-    expect(focusAlarms).toHaveLength(1);
-    expect(keepAliveAlarms).toHaveLength(1);
+    const sessionId = stored!.token.sessionId;
+    const byName = Object.fromEntries(alarms.map((a) => [a.name, a]));
+    expect(byName[`focus-${sessionId}-milestone-0-125`]).toBeUndefined();
+    expect(byName[`focus-${sessionId}-milestone-1-175`]).toBeDefined();
+    expect(byName[`focus-${sessionId}-milestone-1-175`].scheduledTime).toBe(restoredAt + (175 - 150) * 1000);
+    expect(byName[`focus-${sessionId}-almost-247.5`].scheduledTime).toBe(restoredAt + (247.5 - 150) * 1000);
+    expect(byName[`focus-${sessionId}-complete-300`].scheduledTime).toBe(restoredAt + (300 - 150) * 1000);
   });
 
-  it("startSession fires a native start notification with priority 2", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectName: "My Project",
-      subPieceName: "My Task",
-      projectElapsed: 0,
-      subPieceRemaining: 1500,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-
-    await startSession(state);
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    const entries = Object.entries(notifications);
-    expect(entries).toHaveLength(1);
-
-    const [notifId, notif] = entries[0];
-    expect(notifId).toMatch(/^focus-start-/);
-    expect(notif.type).toBe("basic");
-    expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
-    expect(notif.title).toBe("စတင်ကြည့်ရအောင်!");
-    expect(notif.message).toBe("Let's get started!");
-    expect(notif.priority).toBe(2);
-
-    randomSpy.mockRestore();
-  });
-
-  it("pauseSession flushes drift, sets isRunning=false, and clears both alarms", async () => {
-    const now = Date.now();
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 1400,
-      isRunning: true,
-      savedAt: now - 30000,
-    };
-    await seedTimerState(state);
-
-    await pauseSession();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(false);
-    expect(stored!.projectElapsed).toBeGreaterThan(state.projectElapsed);
-    expect(stored!.subPieceRemaining).toBeLessThan(state.subPieceRemaining);
-
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-  });
-
-  it("pauseSession when already paused is idempotent", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 1400,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-    await seedTimerState(state);
-
-    await pauseSession();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(false);
-    expect(stored!.projectElapsed).toBe(state.projectElapsed);
-    expect(stored!.subPieceRemaining).toBe(state.subPieceRemaining);
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-  });
-
-  it("resetSession resets time, clears alarms, and clears milestone", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      allocatedMinutes: 25,
-      projectElapsed: 500,
-      subPieceRemaining: 1000,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-    await seedTimerState(state);
-    await fakeBrowser.storage.local.set({ ff_extension_last_milestone: 2 });
-
-    await resetSession();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(false);
-    expect(stored!.projectElapsed).toBe(0);
-    expect(stored!.subPieceRemaining).toBe(25 * 60);
-
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-    expect(await getLastMilestone()).toBeNull();
-  });
-
-  it("resetSession when running stops first", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      allocatedMinutes: 10,
-      projectElapsed: 200,
-      subPieceRemaining: 400,
-      isRunning: true,
-      savedAt: Date.now(),
-    };
-    await seedTimerState(state);
-
-    await resetSession();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(false);
-    expect(stored!.projectElapsed).toBe(0);
-    expect(stored!.subPieceRemaining).toBe(10 * 60);
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-  });
-
-  // --- Time advancement ---
-
-  it("tick with 65s drift advances projectElapsed and reduces subPieceRemaining", async () => {
-    const now = Date.now();
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: now - 65000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(165);
-    expect(stored!.subPieceRemaining).toBe(535);
-    expect(stored!.isRunning).toBe(true);
-  });
-
-  it("tick with negative drift (savedAt in future) is a no-op", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() + 10000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(100);
-    expect(stored!.subPieceRemaining).toBe(600);
-  });
-
-  it("tick with 2h drift is capped to MAX_DRIFT_SECONDS", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 7200,
-      isRunning: true,
-      savedAt: Date.now() - 7200 * 1000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(100 + 3600);
-    expect(stored!.subPieceRemaining).toBe(7200 - 3600);
-  });
-
-  it("tick called twice rapidly with same savedAt does not double-count", async () => {
-    const now = Date.now();
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: now - 30000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-    const first = await getTimerState();
-
-    await tick();
-    const second = await getTimerState();
-
-    expect(second!.projectElapsed).toBe(first!.projectElapsed);
-    expect(second!.subPieceRemaining).toBe(first!.subPieceRemaining);
-  });
-
-  it("tick allows project time to exceed targetTimeSeconds (target is a goal)", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 3500,
-      subPieceRemaining: 600,
-      targetTimeSeconds: 3600,
-      isRunning: true,
-      savedAt: Date.now() - 200000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(3700);
-    expect(stored!.isRunning).toBe(true);
-  });
-
-  // --- Notifications ---
-
-  it("sends sub-piece completion notification with correct title/message/iconUrl", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectName: "My Project",
-      subPieceName: "My Task",
-      projectElapsed: 100,
-      subPieceRemaining: 30,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.subPieceRemaining).toBe(0);
-    expect(stored!.isRunning).toBe(false);
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(1);
-
-    const [notifId, notif] = Object.entries(notifications)[0];
-    expect(notifId).toMatch(/^session-complete-/);
-    expect(notif.type).toBe("basic");
-    expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
-    expect(notif.title).toBe("My Task အတွက် အချိန် ပြည့်ပါပြီ");
-    expect(notif.message).toBe(
-      "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ — Almost there! One more step.",
-    );
-
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    randomSpy.mockRestore();
-  });
-
-  it("sends project-target notification when target is reached and keeps running", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectName: "My Project",
-      subPieceName: "My Task",
-      projectElapsed: 3580,
-      subPieceRemaining: 600,
-      targetTimeSeconds: 3600,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(3625);
-    expect(stored!.isRunning).toBe(true);
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(1);
-
-    const [notifId, notif] = Object.entries(notifications)[0];
-    expect(notifId).toMatch(/^session-complete-/);
-    expect(notif.title).toBe("My Project အတွက် အချိန် ပြည့်ပါပြီ");
-    expect(notif.message).toBe(
-      "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ — Almost there! One more step.",
-    );
-    randomSpy.mockRestore();
-  });
-
-  it("target-reached message wins when both sub-piece completes and target is reached", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectName: "My Project",
-      subPieceName: "My Task",
-      projectElapsed: 3580,
-      subPieceRemaining: 20,
-      targetTimeSeconds: 3600,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.subPieceRemaining).toBe(0);
-    expect(stored!.projectElapsed).toBeGreaterThan(3600);
-    // Sub-piece completion stops the session even though project is in overtime
-    expect(stored!.isRunning).toBe(false);
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(1);
-
-    const [notifId, notif] = Object.entries(notifications)[0];
-    expect(notifId).toMatch(/^session-complete-/);
-    expect(notif.title).toBe("My Project အတွက် အချိန် ပြည့်ပါပြီ");
-    expect(notif.message).toBe(
-      "အနီးကပ်လာပြီ! နောက်တစ်လှမ်းသာ — Almost there! One more step.",
-    );
-    randomSpy.mockRestore();
-  });
-
-  it("fires milestone notification when projectElapsed crosses 60s", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 50,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() - 20000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(1);
-
-    const [notifId, notif] = Object.entries(notifications)[0];
-    expect(notifId).toMatch(/^focus-milestone-/);
-    expect(notif.type).toBe("basic");
-    expect(notif.iconUrl).toBe("chrome-extension://test/icon/128.png");
-    expect(notif.title).toBe("ကောင်းလိုက်တာ! အရမ်းစဉ်းစားနေပြီ");
-    expect(notif.message).toBe("Great! You're in the zone.");
-
-    expect(await getLastMilestone()).toBe(1);
-    randomSpy.mockRestore();
-  });
-
-  it("does not fire duplicate milestone notification for the same milestone", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 70,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() - 20000,
-    };
-    await seedTimerState(state);
-    await fakeBrowser.storage.local.set({ ff_extension_last_milestone: 1 });
-
-    await tick();
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(0);
-    expect(await getLastMilestone()).toBe(1);
-  });
-
-  it("jumping from 50s to 130s fires milestone 2 once and sets lastMilestone to 2", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 50,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() - 80000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(1);
-
-    const [notifId, notif] = Object.entries(notifications)[0];
-    expect(notifId).toMatch(/^focus-milestone-/);
-    expect(notif.title).toBe("ကောင်းလိုက်တာ! အရမ်းစဉ်းစားနေပြီ");
-    expect(notif.message).toBe("Great! You're in the zone.");
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(130);
-    expect(await getLastMilestone()).toBe(2);
-    randomSpy.mockRestore();
-  });
-
-  it("does not create notification when permission level is denied", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 30,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-    setNotificationPermissionLevel("denied");
-
-    await expect(tick()).resolves.not.toThrow();
-
-    const stored = await getTimerState();
-    expect(stored!.subPieceRemaining).toBe(0);
-    expect(stored!.isRunning).toBe(false);
-
-    const notifications = await fakeBrowser.notifications.getAll();
-    expect(Object.keys(notifications)).toHaveLength(0);
-  });
-
-  it("still updates state when notifications.create throws", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 30,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-    fakeBrowser.notifications.create = vi.fn().mockRejectedValue(new Error("create failed"));
-
-    await expect(tick()).resolves.not.toThrow();
-
-    const stored = await getTimerState();
-    expect(stored!.subPieceRemaining).toBe(0);
-    expect(stored!.isRunning).toBe(false);
-  });
-
-  // --- Startup recovery ---
-
-  it("restoreOnStartup with running state recreates both alarms and calls tick", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() - 30000,
-    };
-    await seedTimerState(state);
+  it("target reached while closed fires complete once, stops session, and clears alarms", async () => {
+    const token = baseToken({ targetTimeSeconds: 300, subPieceRemainingBaseline: 300 });
+    token.resumedAt = now - 300_000;
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: trackers() } });
+    await fakeBrowser.alarms.create(`focus-${token.sessionId}-complete-300`, { when: now + 1000 });
 
     await restoreOnStartup();
 
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeDefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeDefined();
+    expect(notifyFromPayloadSpy).toHaveBeenCalledTimes(1);
+    const payload = notifyFromPayloadSpy.mock.calls[0][1] as NotificationPayload;
+    expect(payload.id.startsWith("focus-complete-")).toBe(true);
 
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBeGreaterThan(state.projectElapsed);
+    const stored = await storedSession();
+    expect(stored?.token.isRunning).toBe(false);
+    expect(stored?.trackers.completeFired).toBe(true);
+
+    const alarms = await fakeBrowser.alarms.getAll();
+    expect(alarms.some((a) => a.name?.startsWith("focus-"))).toBe(false);
   });
 
-  it("restoreOnStartup with paused state does not create alarms", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: false,
-      savedAt: Date.now() - 30000,
-    };
-    await seedTimerState(state);
+  it("drift above 60 minutes is capped and complete fires if target passed", async () => {
+    const token = baseToken({ targetTimeSeconds: 1800, subPieceRemainingBaseline: 1800 });
+    token.resumedAt = now - 2 * 60 * 60 * 1000;
+    await fakeBrowser.storage.local.set({ "ff_active_session_v2": { token, trackers: trackers() } });
 
     await restoreOnStartup();
 
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(state.projectElapsed);
+    expect(notifyFromPayloadSpy).toHaveBeenCalledTimes(1);
+    const stored = await storedSession();
+    expect(stored?.token.elapsedActiveSeconds).toBeCloseTo(3600, 1);
+    expect(stored?.token.isRunning).toBe(false);
+    expect(stored?.trackers.completeFired).toBe(true);
   });
 
-  it("restoreOnStartup with no state does nothing", async () => {
-    await expect(restoreOnStartup()).resolves.toBeUndefined();
-    expect(await fakeBrowser.alarms.get("focus-timer")).toBeUndefined();
-    expect(await fakeBrowser.alarms.get("ff-keep-alive")).toBeUndefined();
-  });
-
-  it("restoreOnStartup caps drift for very old savedAt", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 7200,
-      isRunning: true,
-      savedAt: Date.now() - 7200 * 1000,
-    };
-    await seedTimerState(state);
-
-    await restoreOnStartup();
-
-    const stored = await getTimerState();
-    expect(stored!.projectElapsed).toBe(100 + 3600);
-    expect(stored!.subPieceRemaining).toBe(7200 - 3600);
-  });
-
-  // --- State invariants ---
-
-  it("maintains savedAt, non-negative projectElapsed and subPieceRemaining after every public method", async () => {
-    let state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      allocatedMinutes: 25,
-      projectElapsed: 0,
-      subPieceRemaining: 1500,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-
-    await startSession(state);
-    let stored = await getTimerState();
-    expect(stored!.savedAt).toBeGreaterThan(0);
-    expect(stored!.projectElapsed).toBeGreaterThanOrEqual(0);
-    expect(stored!.subPieceRemaining).toBeGreaterThanOrEqual(0);
-
-    await pauseSession();
-    stored = await getTimerState();
-    expect(stored!.savedAt).toBeGreaterThan(0);
-    expect(stored!.projectElapsed).toBeGreaterThanOrEqual(0);
-    expect(stored!.subPieceRemaining).toBeGreaterThanOrEqual(0);
-
-    await resetSession();
-    stored = await getTimerState();
-    expect(stored!.savedAt).toBeGreaterThan(0);
-    expect(stored!.projectElapsed).toBe(0);
-    expect(stored!.subPieceRemaining).toBe(25 * 60);
-
-    // Start again and tick
-    state = { ...stored!, isRunning: false, savedAt: Date.now() };
-    await startSession(state);
+  it("does not re-fire complete if already fired", async () => {
+    const token = baseToken({ targetTimeSeconds: 300, subPieceRemainingBaseline: 300 });
+    token.resumedAt = now - 300_000;
     await fakeBrowser.storage.local.set({
-      ff_extension_timer: {
-        ...(await getTimerState())!,
-        savedAt: Date.now() - 65000,
-      },
+      "ff_active_session_v2": { token, trackers: trackers({ completeFired: true }) },
     });
-    await tick();
-    stored = await getTimerState();
-    expect(stored!.savedAt).toBeGreaterThan(0);
-    expect(stored!.projectElapsed).toBeGreaterThanOrEqual(0);
-    expect(stored!.subPieceRemaining).toBeGreaterThanOrEqual(0);
 
-    // Restore
-    await fakeBrowser.storage.local.set({
-      ff_extension_timer: { ...stored!, isRunning: true, savedAt: Date.now() - 10000 },
-    });
     await restoreOnStartup();
-    stored = await getTimerState();
-    expect(stored!.savedAt).toBeGreaterThan(0);
-    expect(stored!.projectElapsed).toBeGreaterThanOrEqual(0);
-    expect(stored!.subPieceRemaining).toBeGreaterThanOrEqual(0);
-  });
 
-  it("isRunning is never true when subPieceRemaining is 0", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 3580,
-      subPieceRemaining: 20,
-      targetTimeSeconds: 7200,
-      isRunning: true,
-      savedAt: Date.now() - 45000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(false);
-    expect(stored!.subPieceRemaining).toBe(0);
-  });
-
-  // --- STATE_UPDATED broadcast ---
-
-  it("broadcasts STATE_UPDATED after startSession", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 0,
-      subPieceRemaining: 1500,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-
-    await startSession(state);
-
-    expect(sendMessageSpy).toHaveBeenCalledWith({
-      action: "STATE_UPDATED",
-      payload: expect.objectContaining({
-        projectId: "proj-1",
-        isRunning: true,
-      }),
-    });
-  });
-
-  it("broadcasts STATE_UPDATED after pauseSession", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 1400,
-      isRunning: true,
-      savedAt: Date.now() - 30000,
-    };
-    await seedTimerState(state);
-
-    await pauseSession();
-
-    expect(sendMessageSpy).toHaveBeenLastCalledWith({
-      action: "STATE_UPDATED",
-      payload: expect.objectContaining({
-        projectId: "proj-1",
-        isRunning: false,
-      }),
-    });
-  });
-
-  it("broadcasts STATE_UPDATED after resetSession", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      allocatedMinutes: 25,
-      projectElapsed: 500,
-      subPieceRemaining: 1000,
-      isRunning: true,
-      savedAt: Date.now(),
-    };
-    await seedTimerState(state);
-
-    await resetSession();
-
-    expect(sendMessageSpy).toHaveBeenLastCalledWith({
-      action: "STATE_UPDATED",
-      payload: expect.objectContaining({
-        projectId: "proj-1",
-        projectElapsed: 0,
-        subPieceRemaining: 25 * 60,
-        isRunning: false,
-      }),
-    });
-  });
-
-  it("broadcasts STATE_UPDATED after tick", async () => {
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 100,
-      subPieceRemaining: 600,
-      isRunning: true,
-      savedAt: Date.now() - 65000,
-    };
-    await seedTimerState(state);
-
-    await tick();
-
-    expect(sendMessageSpy).toHaveBeenLastCalledWith({
-      action: "STATE_UPDATED",
-      payload: expect.objectContaining({
-        projectId: "proj-1",
-        projectElapsed: 165,
-        subPieceRemaining: 535,
-      }),
-    });
-  });
-
-  it("does not break engine when STATE_UPDATED broadcast fails", async () => {
-    sendMessageSpy.mockRejectedValue(new Error("no listener"));
-
-    const state: ExtensionTimerState = {
-      projectId: "proj-1",
-      subPieceId: "sub-1",
-      projectElapsed: 0,
-      subPieceRemaining: 1500,
-      isRunning: false,
-      savedAt: Date.now(),
-    };
-
-    await expect(startSession(state)).resolves.not.toThrow();
-
-    const stored = await getTimerState();
-    expect(stored!.isRunning).toBe(true);
+    expect(notifyFromPayloadSpy).not.toHaveBeenCalled();
+    const stored = await storedSession();
+    expect(stored?.token.isRunning).toBe(false);
+    expect(stored?.trackers.completeFired).toBe(true);
   });
 });

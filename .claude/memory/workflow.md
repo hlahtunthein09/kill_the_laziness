@@ -57,9 +57,11 @@ Report in one table **before building a skill**. The report must include a short
 - ⚠️ **Medium**: ≤6 new files, ≤2 pages, ≤2 hooks, ≤400 lines
 - ❌ **Too Big**: >6 files, >2 pages, >2 hooks, or >400 lines
 
+**Hard cap for this project:** If estimated implementation lines exceed **70**, split the piece further before proposing. This cap overrides the default "Small" threshold above.
+
 **PC-sensitive / lightweight thresholds (default when machine resources are limited or the piece touches UI/timer/extension):**
-- ✅ **Tiny**: ≤1 new file, ≤1 modified file, ≤1 hook, ≤100 lines
-- ⚠️ **Small**: ≤2 new files, ≤2 modified files, ≤1 hook, ≤150 lines
+- ✅ **Tiny**: ≤1 new file, ≤1 modified file, ≤1 hook, ≤70 lines
+- ⚠️ **Small**: ≤2 new files, ≤2 modified files, ≤1 hook, ≤100 lines
 - ❌ **Too Big**: anything larger — must split into tinier features
 
 **Feature-by-feature rule:** Prefer many tiny features over one medium feature. Each feature should touch as few files as possible to reduce review surface and PC load. When in doubt, split more.
@@ -158,6 +160,16 @@ Explain what was built and tested. Wait for explicit approval before the next pi
 - Export/import
 
 ## Testing Standards
+
+### Logic-First Testing (mandatory for logic-heavy code)
+
+1. **Write invariants before tests.** Define the state machine, transitions, and what must always be true.
+2. **Derive tests from invariants.** Each test must prove a specific transition or invariant, not just that an output exists.
+3. **For notification/timer/extension logic:** assert the exact stage/event sequence, count, and order for parameterized inputs.
+4. **Cover edge transitions:** pause, resume, reset, mode switch, long drift, concurrent calls.
+5. **Use white-box / black-box / gray-box methods as needed.** Surface presence checks are not enough.
+
+Why: logic bugs hide behind passing presence tests. Only invariant-based tests catch them.
 
 ### Test Framework
 - **Vitest** for unit/integration tests.

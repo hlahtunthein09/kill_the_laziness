@@ -449,4 +449,107 @@ describe("TimerPanel - CompletionDialog integration", () => {
     // Restore original getState
     useFocusStore.getState = originalGetState;
   });
+
+  it("disables Start/Reset and shows completed indicator after sub-piece summary is dismissed", () => {
+    const completedSubPiece = createMockSubPiece({
+      id: "sp-1",
+      name: "Completed SubPiece",
+      status: "completed",
+      elapsedSeconds: 600,
+      allocatedMinutes: 10,
+    });
+
+    const project = createMockProject({
+      subPieces: [completedSubPiece],
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: "sp-1",
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
+    );
+
+    render(<TimerPanel />);
+
+    // Simulate completion via the onComplete callback from useTimer
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
+    });
+
+    // Dismiss the summary dialog by clicking the close button
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    // Start and Reset should be disabled
+    expect(screen.getByTestId("timer-start")).toBeDisabled();
+    expect(screen.getByTestId("timer-reset")).toBeDisabled();
+
+    // Completed indicator should be visible
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument();
+  });
+
+  it("disables Start/Reset and shows completed indicator after project target summary is dismissed", () => {
+    const project = createMockProject({
+      targetTimeSeconds: 3600,
+      subPieces: [
+        createMockSubPiece({
+          id: "sp-1",
+          name: "Idle SubPiece",
+          status: "idle",
+          elapsedSeconds: 0,
+        }),
+      ],
+    });
+
+    // Override useTimer to return project elapsed at target
+    // @ts-expect-error - mock return
+    useTimer.mockImplementation((projectId, subPieceId, onComplete) => {
+      mockOnComplete = onComplete;
+      return {
+        isRunning: false,
+        projectElapsed: 3600,
+        subPieceRemaining: 0,
+        start: _mockStart,
+        pause: vi.fn(),
+        reset: _mockReset,
+        reinitialize: _mockReinitialize,
+        resetToZero: vi.fn(),
+        restart: _mockRestart,
+      };
+    });
+
+    // @ts-expect-error - mock return
+    useFocusStore.mockImplementation((selector) =>
+      selector({
+        projects: [project],
+        activeProjectId: "proj-1",
+        activeSubPieceId: null,
+        projectOnlyFocus: true,
+        schedules: [],
+        getNextDueSchedule: vi.fn(() => undefined),
+      })
+    );
+
+    render(<TimerPanel />);
+
+    expect(mockOnComplete).toBeDefined();
+    act(() => {
+      mockOnComplete!();
+    });
+
+    // Dismiss the summary dialog by clicking the close button
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    // Start and Reset should be disabled
+    expect(screen.getByTestId("timer-start")).toBeDisabled();
+    expect(screen.getByTestId("timer-reset")).toBeDisabled();
+
+    // Completed indicator should be visible
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument();
+  });
 });

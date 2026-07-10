@@ -64,18 +64,40 @@ describe("TimerControls", () => {
     expect(onPause).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onReset when Discard Session button is clicked", async () => {
+  it("disables Start and Reset buttons when completed", async () => {
+    const onStart = vi.fn();
     const onReset = vi.fn();
     render(
       <TimerControls
         isRunning={false}
-        onStart={vi.fn()}
+        isCompleted={true}
+        onStart={onStart}
         onPause={vi.fn()}
         onReset={onReset}
       />
     );
 
+    expect(screen.getByTestId("timer-start")).toBeDisabled();
+    expect(screen.getByTestId("timer-reset")).toBeDisabled();
+
+    await userEvent.click(screen.getByTestId("timer-start"));
     await userEvent.click(screen.getByTestId("timer-reset"));
-    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(onStart).not.toHaveBeenCalled();
+    expect(onReset).not.toHaveBeenCalled();
+  });
+
+  it("disables Pause and Reset buttons when running and completed", () => {
+    render(
+      <TimerControls
+        isRunning={true}
+        isCompleted={true}
+        onStart={vi.fn()}
+        onPause={vi.fn()}
+        onReset={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("timer-pause")).toBeDisabled();
+    expect(screen.getByTestId("timer-reset")).toBeDisabled();
   });
 });
