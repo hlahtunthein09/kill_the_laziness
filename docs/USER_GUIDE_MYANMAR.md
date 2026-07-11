@@ -105,11 +105,18 @@ Extension က ဘာလုပ်ပေးလဲ —
 - 🔔 Tab ပိတ်ထားရင်လည်း background alarm ဖြင့် desktop notification ပေးပါတယ်
 - 📟 Extension popup မှ timer status ကို မြင်နိုင်ပါတယ်
 - ▶️ Popup မှတဆင့် timer Start / Pause / Reset လုပ်နိုင်ပါတယ်
+- 🔄 Web app နှင့် extension ချိတ်ဆက်ပြီး timer state sync ဖြစ်ပါတယ်
+- 📊 Completion dialog မှာ task name နှင့် duration ကို dynamic ပြသပါတယ်
 
-Extension ကို load လုပ်နည်း —
+### Extension Install (အဆင်ပြေဆုံးနည်းလမ်း)
 
-1. `npm run build:ext` လုပ်ပါ
-2. Chrome → `chrome://extensions` → Developer mode on → Load unpacked → `.output/chrome-mv3` ကို ရွေးပါ
+1. [GitHub Release](https://github.com/hlahtunthein09/kill_the_laziness/releases/tag/v0.1.0) မှ ZIP file download ရယူပါ
+2. Unzip ဖြည်ပါ
+3. Chrome → `chrome://extensions` → Developer mode ဖွင့်ပါ
+4. "Load unpacked" နှိပ်ပြီး unzipped folder ကို ရွေးပါ
+5. https://kill-the-laziness.vercel.app/timer သို့သွားပါ
+
+> 💡 Extension ကို toolbar မှာ pin ထားရင် timer status အမြန်ဆုံး ကြည့်နိုင်ပါတယ်
 
 ---
 
@@ -120,7 +127,9 @@ Extension ကို load လုပ်နည်း —
 1. `/projects` သို့သွားပါ
 2. "ပရောဂျက်အသစ်ထည့်မယ် (Add New Project)" ခလုတ်နှိပ်ပါ
 3. ပရောဂျက်အမည် ထည့်ပါ
-4. Save နှိပ်ပါ
+4. Target Hours (မိနစ်) ထည့်ပါ
+5. Save နှိပ်ပါ
+6. ပရောဂျက်အသစ်ဖန်တီးပြီးနောက် projects page သို့ ရောက်ပြီး အလိုအလျောက် scroll ဖြစ်ပါလိမ့်မယ်
 
 ### ဒုတိယအဆင့် — အခန်းကဏ်းထည့်ပါ
 
@@ -161,22 +170,26 @@ Extension ကို load လုပ်နည်း —
 | Motivation မရှိဘူး | Dev-Fortress + XP + Streak ဖြင့် gamification |
 | ဘယ် progress ရောက်နေလဲ မသိဘူး | Dashboard + daily goal + session summary |
 | Data ပျက်သွားမှာကို စိုးရိမ်တယ် | Backup / Restore JSON |
+| Tab ပိတ်ထားရင် timer ရပ်သွားမှာကို စိုးရိမ်တယ် | Extension background notification ဖြင့် ဆက်လက်အသိပေးတယ် |
 
 ---
 
 ## ၇။ အမြင်ချင်းဖြစ်နိုင်သော မေးခွန်းများ
 
 **Q: FocusFlow AI က အခမဲ့လား?**
-A: လက်ရှိ local-only version မှာ အခမဲ့ပါ။ Data အားလုံး သင့်ကွန်ပျူတာမှာဘဲ သိမ်းပါတယ်။
+A: ဟုတ်ပါတယ်၊ အခမဲ့ပါ။ Web app ကို https://kill-the-laziness.vercel.app မှာ အခမဲ့ သုံးနိုင်ပါတယ်။ Extension ကိုလည်း GitHub မှ အခမဲ့ download ရယူနိုင်ပါတယ်။
 
 **Q: Mobile phone မှာ အသုံးပြုလို့ရလား?**
-A: လက်ရှိ version မှာ browser extension မရှိသေးသလို၊ web app က responsive ဖြစ်ပါတယ်။
+A: Web app ကို mobile browser မှာ responsive ဖြစ်ပါတယ်။ Browser extension ကိုတော့ desktop Chrome/Edge မှာပဲ သုံးနိုင်ပါသေးတယ်။
 
 **Q: အချိန်ပြည့်သွားရင် အလိုအလျောက် ပြီးသွားလား?**
-A: ဟုတ်ပါတယ်။ Sub-piece timer ဟာ ၀ သို့ရောက်လျှင် အလိုအလျောက် ရပ်ပြီး complete အဖြစ် သတ်မှတ်ပါတယ်။
+A: ဟုတ်ပါတယ်။ Sub-piece timer ဟာ ၀ သို့ရောက်လျှင် အလိုအလျောက် ရပ်ပြီး complete အဖြစ် သတ်မှတ်ပါတယ်။ Completion dialog မှာ task name နှင့် အချိန်ကို မြင်နိုင်ပါတယ်။
 
 **Q: Project တစ်ခုပြီးသွားရင် ဘာဖြစ်လဲ?**
 A: Project အောက်မှ sub-pieces အားလုံး complete ဖြစ်သွားရင် project status လည်း completed ဖြစ်သွားပါတယ်။
+
+**Q: Extension က web app နှင့် ဘယ်လို ချိတ်ဆက်လဲ?**
+A: Extension က web app ရဲ့ localStorage မှ timer state ကို read ပြီး popup မှာ ပြပေးပါတယ်။ Tab ပိတ်ထားရင်လည်း background notification ရပါတယ်။
 
 ---
 
@@ -190,5 +203,14 @@ FocusFlow AI က magical solution မဟုတ်ပါဘူး။ ဒါပေ
 - ✅ Break ခဏယူပါ
 - ✅ Distraction site များကို forbidden list ထဲထည့်ပါ
 - ✅ Dashboard ကို နေ့စဉ်စစ်ပါ
+- ✅ Extension install လုပ်ပြီး notification ဖွင့်ထားပါ
 
 သည်အတိုင်း အသုံးပြုမယ်ဆိုရင် သင့်ရဲ့ productivity မှာ ကွာခြားချက်တစ်ခု ရှိလာပါလိမ့်မယ်။ 🚀
+
+---
+
+## ၉။ Link များ
+
+- **Web App:** https://kill-the-laziness.vercel.app
+- **Extension Download:** [GitHub Release v0.1.0](https://github.com/hlahtunthein09/kill_the_laziness/releases/tag/v0.1.0)
+- **Source Code:** https://github.com/hlahtunthein09/kill_the_laziness
