@@ -13,6 +13,25 @@ FocusFlow AI is designed for developers and heavy computer users who lose hours 
 
 For a full Burmese-language user guide, see [`docs/USER_GUIDE_MYANMAR.md`](docs/USER_GUIDE_MYANMAR.md).
 
+---
+
+## 🚀 Install FocusFlow AI Extension
+
+> **Free download — no Chrome Web Store needed!**
+
+### ⚡ Quick Install (30 seconds)
+
+1. **Download** → [FocusFlow AI v0.1.0 (ZIP)](https://github.com/hlahtunthein09/kill_the_laziness/releases/tag/v0.1.0)
+2. **Unzip** the downloaded file
+3. Open **`chrome://extensions`** in your browser
+4. Enable **Developer mode** (top-right toggle)
+5. Click **Load unpacked** → select the unzipped folder
+6. Open **https://kill-the-laziness.vercel.app/timer** and start focusing!
+
+> 💡 **Tip:** Pin the extension to your toolbar for quick access to timer status.
+
+---
+
 ## Core Features
 
 - **Projects & Sub-pieces** — macro goals split into timed countdown tasks
@@ -135,57 +154,36 @@ npm run build:ext    # Build extension to .output/chrome-mv3
 ## Loading the Extension
 
 > **This project includes a Manifest V3 browser extension.**
-> The extension is required for anti-distraction blocking, native OS notifications, and off-screen timer sync. It is not published to the Chrome Web Store, so you must load it manually in developer mode.
+> The extension is required for anti-distraction blocking, native OS notifications, and off-screen timer sync.
 
-### Prerequisites
+### Option 1: Download from GitHub Release (Recommended)
 
-- Chrome, Edge, or any Chromium-based browser
-- Node.js & npm installed
-- Extension build output generated via `npm run build:ext`
+1. Go to [Releases](https://github.com/hlahtunthein09/kill_the_laziness/releases/tag/v0.1.0)
+2. Download `focusflow-extension.zip`
+3. Unzip the file
+4. Open `chrome://extensions` → Enable **Developer mode**
+5. Click **Load unpacked** → select the unzipped folder
+6. Open https://kill-the-laziness.vercel.app/timer
 
-### Step-by-step
-
-1. **Build the extension**
-
-   ```bash
-   npm run build:ext
-   ```
-
-   This produces the unpacked extension at `.output/chrome-mv3/`.
-
-2. **Open the extensions page**
-
-   Navigate to `chrome://extensions` (or `edge://extensions`).
-
-3. **Enable Developer mode**
-
-   Toggle **Developer mode** on (top-right corner).
-
-4. **Load the unpacked extension**
-
-   Click **Load unpacked** → select the `.output/chrome-mv3` folder.
-
-5. **Verify it is active**
-
-   The extension should appear in the toolbar with the FocusFlow icon. Click it to see the popup and current timer status.
-
-### Updating after code changes
-
-Whenever you change extension code, rebuild and reload:
+### Option 2: Build from Source
 
 ```bash
 npm run build:ext
 ```
 
-Then open `chrome://extensions`, find **FocusFlow AI**, and click the **reload icon** (↻) to load the latest build.
+Then load `.output/chrome-mv3/` via `chrome://extensions` → **Load unpacked**.
+
+### Updating after code changes
+
+Download the latest release or rebuild from source, then click the **reload icon** (↻) on the extension in `chrome://extensions`.
 
 ### Web app origin
 
-The extension currently matches the dev origin:
+The extension connects to the deployed web app at:
 
-- `http://localhost:3000/*`
+- `https://kill-the-laziness.vercel.app/*`
 
-Make sure the Next.js dev server is running on that port for the web app and extension to sync timer state and settings.
+No local server needed — it works entirely from the live deployment.
 
 ## UI Language
 
