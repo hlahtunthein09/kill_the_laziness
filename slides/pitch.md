@@ -77,8 +77,12 @@ auto-advance: 20
 - [x] extension tab monitoring + strict redirect + warn overlay
 - [x] focus sync content script for off-screen notifications
 - [x] extension popup showing timer state names
-- [ ] dashboard analytics charts (Recharts)
-- [ ] full Vitest test suite passing
-- [ ] README.md with setup and screenshots
+- [x] dashboard analytics charts (Recharts)
+- [x] full Vitest test suite passing
+- [x] README.md with setup and screenshots
+- [x] Chrome extension published via GitHub Release
+- [x] Web app deployed to Vercel
+- [x] Percentage-based notification engine
+- [x] Burmese user guide
 
 <!-- 20s -->
