@@ -19,17 +19,17 @@
 
 - **Resolution used:** 1280×800 desktop
 
-![screenshot 1 — Dashboard](screenshots/1.png)
+![screenshot 1 — Dashboard](screenshots/Dashboard.png)
 
-![screenshot 2 — Projects](screenshots/2.png)
+![screenshot 2 — Projects](screenshots/Projects.png)
 
-![screenshot 3 — Timer](screenshots/3.png)
+![screenshot 3 — Timer](screenshots/Timer.png)
 
-![screenshot 4 — Settings](screenshots/4.png)
+![screenshot 4 — Settings](screenshots/Setting.png)
 
-![screenshot 5 — Extension Popup](screenshots/5.png)
+![screenshot 5 — Extension Popup](screenshots/Extension Popup.png)
 
-![screenshot 6 — Extension Notification](screenshots/6.png)
+![screenshot 6 — Extension Notification](screenshots/Extension Notification.png)
 
 ## Notes
 
