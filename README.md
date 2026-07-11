@@ -47,15 +47,15 @@ For a full Burmese-language user guide, see [`docs/USER_GUIDE_MYANMAR.md`](docs/
 
 | Dashboard | Projects |
 |---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Projects](docs/screenshots/projects.png) |
+| ![Dashboard](screenshots/Dashboard.png) | ![Projects](screenshots/Projects.png) |
 
 | Timer | Settings |
 |---|---|
-| ![Timer](docs/screenshots/timer.png) | ![Settings](docs/screenshots/settings.png) |
+| ![Timer](screenshots/Timer.png) | ![Settings](screenshots/Setting.png) |
 
-| Extension |
-|---|
-| ![Extension](docs/screenshots/extension.png) |
+| Extension Popup | Extension Notification |
+|---|---|
+| ![Extension Popup](screenshots/Extension_Popup.png) | ![Extension Notification](screenshots/Extension_Notification.png) |
 
 ## Tech Stack
 
