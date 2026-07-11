@@ -27,7 +27,7 @@ This file loads all project memory files into context for each session.
 - [Project/Sub-piece Audit Resume](project-subpiece-audit-resume.md) — project/sub-piece logic audit findings and next fix (UI start-time validation)
 - [Notification Engine Rewrite Resume](notification-engine-rewrite-resume.md) — rewrite extension notification engine to follow Universal Dynamic Notification System Algorithm.md exactly; pause/resume/syncing out of scope for this piece
 
-## Future Specs (to be filled as pieces progress)
+- [Popup Web-App Sync Resume](popup-web-app-sync-resume.md) — current branch `fix/popup-web-app-sync`; root cause and Option B plan to mirror web-app timer state in the popup.
 - [Timer Behavior](timer-behavior.md) — timer modes and edge cases
 - [Notification Spec](notification-spec.md) — motivational message tiers
 - [Gamification Spec](gamification-spec.md) — XP sources, levels, achievements

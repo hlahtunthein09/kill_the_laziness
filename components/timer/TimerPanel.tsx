@@ -71,7 +71,10 @@ export function TimerPanel() {
   // to keep React hook count stable across renders.
   const [isSubPieceFormOpen, setIsSubPieceFormOpen] = useState(false);
 
-  const handleComplete = useCallback(() => {
+  const [lastCompletedSubPieceId, setLastCompletedSubPieceId] = useState<string | null>(null);
+
+  const handleComplete = useCallback((completedSubPieceId?: string) => {
+    setLastCompletedSubPieceId(completedSubPieceId ?? null);
     setShowSummary(true);
     playCompleteSound();
   }, []);
@@ -337,10 +340,12 @@ export function TimerPanel() {
     );
   }
 
-  // Find the most recently completed sub-piece for the summary
-  const completedSubPiece = activeProject?.subPieces.find(
-    (sp) => sp.status === "completed"
-  );
+  // Find the most recently completed sub-piece for the summary.
+  // Prefer lastCompletedSubPieceId (set by the timer callback) so the dialog
+  // shows the sub-piece that just finished, not the first completed one.
+  const completedSubPiece = lastCompletedSubPieceId
+    ? activeProject?.subPieces.find((sp) => sp.id === lastCompletedSubPieceId)
+    : activeProject?.subPieces.find((sp) => sp.status === "completed");
 
   // Compute XP for the completed sub-piece
   const xpGained = completedSubPiece

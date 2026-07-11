@@ -151,7 +151,7 @@ function computeInit(
 export function useTimer(
   projectId: string | undefined,
   subPieceId?: string,
-  onComplete?: () => void
+  onComplete?: (completedSubPieceId?: string) => void
 ): UseTimerReturn {
   // Always call store selectors unconditionally to keep hook count stable.
   // When projectId is undefined, these lookups will return undefined safely.
@@ -285,6 +285,13 @@ export function useTimer(
   useEffect(() => {
     persistSessionRef.current = persistSession;
   }, [persistSession]);
+
+  // Push display-sync events to the extension so the popup updates immediately
+  // instead of waiting for the 5-second polling interval.
+  function notifyDisplaySyncNeeded() {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("ff:display-sync", { bubbles: true }));
+  }
 
   async function sendExtensionCommand(
     type: "START_SESSION" | "RESUME_SESSION" | "PAUSE_SESSION" | "RESET_SESSION",
@@ -495,6 +502,7 @@ export function useTimer(
         if (nextProjectElapsed - lastPersistRef.current >= 5) {
           lastPersistRef.current = nextProjectElapsed;
           persistSessionRef.current(true, nextProjectElapsed, subPieceRemainingRef.current);
+          notifyDisplaySyncNeeded();
         }
 
         // Update store each accumulated second (only applied seconds)
@@ -516,9 +524,12 @@ export function useTimer(
           }
           lastTickRef.current = null;
           state.completeSubPiece(projectId, subPieceId);
+          // Persist final completed state so the content script can read it
+          persistSessionRef.current(false, nextProjectElapsed, 0);
+          notifyDisplaySyncNeeded();
           void sendExtensionCommand("PAUSE_SESSION");
           localStorage.removeItem(SESSION_KEY);
-          onCompleteRef.current?.();
+          onCompleteRef.current?.(subPieceId);
           return;
         }
 
@@ -539,9 +550,12 @@ export function useTimer(
             rafRef.current = null;
           }
           lastTickRef.current = null;
+          // Persist final completed state so the content script can read it
+          persistSessionRef.current(false, nextProjectElapsed, subPieceRemainingRef.current);
+          notifyDisplaySyncNeeded();
           void sendExtensionCommand("PAUSE_SESSION");
           localStorage.removeItem(SESSION_KEY);
-          onCompleteRef.current?.();
+          onCompleteRef.current?.(undefined);
           return;
         }
       }
@@ -589,6 +603,7 @@ export function useTimer(
       rafRef.current = null;
     }
     persistSession(false, projectElapsedRef.current, subPieceRemainingRef.current);
+    notifyDisplaySyncNeeded();
     void sendExtensionCommand("PAUSE_SESSION");
   }, [persistSession]);
 
@@ -631,6 +646,7 @@ export function useTimer(
     wasStartedRef.current = false;
 
     localStorage.removeItem(SESSION_KEY);
+    notifyDisplaySyncNeeded();
     void sendExtensionCommand("RESET_SESSION");
   }, [projectId, subPieceId]);
 

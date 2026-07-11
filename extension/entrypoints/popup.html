@@ -93,12 +93,12 @@
       background: #34d399;
       box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
     }
-    .status-dot.paused {
-      background: #fbbf24;
-    }
     .status-dot.completed {
       background: #34d399;
       box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
+    }
+    .status-dot.paused {
+      background: #fbbf24;
     }
     .status-label {
       font-size: 0.8rem;
@@ -121,33 +121,25 @@
       color: #1c1917;
       word-break: break-word;
     }
-    .time-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 12px 0;
-    }
-    .time-card {
+    .used-total-card {
       background: #fff;
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px;
       text-align: center;
       border: 1px solid #ccfbf1;
+      margin: 12px 0;
     }
-    .time-card-label {
+    .used-total-label {
       font-size: 0.65rem;
       color: #78716c;
       text-transform: uppercase;
       letter-spacing: 0.03em;
       margin-bottom: 4px;
     }
-    .time-card-value {
-      font-size: 1.1rem;
+    .used-total-value {
+      font-size: 1.4rem;
       font-weight: 700;
       color: #14b8a6;
-    }
-    .time-card-value.remaining {
-      color: #0ea5e9;
     }
     .empty-state {
       text-align: center;
@@ -273,15 +265,9 @@
         <div id="subpiece-name" class="info-value">---</div>
       </div>
 
-      <div class="time-grid">
-        <div class="time-card">
-          <div id="elapsed-label" class="time-card-label">ကြာချိန် (Elapsed)</div>
-          <div id="elapsed-time" class="time-card-value">0m</div>
-        </div>
-        <div class="time-card">
-          <div id="remaining-label" class="time-card-label">ကျန်ချိန် (Remaining)</div>
-          <div id="remaining-time" class="time-card-value remaining">0m</div>
-        </div>
+      <div class="used-total-card">
+        <div class="used-total-label">သုံးထားချိန် / စုစုပေါင်း (Used / Total)</div>
+        <div id="used-total" class="used-total-value">0 / 0 min</div>
       </div>
     </div>
 

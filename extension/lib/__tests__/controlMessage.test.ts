@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { handleMessage, type TimerMessage } from "../messageHandler";
+import { fakeBrowser } from "@webext-core/fake-browser";
+import { handleMessage, setMessageHandlerBrowserInstance, type TimerMessage } from "../messageHandler";
 import * as timerEngine from "../timerEngine";
 
 const validToken = {
@@ -30,6 +31,9 @@ const projectToken = {
 
 describe("controlMessage", () => {
   beforeEach(() => {
+    setMessageHandlerBrowserInstance(fakeBrowser);
+    fakeBrowser.reset();
+    vi.spyOn(fakeBrowser.storage.local, "set").mockResolvedValue(undefined);
     vi.clearAllMocks();
   });
 
@@ -154,6 +158,47 @@ describe("controlMessage", () => {
 
       expect(result).toEqual({ ok: true, token: null });
       spy.mockRestore();
+    });
+  });
+
+  describe("SYNC_DISPLAY_STATE", () => {
+    it("stores payload under ff_display_state and returns ok", async () => {
+      const message: TimerMessage = {
+        type: "SYNC_DISPLAY_STATE",
+        payload: {
+          projectName: "FocusFlow",
+          subPieceName: "Piece 1",
+          usedSeconds: 120,
+          totalSeconds: 3600,
+          isRunning: true,
+          isCompleted: false,
+        },
+      };
+      const result = await handleMessage(message);
+
+      expect(fakeBrowser.storage.local.set).toHaveBeenCalledTimes(1);
+      expect(fakeBrowser.storage.local.set).toHaveBeenCalledWith({
+        ff_display_state: {
+          projectName: "FocusFlow",
+          subPieceName: "Piece 1",
+          usedSeconds: 120,
+          totalSeconds: 3600,
+          isRunning: true,
+          isCompleted: false,
+        },
+      });
+      expect(result).toEqual({ ok: true });
+    });
+
+    it("returns error for invalid display state payload", async () => {
+      const message = {
+        type: "SYNC_DISPLAY_STATE",
+        payload: { usedSeconds: "not-a-number" },
+      } as unknown as TimerMessage;
+      const result = await handleMessage(message);
+
+      expect(fakeBrowser.storage.local.set).not.toHaveBeenCalled();
+      expect(result).toEqual({ ok: false, error: "Invalid display state" });
     });
   });
 
