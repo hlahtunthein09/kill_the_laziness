@@ -27,9 +27,9 @@
 
 ![screenshot 4 — Settings](screenshots/Setting.png)
 
-![screenshot 5 — Extension Popup](screenshots/Extension Popup.png)
+![screenshot 5 — Extension_Popup](screenshots/Extension_Popup.png)
 
-![screenshot 6 — Extension Notification](screenshots/Extension Notification.png)
+![screenshot 6 — Extension_Notification](screenshots/Extension_Notification.png)
 
 ## Notes
 
