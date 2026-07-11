@@ -142,7 +142,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
   };
 
   return (
-    <Card className={cn(
+    <Card id={`project-${project.id}`} className={cn(
       "group h-full bg-card-glow border border-border hover:shadow-md transition-shadow duration-200",
       isActive && "ring-2 ring-primary border-primary",
       !isActive && isTargetReached && "border-emerald-500"

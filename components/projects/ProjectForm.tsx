@@ -88,7 +88,7 @@ export function ProjectForm({ open, onOpenChange }: ProjectFormProps) {
     });
 
     setActiveProject(createdProject.id);
-    router.push("/timer");
+    router.push(`/projects?scrollTo=${createdProject.id}`);
 
     handleClose();
   };

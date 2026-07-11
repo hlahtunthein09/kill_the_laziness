@@ -146,7 +146,7 @@ describe('ProjectForm', () => {
     })
 
     expect(mockSetActiveProject).toHaveBeenCalledWith('new-id')
-    expect(mockPush).toHaveBeenCalledWith('/timer')
+    expect(mockPush).toHaveBeenCalledWith('/projects?scrollTo=new-id')
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 })

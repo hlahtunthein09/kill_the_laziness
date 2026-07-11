@@ -112,56 +112,70 @@ Build and maintain the WXT Manifest V3 browser extension for off-screen focus en
 - Synchronization v2 Piece 2 — Alarm scheduler ownership + re-focus duration fix
 - Synchronization v2 Piece 3 — Resume recalculation hardening
 - Synchronization v2 Piece 4 — Alarm validation + no-fire rules
+- Popup Web-App Sync Piece 1 — Backend sync path (`ff_display_state` from web-app `ff_active_session`)
+- Popup Web-App Sync Piece 2 — Popup UI (reads `ff_display_state`, renders used/total card)
 
-## Current Focus: Notification Engine Synchronization v2
+## Current Focus: Popup Web-App Sync — Piece 3 (Bugfix)
 
-Implement `.claude/memory/notification_algorithms/Notification_Synchronization_Specification_v2.md`:
-- Timer Engine owns time; Notification Engine owns scheduling.
-- Every alarm carries `sessionId`, `notificationType`, `targetElapsedTime`.
-- Resume recalculates alarms with `Date.now() + remaining`.
-- Validate `sessionId` and timer state before every notification.
-- Complete fires only when `elapsedActiveTime >= totalDuration`.
-- Fix re-focus duration calculation so notifications schedule against remaining session time.
+Fix 3 problems: popup always shows Project timer (should branch by mode), drifts after pause/resume (needs event-driven sync), and doesn't show "Completed".
 
-## Current Piece: Piece 4 — Alarm Validation + No-Fire Rules
+See `.claude/memory/notification_algorithms/POPUP_DISPLAY_SYNC_FIX_PLAN.md` and `.claude/memory/notification_algorithms/popup_sync_root_cause_analysis.md`.
+
+### Architecture
+- Web app owns authoritative live state in `localStorage` key `ff_active_session`.
+- Content script (`focusSync.content.ts`) polls web-app `localStorage` and sends `SYNC_DISPLAY_STATE` to the service worker.
+- Service worker stores display-only state under `ff_display_state`.
+- Popup reads `ff_display_state` and renders a simple used/total card.
+- `ff_display_state` must remain completely separate from `ff_active_session_v2` (notification/timer engine).
+- **NEW:** Event-driven sync — web app pushes DisplayState on every state transition (start/pause/resume/complete), not just via polling.
+
+## Current Piece: Piece 3 — Mode-Aware Display + Event-Driven Sync + Completion
 
 ### Goal
-Implement the alarm handler that parses alarm names, validates `sessionId` and timer state, and fires notifications only when allowed. Route `focus-*` alarms from the background to this handler.
+Fix `buildDisplayState()` to branch by mode (sub-piece vs project), add `isCompleted` to `DisplayState`, and push DisplayState on state transitions for instant sync.
 
 ### Files to modify
-1. `extension/lib/notificationEngine.ts` — add `onFocusAlarm(browser: Browser, alarmName: string): Promise<void>`:
-   - Parse alarm name: `focus-{sessionId}-{type}-{targetElapsed}` (milestones include index before targetElapsed).
-   - Read current stored session.
-   - If no session or `session.token.sessionId !== alarm.sessionId`, discard alarm silently.
-   - If `session.token.isRunning === false`, discard alarm silently.
-   - If `type === "milestone"`, fire milestone notification for that targetElapsed (if not already fired) and update tracker.
-   - If `type === "almost"`, fire almost notification (if not already fired) and update tracker.
-   - If `type === "complete"`, fire complete notification (if not already fired) and update tracker; set `session.token.isRunning = false`.
-   - Persist updated trackers after firing.
-   - Keep `notifyFromPayload` calls going through `notifications.ts`.
-2. `extension/entrypoints/background.ts` — route `focus-*` alarms to `onFocusAlarm` instead of `onStageAlarm`.
-3. `extension/lib/timerEngine.ts` — remove or deprecate `onStageAlarm` export (it is replaced by `onFocusAlarm`). If other tests still reference it, keep a stub that does nothing.
-4. `extension/lib/__tests__/notificationEngine.test.ts` — add tests:
-   - Valid milestone alarm fires notification and updates tracker.
-   - Valid almost alarm fires once.
-   - Valid complete alarm fires once and pauses session.
-   - Old `sessionId` alarm is ignored.
-   - Alarm received while paused is ignored.
-   - Duplicate alarm is ignored (tracker already fired).
-5. `extension/lib/__tests__/background.test.ts` — update to assert `focus-*` alarms route to `onFocusAlarm`.
+1. **`extension/lib/types.ts`**:
+   - Add `isCompleted?: boolean` to `DisplayState` interface.
+
+2. **`extension/lib/focusSync.ts`**:
+   - Rewrite `buildDisplayState()` to be mode-aware:
+     - If `session.subPieceId` exists → sub-piece mode: `usedSeconds = allocatedMinutes*60 - subPieceRemaining`, `totalSeconds = allocatedMinutes*60`
+     - Otherwise → project mode: `usedSeconds = projectElapsed`, `totalSeconds = targetTimeSeconds`
+   - Add `isCompleted: !session.isRunning && session.subPieceRemaining === 0` (or similar completion detection).
+   - Export `buildDisplayState` so web app can use it.
+
+3. **`hooks/useTimer.ts`**:
+   - On every state transition (start/pause/resume/complete), build DisplayState from current session and send `SYNC_DISPLAY_STATE` to the extension via the existing `ff:command` / `browser.runtime.sendMessage` path.
+   - This provides instant sync; the 5s polling remains as fallback.
+
+4. **`extension/lib/popup.ts`**:
+   - Render "Completed" (Burmese: "ပြီးဆုံးပါပြီ") when `isCompleted` is true.
+   - Keep existing rendering for running/paused states.
+
+5. **`extension/lib/__tests__/focusSync.test.ts`**:
+   - Test mode-aware `buildDisplayState()`:
+     - Sub-piece session → correct usedSeconds/totalSeconds from sub-piece fields
+     - Project session → correct usedSeconds/totalSeconds from project fields
+     - Completion detection → isCompleted true when timer finished
+   - Test that `SYNC_DISPLAY_STATE` is sent with correct payload.
+
+6. **`extension/lib/__tests__/popup.test.ts`**:
+   - Test "Completed" rendering when `isCompleted` is true.
+   - Test mode-aware display (sub-piece vs project values).
 
 ### Implementation notes
-- Alarm name parsing must handle milestone index: `focus-{sessionId}-milestone-{idx}-{targetElapsed}`.
-- For complete, do not validate `elapsed >= duration` yet (that is Piece 5); just check tracker and running state.
-- The handler should be stateless: it reads current session and acts only if valid.
+- Do NOT add timer countdown or elapsed calculation inside the popup. Popup is a pure passive renderer.
+- The web app already sends `PAUSE_SESSION`/`RESUME_SESSION` commands. Piggyback `SYNC_DISPLAY_STATE` onto the same message path.
+- `buildDisplayState()` must be exported from `focusSync.ts` for use by `useTimer.ts`.
+- `isCompleted` detection: session is not running AND remaining time is 0 (or session was removed).
 
 ### Test strategy
 - `npx tsc --noEmit`
-- `npx vitest run extension/lib/__tests__/notificationEngine.test.ts`
-- `npx vitest run extension/lib/__tests__/background.test.ts`
-- `npx vitest run extension/lib/__tests__/timerEngine.test.ts`
+- `npx vitest run extension/lib/__tests__/focusSync.test.ts`
+- `npx vitest run extension/lib/__tests__/popup.test.ts`
+- `npm run build:ext`
 
 ## Next Pieces
-5. Complete at 100% + restore on startup
-6. Acceptance scenario + re-focus tests
+After Piece 3, verify popup in live browser and merge to main.
 

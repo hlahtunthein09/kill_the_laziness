@@ -1,3 +1,5 @@
+import { browser } from "wxt/browser";
+import type { Browser } from "webextension-polyfill";
 import {
   startSession,
   resumeSession,
@@ -6,7 +8,17 @@ import {
   updateSession,
   getActiveSession,
 } from "./timerEngine";
-import type { ActiveSessionToken } from "./types";
+import type { ActiveSessionToken, SyncDisplayStateMessage } from "./types";
+
+let _browser: Browser | null = null;
+
+export function setMessageHandlerBrowserInstance(instance: Browser): void {
+  _browser = instance;
+}
+
+function getBrowser(): Browser {
+  return _browser ?? (browser as Browser);
+}
 
 export type TimerMessage =
   | { type: "SET_ACTIVE_SESSION"; token: ActiveSessionToken }
@@ -15,7 +27,8 @@ export type TimerMessage =
   | { type: "PAUSE_SESSION" }
   | { type: "RESET_SESSION" }
   | { type: "UPDATE_SESSION"; token: ActiveSessionToken }
-  | { type: "GET_ACTIVE_SESSION" };
+  | { type: "GET_ACTIVE_SESSION" }
+  | SyncDisplayStateMessage;
 
 function isValidToken(token: unknown): token is ActiveSessionToken {
   if (typeof token !== "object" || token === null) return false;
@@ -33,6 +46,12 @@ function isValidToken(token: unknown): token is ActiveSessionToken {
     typeof t.resumedAt === "number" &&
     typeof t.elapsedActiveSeconds === "number"
   );
+}
+
+function isValidDisplayState(payload: unknown): payload is { usedSeconds: number; totalSeconds: number } {
+  if (typeof payload !== "object" || payload === null) return false;
+  const p = payload as Record<string, unknown>;
+  return typeof p.usedSeconds === "number" && typeof p.totalSeconds === "number";
 }
 
 export async function handleMessage(
@@ -75,6 +94,15 @@ export async function handleMessage(
       case "GET_ACTIVE_SESSION": {
         const token = await getActiveSession();
         return { ok: true, token };
+      }
+      case "SYNC_DISPLAY_STATE": {
+        if (!isValidDisplayState(message.payload)) {
+          return { ok: false, error: "Invalid display state" };
+        }
+        await getBrowser().storage.local.set({
+          ff_display_state: message.payload,
+        });
+        return { ok: true };
       }
       default: {
         const unknownType = (message as Record<string, unknown>).type;

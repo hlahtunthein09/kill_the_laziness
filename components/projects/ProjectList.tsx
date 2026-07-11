@@ -3,10 +3,24 @@
 import { useFocusStore } from "@/lib/store/useFocusStore";
 import { ProjectCard } from "./ProjectCard";
 import { FolderOpen } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 export function ProjectList() {
   const projects = useFocusStore((s) => s.projects);
   const hasHydrated = useFocusStore((s) => s.hasHydrated);
+  const searchParams = useSearchParams();
+  const scrollToId = searchParams.get("scrollTo");
+
+  useEffect(() => {
+    if (!scrollToId || !hasHydrated) return;
+    // Wait a tick for the DOM to render the card
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`project-${scrollToId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [scrollToId, hasHydrated]);
 
   if (!hasHydrated) {
     return null;

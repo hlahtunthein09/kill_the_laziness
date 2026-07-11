@@ -1,9 +1,8 @@
 import { browser } from "wxt/browser";
-import { formatDuration } from "../../lib/time";
-import type { ExtensionTimerState, ActiveSessionToken } from "./types";
+import type { DisplayState } from "./types";
 
 export const FOCUSFLOW_URL = "http://localhost:3000/timer";
-const ACTIVE_SESSION_KEY = "ff_active_session_v2";
+const DISPLAY_STATE_KEY = "ff_display_state";
 
 let _browserInstance: typeof browser | null = null;
 
@@ -15,51 +14,20 @@ function getBrowser(): typeof browser {
   return _browserInstance ?? browser;
 }
 
-async function getActiveSessionToken(): Promise<ActiveSessionToken | null> {
+function formatUsedTotal(usedSeconds: number, totalSeconds: number): string {
+  const used = Math.floor(usedSeconds / 60);
+  const total = Math.floor(totalSeconds / 60);
+  return `${used} / ${total} min`;
+}
+
+async function getDisplayState(): Promise<DisplayState | null> {
   try {
-    const response = (await getBrowser().runtime.sendMessage({
-      type: "GET_ACTIVE_SESSION",
-    })) as { ok: boolean; token: ActiveSessionToken | null } | undefined;
-    return response?.ok ? (response.token ?? null) : null;
+    const result = await getBrowser().storage.local.get(DISPLAY_STATE_KEY);
+    const state = result[DISPLAY_STATE_KEY] as DisplayState | undefined;
+    return state ?? null;
   } catch {
     return null;
   }
-}
-
-async function getStoredSessionToken(): Promise<ActiveSessionToken | null> {
-  try {
-    const result = await getBrowser().storage.local.get(ACTIVE_SESSION_KEY);
-    const stored = (result[ACTIVE_SESSION_KEY] as { token?: ActiveSessionToken } | undefined)?.token;
-    return stored ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function tokenToDisplayState(token: ActiveSessionToken): ExtensionTimerState {
-  const drift = token.isRunning
-    ? Math.min(60 * 60, (Date.now() - token.resumedAt) / 1000)
-    : 0;
-  const elapsedActive = token.elapsedActiveSeconds + drift;
-  const projectElapsed = token.projectElapsedBaseline + elapsedActive;
-  const subPieceRemaining =
-    token.subPieceRemainingBaseline !== undefined
-      ? Math.max(0, token.subPieceRemainingBaseline - elapsedActive)
-      : Math.max(0, token.targetTimeSeconds - elapsedActive);
-
-  return {
-    projectId: token.projectId,
-    subPieceId: token.subPieceId,
-    projectName: token.projectName,
-    subPieceName: token.subPieceName,
-    projectElapsed,
-    subPieceRemaining,
-    targetTimeSeconds: token.targetTimeSeconds,
-    isRunning: token.isRunning,
-    savedAt: Date.now(),
-    projectElapsedBaseline: token.projectElapsedBaseline,
-    subPieceRemainingBaseline: token.subPieceRemainingBaseline,
-  };
 }
 
 interface NotificationsWithPermission {
@@ -70,19 +38,24 @@ function getNotifications(browserInstance: typeof browser): NotificationsWithPer
   return browserInstance.notifications as unknown as NotificationsWithPermission;
 }
 
-export function renderPopup(state: ExtensionTimerState | null): void {
+export function renderPopup(state: DisplayState | null): void {
   const contentEl = document.getElementById("popup-content");
   const emptyEl = document.getElementById("empty-state");
   const statusDot = document.getElementById("status-dot");
   const statusLabel = document.getElementById("status-label");
   const projectNameEl = document.getElementById("project-name");
   const subPieceNameEl = document.getElementById("subpiece-name");
-  const elapsedEl = document.getElementById("elapsed-time");
-  const remainingEl = document.getElementById("remaining-time");
-  const elapsedLabel = document.getElementById("elapsed-label");
-  const remainingLabel = document.getElementById("remaining-label");
+  const usedTotalEl = document.getElementById("used-total");
 
-  if (!contentEl || !emptyEl || !statusDot || !statusLabel || !projectNameEl || !subPieceNameEl || !elapsedEl || !remainingEl || !elapsedLabel || !remainingLabel) {
+  if (
+    !contentEl ||
+    !emptyEl ||
+    !statusDot ||
+    !statusLabel ||
+    !projectNameEl ||
+    !subPieceNameEl ||
+    !usedTotalEl
+  ) {
     return;
   }
 
@@ -95,14 +68,9 @@ export function renderPopup(state: ExtensionTimerState | null): void {
   contentEl.style.display = "block";
   emptyEl.style.display = "none";
 
-  const isCompleted = state.subPieceId
-    ? state.subPieceRemaining <= 0
-    : (state.targetTimeSeconds ?? 0) > 0 && state.projectElapsed >= (state.targetTimeSeconds ?? 0);
-
-  // Status
-  if (isCompleted) {
+  if (state.isCompleted) {
     statusDot.className = "status-dot completed";
-    statusLabel.textContent = "ပြီးစီး (Completed)";
+    statusLabel.textContent = "ပြီးဆုံးပါပြီ (Completed)";
   } else if (state.isRunning) {
     statusDot.className = "status-dot running";
     statusLabel.textContent = "အာရုံစိုက်နေသည် (Focusing)";
@@ -111,28 +79,9 @@ export function renderPopup(state: ExtensionTimerState | null): void {
     statusLabel.textContent = "ခဏရပ်ထားသည် (Paused)";
   }
 
-  // Names
-  projectNameEl.textContent = state.projectName || state.projectId;
-  subPieceNameEl.textContent = state.subPieceName || state.subPieceId || "---";
-
-  // Scope elapsed/remaining to the active focus mode
-  const isSubPiece = !!state.subPieceId;
-  const elapsedSeconds = isSubPiece
-    ? Math.max(0, (state.subPieceRemainingBaseline ?? state.subPieceRemaining) - state.subPieceRemaining)
-    : state.projectElapsed;
-  const remainingSeconds = isSubPiece
-    ? state.subPieceRemaining
-    : Math.max(0, (state.targetTimeSeconds ?? 0) - state.projectElapsed);
-
-  elapsedLabel.textContent = isSubPiece
-    ? "အစိတ်အပိုင်း ကြာချိန် (Sub-piece elapsed)"
-    : "ပရောဂျက် ကြာချိန် (Project elapsed)";
-  remainingLabel.textContent = isSubPiece
-    ? "အစိတ်အပိုင်း ကျန်ချိန် (Sub-piece remaining)"
-    : "ပရောဂျက် ကျန်ချိန် (Project remaining)";
-
-  elapsedEl.textContent = formatDuration(elapsedSeconds);
-  remainingEl.textContent = formatDuration(remainingSeconds);
+  projectNameEl.textContent = state.projectName || "---";
+  subPieceNameEl.textContent = state.subPieceName || "---";
+  usedTotalEl.textContent = formatUsedTotal(state.usedSeconds, state.totalSeconds);
 }
 
 export async function renderNotificationStatus(browserInstance: typeof browser): Promise<void> {
@@ -188,13 +137,20 @@ export function setupOpenAppButton(): void {
   };
 }
 
+export function setupStorageListener(): void {
+  const browserInstance = getBrowser();
+  browserInstance.storage.local.onChanged.addListener((changes: Record<string, { newValue?: unknown }>) => {
+    if (changes[DISPLAY_STATE_KEY]) {
+      const newState = changes[DISPLAY_STATE_KEY].newValue as DisplayState | undefined;
+      renderPopup(newState ?? null);
+    }
+  });
+}
+
 export async function initPopup(): Promise<void> {
-  const token = await getActiveSessionToken();
-  console.log("[popup] token from message:", token);
-  const displayToken = token ?? (await getStoredSessionToken());
-  console.log("[popup] display token:", displayToken);
-  const displayState = displayToken ? tokenToDisplayState(displayToken) : null;
+  const displayState = await getDisplayState();
   renderPopup(displayState);
+  setupStorageListener();
   await renderNotificationStatus(getBrowser());
   setupTestNotificationButton();
   setupOpenAppButton();

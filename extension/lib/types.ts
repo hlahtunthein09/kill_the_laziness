@@ -31,3 +31,17 @@ export interface ExtensionTimerState {
   projectElapsedBaseline?: number;
   subPieceRemainingBaseline?: number;
 }
+
+export interface DisplayState {
+  projectName?: string;
+  subPieceName?: string;
+  usedSeconds: number;
+  totalSeconds: number;
+  isRunning: boolean;
+  isCompleted: boolean;
+}
+
+export type SyncDisplayStateMessage = {
+  type: "SYNC_DISPLAY_STATE";
+  payload: DisplayState;
+};
