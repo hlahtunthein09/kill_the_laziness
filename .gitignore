@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# WXT extension build output
+/.output/
+
 # production
 /build
 
