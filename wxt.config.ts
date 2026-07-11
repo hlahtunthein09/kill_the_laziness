@@ -1,5 +1,7 @@
 import { defineConfig } from "wxt";
 
+const appUrl = process.env.WXT_APP_URL || "http://localhost:3000";
+
 export default defineConfig({
   srcDir: "extension",
   publicDir: "extension/public",
@@ -25,7 +27,7 @@ export default defineConfig({
     ],
     externally_connectable: {
       ids: [],
-      matches: ["http://localhost:3000/*"],
+      matches: [`${appUrl}/*`],
     },
     web_accessible_resources: [
       {

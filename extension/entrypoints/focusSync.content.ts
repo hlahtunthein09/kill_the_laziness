@@ -7,10 +7,12 @@
 
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { startFocusSyncPolling } from "../lib/focusSync";
+import { APP_URL } from "../lib/config";
+
 
 export default defineContentScript({
   // Add production domain match patterns here when deployed
-  matches: ["http://localhost:3000/*"],
+  matches: [`${APP_URL}/*`],
   main() {
     startFocusSyncPolling();
   },

@@ -1,7 +1,10 @@
 import { browser } from "wxt/browser";
 import type { DisplayState } from "./types";
+import { APP_URL } from "./config";
 
-export const FOCUSFLOW_URL = "http://localhost:3000/timer";
+
+export const FOCUSFLOW_URL = `${APP_URL}/timer`;
+
 const DISPLAY_STATE_KEY = "ff_display_state";
 
 let _browserInstance: typeof browser | null = null;

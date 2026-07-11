@@ -8,6 +8,8 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 import type { Browser } from "webextension-polyfill";
 import type { ExtensionTimerState } from "../lib/types";
+import { APP_URL } from "../lib/config";
+
 
 let _browser: Browser | null = null;
 
@@ -78,7 +80,7 @@ export async function setupControlListener(): Promise<void> {
 }
 
 export default defineContentScript({
-  matches: ["http://localhost:3000/*"],
+  matches: [`${APP_URL}/*`],
   async main() {
     await setupControlListener();
   },
