@@ -4,6 +4,7 @@ import type { StoredSession } from "./sessionStorage";
 import { getStoredSession, setStoredSession } from "./sessionStorage";
 import { notifyFromPayload } from "./notifications";
 import { buildStageSchedule } from "./stageScheduler";
+import { pickRandomMilestone } from "./milestoneBank";
 
 export interface NotificationSchedule {
   startTime: number;
@@ -156,12 +157,13 @@ function sessionName(token: ActiveSessionToken): string {
 }
 
 export function prepareStartPayload(token: ActiveSessionToken): NotificationPayload {
+  const msg = pickRandomMilestone("start");
   const name = sessionName(token);
   const targetMinutes = Math.round(token.targetTimeSeconds / 60);
   return {
     id: `focus-start-${token.startedAt}`,
-    title: "စ_Focus စတင်လိုက်ပြီ",
-    message: `Starting ${name} for ${targetMinutes} minutes. Stay focused!`,
+    title: `${msg.my}`,
+    message: `${msg.en} — ${msg.author} · ${name} · ${targetMinutes}min`,
     priority: 2,
   };
 }
@@ -170,23 +172,25 @@ export function prepareMilestonePayload(
   token: ActiveSessionToken,
   milestoneTime: number,
 ): NotificationPayload {
+  const msg = pickRandomMilestone("milestone");
   const name = sessionName(token);
   const elapsedMinutes = (milestoneTime / 60).toFixed(1);
   return {
     id: `focus-milestone-${token.startedAt}-${Math.round(milestoneTime * 100)}`,
-    title: "စ_ milestone ရောက်ပြီ",
-    message: `${elapsedMinutes} minutes into ${name}. Keep going!`,
+    title: `${msg.my}`,
+    message: `${msg.en} — ${msg.author} · ${elapsedMinutes}min into ${name}`,
     priority: 1,
   };
 }
 
 export function prepareAlmostPayload(token: ActiveSessionToken): NotificationPayload {
+  const msg = pickRandomMilestone("almost");
   const name = sessionName(token);
   const remainingMinutes = (token.targetTimeSeconds * 0.175 / 60).toFixed(1);
   return {
     id: `focus-almost-${token.startedAt}`,
-    title: "စ_ အနီးရှိပြီ",
-    message: `Almost done with ${name}. About ${remainingMinutes} minutes left. Final push!`,
+    title: `${msg.my}`,
+    message: `${msg.en} — ${msg.author} · ${name} · ${remainingMinutes}min left`,
     priority: 2,
   };
 }
@@ -195,13 +199,13 @@ export function prepareCompletePayload(
   token: ActiveSessionToken,
   targetReached: boolean,
 ): NotificationPayload {
+  const msg = pickRandomMilestone("complete");
   const name = sessionName(token);
+  const suffix = targetReached ? "target reached!" : "session ended";
   return {
     id: `focus-complete-${token.startedAt}`,
-    title: "စ_ session ပြီးစီး",
-    message: targetReached
-      ? `Great job! ${name} completed. You reached your target.`
-      : `Session ended for ${name}.`,
+    title: `${msg.my}`,
+    message: `${msg.en} — ${msg.author} · ${name} · ${suffix}`,
     priority: 2,
   };
 }
